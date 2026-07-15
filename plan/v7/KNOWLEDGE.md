@@ -107,14 +107,14 @@ Full evidence: [`evidence/02-workflow-cancellation-reexamination.md`](./evidence
 
 ## Widget integration
 
-- `useChat` (React) + transport abstraction: `DefaultChatTransport` (api/headers/credentials/body as functions; `prepareSendMessagesRequest`, `prepareReconnectToStreamRequest`), `WorkflowChatTransport` on the workflow branch. Headless `AbstractChat` exists but is less contractually stable than the wire spec.
+- `WorkflowChatTransport` plus `readUIMessageStream` are the native stream mechanism. One abortable reader belongs to one widget-session epoch; the widget-lifetime reducer aggregate, not the transport, reader, query cache, or React subtree, owns visible messages and lifecycle. ADR 0017 is the authority for this ownership split.
 - `UIMessage` is both the stream shape and the recommended persistence shape (`validateUIMessages` on load; save in `onEnd`; server-side ids via `generateMessageId`). This collapses the old HistoryMessage/stream duality.
 - Multi-tab: each tab holds its own SSE reader over the durable run stream (workflow branch); tab discovery of an active run is ours (store runId on the turn row; "active turn for conversation" query).
-- Step 16/16a correction (2026-07-14): selection is `draft | persisted`, is not URL state, and only an accepted in-flight run gets a tab-scoped recovery cursor. The conversation catalog carries tenant-scoped `runningConversationIds`; it never chooses the active row.
+- Step 16/16a correction (2026-07-14): selection is `draft | persisted`, is not URL state, and only an accepted in-flight run gets a tab-scoped recovery cursor. The subject activity stream carries the synchronized running-id set; the conversation catalog never chooses the active row.
 - Host page context has three independent gates: readable service policy, a callable host provider, and an explicit mounted-widget opt-in. Direct hosts register `getContext`; iframe parents register the exported exact-origin adapter. Collection is fresh and request-correlated only for send/regenerate, and context remains untrusted user reference data.
 - `MarkdownContent` alone owns `.sc-markdown`. Streamdown-generated links, code, lists, headings, quotes, and tables consume documented `--message-*` component tokens, so both transports inherit the same theme and density contract.
 - The protocol and workflow branches share one shell for settings, conversation navigation, refresh, running indicators, and busy policy. Their feed/footer/session content stays transport-specific. All workflow reads share one query prefix so Refresh cannot miss models, tools, catalog, history, or active-turn discovery.
-- A chat session that accepted a run remains mounted while persistence reads catch up. Otherwise draft promotion or terminal catalog refresh can replace the live `useChat` instance with an empty history-loading surface and lose the rendered stream.
+- A widget-lifetime chat session that accepted a run remains authoritative while persistence reads catch up. Selection and React panels may remount freely; the session keeps its visible projection until a newer coherent durable observation retires the attachment epoch and atomically adopts history.
 
 ## Scale model (for capacity settings)
 
@@ -162,7 +162,7 @@ Four parallel research agents against primary sources (ai-sdk.dev docs, vercel.c
 - **Host commands**: recognized as client-executed tools wearing a custom protocol. The hard problem the old 1,600-line stack solved — "a result must find the waiting agent across instances" — dissolves natively two ways: on the plain path there is no waiting agent (state rides in messages; any instance continues on resubmission); on the workflow path the wait is a durable hook and `resumeHook` goes through Postgres. What survives is policy: ownership binding, connected-client decision, timeout, browser-side dispatch dedupe.
 - **Lease/heartbeat/reaper (≈430 src + 643 test)**: deleted at cutover on either substrate. Workflow makes it unnecessary; fallback deliberately accepts request-bound single-instance semantics instead of carrying the old recovery subsystem into the new wing.
 - **Connection-bound turn-stream + in-memory event log (≈800)**: deleted at cutover on either substrate. Workflow replaces it with persisted run streams; fallback uses the direct AI SDK request stream and documents that disconnect/crash recovery is unavailable.
-- **Widget state layer (≈4,870 src non-UI)**: replaced by `useChat` + branch transport. Everything the reducer/subscription/recovery-ladder/markers do by hand (sequence dedup, terminal guards, watchdog+backoff+poll, reattach markers) is what the native client + `WorkflowChatTransport` do. Component library, themes, design system, host-bridge, and TanStack Query read paths are untouched. User explicitly chose this ("the rest can be thrown away and simplified with Vercel hooks... we need to do that").
+- **Widget state layer (≈4,870 src non-UI)**: the manual wire parser and connection-bound recovery ladder are replaced by `WorkflowChatTransport` plus `readUIMessageStream`, while a product-owned reducer retains the load-bearing fold. One widget-session aggregate owns the visible timeline, reattachment/settling state, stable-id dedupe, epoch fencing, pending interactions, and durable handoff. Treating `useChat` as that authority was the Step 13/early Step 16 overreach corrected by ADR 0017. Component library, themes, design system, host-bridge, and TanStack Query durable reads remain product-owned.
 - **Approvals (did not exist)**: adopt the AI SDK approval vocabulary, but do not infer Side Chat durability from API shape. Step 12 composes and compiles a safe durable wait before gated execution. Ours forever: who may approve, audit record, expiry, digest/current-policy checks, idempotent mutation, and card UI.
 
 ## 4. Effect-as-core vs AI-SDK-as-core
@@ -193,7 +193,7 @@ Reading both codebases side-by-side, the old app and v7 independently converged 
 4. Strict AI SDK naming for every concept the SDK has.
 5. As-native-as-possible feature shape: cut or rethink features rather than invent/support custom equivalents ("don't want to invent and support what exists").
 6. Multi-instance: native on the Workflow substrate; fallback is a clean new-wing ToolLoopAgent single-instance architecture. The current custom connection-bound runtime is reference code only and is deleted at cutover; no custom multi-instance build exists in either path.
-7. Widget: adopt `useChat`/native hooks; only the component library and design system are sacred.
+7. Widget: adopt native AI SDK stream assembly and transport, but keep Side Chat's conversation-lifecycle promises in a widget-lifetime session aggregate; the component library and design system remain sacred.
 8. Tool approvals wanted as a product feature (SQL-approval-card style UX shown as the reference).
 9. `plan/effect` stays byte-identical as historical research material; canonical docs and `plan/v7` record the superseding architecture.
 10. Old data is disposable pre-alpha (schema reset, no migrations).

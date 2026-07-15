@@ -30,11 +30,7 @@ export function createClientToolDurabilityProbe(connectionString: string) {
         now: new Date().toISOString(),
       });
     },
-    async waitForDispatch(
-      runId: string,
-      toolCallId: string,
-      state: ClientToolDispatchState,
-    ) {
+    async waitForDispatch(runId: string, toolCallId: string, state: ClientToolDispatchState) {
       const deadline = Date.now() + 30_000;
       while (Date.now() < deadline) {
         const turn = await repositories.findAssistantTurnByRun({
@@ -66,10 +62,7 @@ export function createClientToolDurabilityProbe(connectionString: string) {
       }
       throw new Error("Workflow hook was not durably registered");
     },
-    async countDispatchRows(
-      assistantTurnId: string,
-      toolCallId: string,
-    ): Promise<number> {
+    async countDispatchRows(assistantTurnId: string, toolCallId: string): Promise<number> {
       const result = await observationPool.query<{ count: string }>(
         `select count(*)::text as count
              from sidechat.client_tool_dispatches

@@ -190,7 +190,7 @@ describe("prepareTurn", () => {
       bindRun: (turn, runId) => state.bindRun(turn, runId),
       assertRunOwned: (authContext, conversationId, runId) =>
         state.assertRunOwned(authContext, conversationId, runId),
-      claimTerminal: (turn, terminal) => state.claimTerminal(turn, terminal),
+      finalize: (turn, record) => state.finalize(turn, record),
     };
 
     await expect(
@@ -268,7 +268,7 @@ function traceTurnStore(turns: TurnStore, calls: string[]): TurnStore {
     },
     assertRunOwned: (authContext, conversationId, runId) =>
       turns.assertRunOwned(authContext, conversationId, runId),
-    claimTerminal: (turn, terminal) => turns.claimTerminal(turn, terminal),
+    finalize: (turn, record) => turns.finalize(turn, record),
   };
 }
 

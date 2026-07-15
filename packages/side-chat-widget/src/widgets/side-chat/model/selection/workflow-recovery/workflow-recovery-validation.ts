@@ -8,7 +8,7 @@ export type WorkflowRecoveryValidation = Readonly<{
   isPending: boolean;
 }>;
 
-/** Require service discovery to confirm a tab cursor before reattaching its run. */
+/** Require the coherent service snapshot to confirm a tab cursor before reattaching its run. */
 export function resolveWorkflowRecoveryValidation({
   activeConversationId,
   activeTurn,
@@ -30,7 +30,11 @@ export function resolveWorkflowRecoveryValidation({
   if (discoveryFailed) return resolved(undefined);
   if (!discoverySettled) return pending(undefined);
   if (activeTurn?.runId === cursor.runId) return resolved(activeTurn);
-  return pending(cursor);
+  return {
+    activeTurn: activeTurn ?? undefined,
+    invalidCursor: cursor,
+    isPending: false,
+  };
 }
 
 function resolved(activeTurn: WorkflowActiveTurn | undefined): WorkflowRecoveryValidation {

@@ -19,8 +19,6 @@ describe("workflow-bundle registry", () => {
     const services = initializeTestingWorkflowServices();
 
     expect(services.modelProvider).toBe(scriptedModelProvider);
-    expect(() => initializeWorkflowServices(services)).toThrow(
-      "already initialized",
-    );
+    expect(() => initializeWorkflowServices(services)).toThrow("already initialized");
   });
 });

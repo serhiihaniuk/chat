@@ -2,12 +2,9 @@ import { memo, useEffect, useMemo, useState } from "react";
 
 import type { RenderActivityItem } from "#entities/activity";
 import type { WidgetMessage } from "#entities/chat";
-import {
-  DEFAULT_TOOL_DETAIL_LEVEL,
-  type ReasoningVisibility,
-  type ToolDetailLevel,
-} from "#entities/settings";
+import { DEFAULT_TOOL_DETAIL_LEVEL, type ToolDetailLevel } from "#entities/settings";
 import { parseFootnoteSources } from "#shared/ai/footnote-sources";
+import { MarkdownContent } from "#shared/ai/markdown-content";
 import { useWidgetLabels, type WidgetLabels } from "#shared/lib/widget-labels";
 import { ActivityImages } from "#shared/ui/activity/activity-images";
 import { SourcesFold } from "#shared/ui/activity/citations";
@@ -26,12 +23,10 @@ import {
 export const WidgetMessageView = memo(
   ({
     message,
-    reasoningVisibility,
     renderActivityItem,
     toolDetail = DEFAULT_TOOL_DETAIL_LEVEL,
   }: {
     readonly message: WidgetMessage;
-    readonly reasoningVisibility: ReasoningVisibility;
     readonly renderActivityItem?: RenderActivityItem | undefined;
     readonly toolDetail?: ToolDetailLevel | undefined;
   }) => {
@@ -53,7 +48,6 @@ export const WidgetMessageView = memo(
         {showActivity && (
           <WidgetActivityTimeline
             message={message}
-            reasoningVisibility={reasoningVisibility}
             renderActivityItem={renderActivityItem}
             toolDetail={toolDetail}
           />
@@ -79,7 +73,11 @@ const CompletedMessageCopy = ({ message }: { readonly message: WidgetMessage }) 
 const WidgetPendingActivityTimeline = () => {
   const labels = useWidgetLabels();
   const items: readonly ReasoningItem[] = [
-    { id: "pending-reasoning", kind: "thought", text: labels.activityPreparing },
+    {
+      id: "pending-reasoning",
+      kind: "thought",
+      text: labels.activityPreparing,
+    },
   ];
   return (
     <Reasoning
@@ -94,40 +92,26 @@ const WidgetPendingActivityTimeline = () => {
 
 const WidgetActivityTimeline = ({
   message,
-  reasoningVisibility,
   renderActivityItem,
   toolDetail,
 }: {
   readonly message: WidgetMessage;
-  readonly reasoningVisibility: ReasoningVisibility;
   readonly renderActivityItem: RenderActivityItem | undefined;
   readonly toolDetail: ToolDetailLevel;
 }) => {
   const labels = useWidgetLabels();
-  const shouldOpenByDefault = shouldOpenActivityByDefault(message.isStreaming, reasoningVisibility);
-  const [open, setOpen] = useState(shouldOpenByDefault);
+  const thinking = message.isStreaming === true && message.content.trim().length === 0;
+  const [open, setOpen] = useState(thinking);
   const duration = readActivityDuration(message);
   const items = useMemo(
     () => toReasoningItems(message, renderActivityItem, toolDetail),
     [message, renderActivityItem, toolDetail],
   );
-  const label = readReasoningLabel(message, duration, labels);
+  const label = readReasoningLabel(thinking, duration, labels);
 
   useEffect(() => {
-    if (shouldOpenByDefault) {
-      setOpen(true);
-    }
-  }, [shouldOpenByDefault]);
-
-  useEffect(() => {
-    if (shouldOpenByDefault) {
-      return;
-    }
-
-    if (message.content) {
-      setOpen(false);
-    }
-  }, [message.content, shouldOpenByDefault]);
+    setOpen(thinking);
+  }, [thinking]);
 
   // A tools-only timeline at level "hidden" projects to zero entries: no fold at
   // all beats an expandable "Thought process" that opens onto nothing.
@@ -139,7 +123,14 @@ const WidgetActivityTimeline = ({
       label={label}
       onOpenChange={setOpen}
       open={open}
-      thinking={message.isStreaming === true}
+      renderThought={(text) => (
+        <div className="text-sm text-muted-foreground">
+          <MarkdownContent mode={message.isStreaming === true ? "streaming" : "static"}>
+            {text}
+          </MarkdownContent>
+        </div>
+      )}
+      thinking={thinking}
     />
   );
 };
@@ -147,17 +138,12 @@ const WidgetActivityTimeline = ({
 const shouldShowActivity = (message: WidgetMessage): boolean =>
   message.role === "assistant" && message.activity.items.length > 0;
 
-const shouldOpenActivityByDefault = (
-  isStreaming: boolean | undefined,
-  reasoningVisibility: ReasoningVisibility,
-): boolean => isStreaming === true || reasoningVisibility === "detailed";
-
 const readReasoningLabel = (
-  message: WidgetMessage,
+  thinking: boolean,
   duration: number | undefined,
   labels: WidgetLabels,
 ): string => {
-  if (message.isStreaming === true) return labels.activityThinking;
+  if (thinking) return labels.activityThinking;
   if (duration) return labels.activityThoughtForSeconds(duration);
   return labels.activityThoughtProcess;
 };

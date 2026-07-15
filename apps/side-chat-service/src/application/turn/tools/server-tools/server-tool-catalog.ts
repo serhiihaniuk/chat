@@ -28,6 +28,22 @@ export type ServerToolApprovalPolicy<Input extends JsonValue> =
 export type ServerToolExecutionContext = Readonly<{
   /** Stable identity that a mutating adapter must use for idempotency. */
   executionKey: string;
+  /** Available only in the post-approval execution step. */
+  generateText?: ServerToolTextGenerator | undefined;
+}>;
+
+export type ServerToolTextGenerationRequest = Readonly<{
+  modelId: string;
+  system: string;
+  prompt: string;
+  maxOutputTokens: number;
+}>;
+
+export type ServerToolTextGenerator = (request: ServerToolTextGenerationRequest) => Promise<string>;
+
+export type ServerToolSource = Readonly<{
+  label: string;
+  url: string;
 }>;
 
 /** A server-owned tool cannot enter the catalog without an approval classification. */
@@ -38,6 +54,10 @@ export type ServerToolDefinition<Input extends JsonValue = JsonValue, Output = u
   /** Revalidate journaled input against the current schema after a durable resume. */
   validateInput: (input: JsonValue) => input is Input;
   approvalPolicy: ServerToolApprovalPolicy<Input>;
+  /** Hidden models required by this tool, separate from the user-selectable model catalog. */
+  internalModelIds?: readonly string[] | undefined;
+  /** Project trusted tool output into durable native source parts for the widget. */
+  readSources?(output: Output): readonly ServerToolSource[];
   execute: (input: Input, context: ServerToolExecutionContext) => Promise<Output>;
 }>;
 

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { TurnActivityEvent } from "@side-chat/chat-protocol";
+import {
+  TURN_ACTIVITY_SYNC_EVENT_TYPE,
+  type TurnActivityEvent,
+  type TurnActivitySyncEvent,
+} from "@side-chat/chat-protocol";
 import type { SideChatApiClient } from "#entities/conversation";
 
 /** Reconnect backoff: full-jittered exponential from 500 ms, capped at 30 s. */
@@ -8,34 +12,36 @@ const RECONNECT_BASE_MS = 500;
 const RECONNECT_MAX_MS = 30_000;
 
 type SubscribeActivity = NonNullable<SideChatApiClient["subscribeActivity"]>;
-type SetRunningIds = (updater: (current: ReadonlySet<string>) => ReadonlySet<string>) => void;
+
+export type ActivityStreamState = Readonly<{
+  runningConversationIds: ReadonlySet<string>;
+  /** True only after the server's post-subscription snapshot has arrived. */
+  synchronized: boolean;
+}>;
+
+type SetActivityState = (updater: (current: ActivityStreamState) => ActivityStreamState) => void;
 
 type ActivityStreamInput = {
   readonly client: Pick<SideChatApiClient, "subscribeActivity">;
-  /** Called on each successful (re)connect — refetch the list to close any gap. */
-  readonly onConnected?: (() => void) | undefined;
-  /**
-   * Called for every snapshot/live activity event, after the running-set update.
-   * Lets a tab viewing the affected conversation resume a turn that started in
-   * another tab — the dot alone never pulls in the turn's content.
-   */
+  /** Called after the explicit synchronization snapshot has been consumed. */
+  readonly onSynchronized?: ((event: TurnActivitySyncEvent) => void) | undefined;
+  /** Request a durable read when a hidden tab becomes visible. */
+  readonly onVisibilityReconcile?: (() => void) | undefined;
+  /** Called for each lifecycle transition after the running-set update. */
   readonly onEvent?: ((event: TurnActivityEvent) => void) | undefined;
 };
 
 /**
- * Track which conversations have a running turn.
+ * Track subject-scoped turn activity without treating HTTP connection as state.
  *
- * The server sends a snapshot when the connection opens, then sends changes.
- * A running event adds an id; any terminal event removes it. The returned set
- * drives the sidebar's "generating" dots.
- *
- * The connection starts on mount, reconnects after failures or `online`, and
- * stops on unmount. Returning to a visible tab only refetches the list; it does
- * not interrupt a healthy stream. `onEvent` forwards events to the viewing tab
- * so it can refresh a turn started in another tab.
+ * The server first registers this subscriber, then sends one synchronization
+ * snapshot, including when that snapshot is empty. Only that frame establishes
+ * the initial running set. Later transition frames patch it. Refocusing a tab
+ * asks the caller for a durable reconciliation read but leaves a healthy SSE
+ * connection intact.
  */
-export const useActivityStream = (input: ActivityStreamInput): ReadonlySet<string> => {
-  const [runningIds, setRunningIds] = useState<ReadonlySet<string>>(emptySet);
+export const useActivityStream = (input: ActivityStreamInput): ActivityStreamState => {
+  const [state, setState] = useState<ActivityStreamState>(initialActivityState);
   const inputRef = useRef(input);
   inputRef.current = input;
 
@@ -44,14 +50,12 @@ export const useActivityStream = (input: ActivityStreamInput): ReadonlySet<strin
 
     const loop = startActivityLoop(
       () => inputRef.current.client.subscribeActivity,
-      setRunningIds,
-      () => inputRef.current.onConnected?.(),
+      setState,
+      (event) => inputRef.current.onSynchronized?.(event),
       (event) => inputRef.current.onEvent?.(event),
     );
-    // Refocus refetches the list to close any gap, but must not abort a healthy
-    // stream — the SSE keeps delivering (buffered events flush on resume).
     const onVisible = (): void => {
-      if (document.visibilityState === "visible") inputRef.current.onConnected?.();
+      if (document.visibilityState === "visible") inputRef.current.onVisibilityReconcile?.();
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("online", loop.reconnect);
@@ -62,23 +66,16 @@ export const useActivityStream = (input: ActivityStreamInput): ReadonlySet<strin
     };
   }, []);
 
-  return runningIds;
+  return state;
 };
 
 type ActivityLoop = { readonly stop: () => void; readonly reconnect: () => void };
 
-/**
- * Keep the activity connection open and reconnect it when needed.
- *
- * Each new connection starts with a fresh snapshot, which clears turns that
- * ended while the client was disconnected. A successful connection resets the
- * backoff; repeated failures increase it up to the cap. `reconnect` aborts the
- * current attempt, while `stop` ends the loop during unmount.
- */
+/** Keep the activity connection open and re-establish its snapshot after gaps. */
 const startActivityLoop = (
   getSubscribe: () => SubscribeActivity | undefined,
-  setRunningIds: SetRunningIds,
-  onConnected: () => void,
+  setState: SetActivityState,
+  onSynchronized: (event: TurnActivitySyncEvent) => void,
   onEvent: (event: TurnActivityEvent) => void,
 ): ActivityLoop => {
   let active = true;
@@ -91,12 +88,19 @@ const startActivityLoop = (
     const { events } = await subscribe({ signal: controller.signal });
     if (!active) return;
     onConnect();
-    setRunningIds(clearRunning);
-    onConnected();
+    setState(markUnsynchronized);
     for await (const event of events) {
       if (!active) return;
-      setRunningIds((current) => applyActivity(current, event));
-      onEvent(event);
+      if (event.type === TURN_ACTIVITY_SYNC_EVENT_TYPE) {
+        setState(() => synchronizedState(event));
+        onSynchronized(event);
+      } else {
+        setState((current) => ({
+          ...current,
+          runningConversationIds: applyActivity(current.runningConversationIds, event),
+        }));
+        onEvent(event);
+      }
     }
   };
 
@@ -104,8 +108,6 @@ const startActivityLoop = (
     let attempt = 0;
     while (active) {
       try {
-        // Reset the backoff only once a connection is actually established, so a
-        // reachable server retries fast while a down one keeps escalating.
         await consumeOnce(() => {
           attempt = 0;
         });
@@ -129,17 +131,24 @@ const startActivityLoop = (
   };
 };
 
-// Full-jitter exponential backoff: a random point in [0, min(cap, base·2^attempt)]
-// so many widgets reconnecting after an outage do not resynchronize into a herd.
+// Full-jitter exponential backoff prevents reconnecting widgets from herding.
 const backoffDelayMs = (attempt: number): number => {
   const ceiling = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** attempt);
   return Math.random() * ceiling;
 };
 
-const emptySet = (): ReadonlySet<string> => new Set<string>();
+const initialActivityState = (): ActivityStreamState => ({
+  runningConversationIds: new Set<string>(),
+  synchronized: false,
+});
 
-const clearRunning = (current: ReadonlySet<string>): ReadonlySet<string> =>
-  current.size === 0 ? current : new Set<string>();
+const markUnsynchronized = (current: ActivityStreamState): ActivityStreamState =>
+  current.synchronized ? { ...current, synchronized: false } : current;
+
+const synchronizedState = (event: TurnActivitySyncEvent): ActivityStreamState => ({
+  runningConversationIds: new Set(event.activeTurns.map((turn) => turn.conversationId)),
+  synchronized: true,
+});
 
 const applyActivity = (
   current: ReadonlySet<string>,

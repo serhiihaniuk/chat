@@ -17,18 +17,14 @@ let initializedServices: WorkflowServices | undefined;
 
 export function initializeWorkflowServices(services: WorkflowServices): void {
   if (initializedServices !== undefined) {
-    throw new Error(
-      "Workflow services are already initialized in this module instance",
-    );
+    throw new Error("Workflow services are already initialized in this module instance");
   }
   initializedServices = Object.freeze(services);
 }
 
 export function workflowServices(): WorkflowServices {
   if (initializedServices === undefined) {
-    throw new Error(
-      "Workflow services were used before composition initialized them",
-    );
+    throw new Error("Workflow services were used before composition initialized them");
   }
   return initializedServices;
 }

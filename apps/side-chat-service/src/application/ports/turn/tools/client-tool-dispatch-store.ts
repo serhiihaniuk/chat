@@ -26,8 +26,7 @@ export type ClientToolDispatchLookup =
   | ClientToolDispatchRef
   | (typeof CLIENT_TOOL_DISPATCH_LOOKUP)[keyof typeof CLIENT_TOOL_DISPATCH_LOOKUP];
 
-export type ClientToolOutputEnvelope = JsonObject &
-  Readonly<{ value: JsonValue }>;
+export type ClientToolOutputEnvelope = JsonObject & Readonly<{ value: JsonValue }>;
 
 export type ClientToolOutputDisposition = "accepted" | "duplicate" | "late";
 
@@ -67,9 +66,7 @@ export interface ClientToolWorkflowStore {
   create(
     dispatch: ClientToolDispatchIdentity & Readonly<{ toolName: string }>,
   ): Promise<ClientToolDispatchSnapshot>;
-  read(
-    dispatch: ClientToolDispatchIdentity,
-  ): Promise<ClientToolDispatchSnapshot | undefined>;
+  read(dispatch: ClientToolDispatchIdentity): Promise<ClientToolDispatchSnapshot | undefined>;
   claimTimeout(
     dispatch: ClientToolDispatchIdentity,
     output: ClientToolOutputEnvelope,

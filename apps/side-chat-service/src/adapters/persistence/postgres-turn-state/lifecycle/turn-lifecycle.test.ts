@@ -1,18 +1,20 @@
 import {
   DbRepositoryError,
   type AppendMessageCommand,
-  type ClaimAssistantTurnTerminalCommand,
+  type FinalizeAssistantTurnCommand,
   type CreateOrGetConversationCommand,
   type StartAssistantTurnCommand,
 } from "@side-chat/db";
 import { describe, expect, it } from "vitest";
 
 import { TURN_REJECTION_CODES } from "#application/turn/turn-errors";
+import { TURN_CLAIM_DISPOSITIONS } from "#application/ports/turn/turn-store";
 import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES } from "#domain/turn/turn";
 
 import {
   AUTH,
   BEGIN_INPUT,
+  NOW,
   assistantTurnRecord,
   conversationRecord,
   fakeRepositories,
@@ -137,10 +139,10 @@ describe("postgres turn state adapter mapping", () => {
     await expect(state.assertOwned(AUTH, "conversation_1")).resolves.toBeUndefined();
   });
 
-  it("maps a running turn to BUSY on the assertCanBegin pre-check", async () => {
+  it("maps an unavailable resolved slot to BUSY on the assertCanBegin pre-check", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        findActiveAssistantTurn: () => Promise.resolve(assistantTurnRecord("turn_running")),
+        resolveConversationTurnAvailability: () => Promise.resolve(false),
       }),
     );
 
@@ -149,14 +151,51 @@ describe("postgres turn state adapter mapping", () => {
     });
   });
 
-  it("allows assertCanBegin when no turn is running (including a missing conversation)", async () => {
+  it("allows assertCanBegin when recovery resolves the slot as available", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        findActiveAssistantTurn: () => Promise.resolve(undefined),
+        resolveConversationTurnAvailability: () => Promise.resolve(true),
       }),
     );
 
     await expect(state.assertCanBegin(AUTH, "conversation_1")).resolves.toBeUndefined();
+  });
+
+  it("maps the Workflow claim to execute, cancel, or fenced", async () => {
+    const turn = {
+      workspaceId: AUTH.workspaceId,
+      subjectId: AUTH.subjectId,
+      conversationId: "conversation_1",
+      turnId: "turn_claim",
+    } as const;
+    const execute = createTurnStateFromRepositories(
+      fakeRepositories({
+        claimTurnRun: () =>
+          Promise.resolve({ record: assistantTurnRecord("turn_claim"), claimed: true }),
+      }),
+    );
+    const cancel = createTurnStateFromRepositories(
+      fakeRepositories({
+        claimTurnRun: () =>
+          Promise.resolve({
+            record: { ...assistantTurnRecord("turn_claim"), cancelRequestedAt: NOW },
+            claimed: false,
+          }),
+      }),
+    );
+    const fenced = createTurnStateFromRepositories(
+      fakeRepositories({
+        claimTurnRun: () =>
+          Promise.resolve({
+            record: { ...assistantTurnRecord("turn_claim"), status: "failed" },
+            claimed: false,
+          }),
+      }),
+    );
+
+    await expect(execute.claimRun(turn, "run_1")).resolves.toBe(TURN_CLAIM_DISPOSITIONS.EXECUTE);
+    await expect(cancel.claimRun(turn, "run_1")).resolves.toBe(TURN_CLAIM_DISPOSITIONS.CANCEL);
+    await expect(fenced.claimRun(turn, "run_1")).resolves.toBe(TURN_CLAIM_DISPOSITIONS.FENCED);
   });
 
   it("maps an unresolved run to RUN_NOT_FOUND on assertRunOwned", async () => {
@@ -183,15 +222,15 @@ describe("postgres turn state adapter mapping", () => {
     });
   });
 
-  it("folds usage and omits the message id on the terminal claim", async () => {
-    let claimCommand: ClaimAssistantTurnTerminalCommand | undefined;
+  it("folds usage into an output-less aggregate finalization", async () => {
+    let finalizeCommand: FinalizeAssistantTurnCommand | undefined;
     const state = createTurnStateFromRepositories(
       fakeRepositories({
         createOrGetConversation: () => ok(conversationRecord()),
         appendMessage: () => ok(messageRecord()),
         startAssistantTurn: () => ok(assistantTurnRecord("turn_claim")),
-        claimAssistantTurnTerminal: (command) => {
-          claimCommand = command;
+        finalizeAssistantTurn: (command) => {
+          finalizeCommand = command;
           return Promise.resolve({
             record: assistantTurnRecord("turn_claim"),
             claimed: true,
@@ -201,18 +240,19 @@ describe("postgres turn state adapter mapping", () => {
     );
 
     const turn = await state.beginTurn(BEGIN_INPUT);
-    const claimed = await state.claimTerminal(turn, {
-      status: TURN_TERMINAL_STATUSES.FAILED,
-      usage: { inputTokens: 4, outputTokens: 6, totalTokens: 10 },
-      safeErrorCode: "model_stream_failed",
+    const claimed = await state.finalize(turn, {
+      terminal: {
+        status: TURN_TERMINAL_STATUSES.FAILED,
+        usage: { inputTokens: 4, outputTokens: 6, totalTokens: 10 },
+        safeErrorCode: "model_stream_failed",
+      },
     });
 
     expect(claimed).toBe(true);
-    expect(claimCommand).toMatchObject({
+    expect(finalizeCommand).toMatchObject({
       assistantTurnId: "turn_claim",
       status: "failed",
       errorCode: "model_stream_failed",
-      assistantMessageId: undefined,
       usage: {
         inputTokens: 4,
         outputTokens: 6,
@@ -221,36 +261,48 @@ describe("postgres turn state adapter mapping", () => {
         cachedInputTokens: 0,
       },
     });
+    expect(finalizeCommand).not.toHaveProperty("assistantMessage");
   });
 
-  it("resolves subject identity for a separately-appended assistant message", async () => {
-    let appendCommand: AppendMessageCommand | undefined;
+  it("maps assistant output into the same aggregate finalization command", async () => {
+    let finalizeCommand: FinalizeAssistantTurnCommand | undefined;
     const state = createTurnStateFromRepositories(
       fakeRepositories({
         createOrGetConversation: () => ok(conversationRecord()),
-        appendMessage: (command) => {
-          appendCommand = command;
-          return ok(messageRecord());
-        },
+        appendMessage: () => ok(messageRecord()),
         startAssistantTurn: () => ok(assistantTurnRecord("turn_msg")),
+        finalizeAssistantTurn: (command) => {
+          finalizeCommand = command;
+          return Promise.resolve({
+            record: assistantTurnRecord("turn_msg"),
+            claimed: true,
+          });
+        },
       }),
     );
 
     const turn = await state.beginTurn(BEGIN_INPUT);
-    appendCommand = undefined;
-    await state.appendAssistantMessage(turn, {
-      id: "assistant_1",
-      role: TURN_MESSAGE_ROLES.ASSISTANT,
-      parts: [{ type: "text", text: "Hi there" }],
+    await state.finalize(turn, {
+      terminal: {
+        status: TURN_TERMINAL_STATUSES.COMPLETED,
+        usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+      },
+      assistantMessage: {
+        id: "assistant_1",
+        role: TURN_MESSAGE_ROLES.ASSISTANT,
+        parts: [{ type: "text", text: "Hi there" }],
+      },
     });
 
-    expect(appendCommand).toMatchObject({
+    expect(finalizeCommand).toMatchObject({
       workspaceId: AUTH.workspaceId,
-      subjectId: AUTH.subjectId,
-      conversationId: "conversation_1",
-      messageId: "assistant_1",
-      role: "assistant",
-      parts: [{ type: "text", text: "Hi there" }],
+      assistantTurnId: "turn_msg",
+      status: "completed",
+      assistantMessage: {
+        messageId: "assistant_1",
+        parts: [{ type: "text", text: "Hi there" }],
+        metadataJson: {},
+      },
     });
   });
 });

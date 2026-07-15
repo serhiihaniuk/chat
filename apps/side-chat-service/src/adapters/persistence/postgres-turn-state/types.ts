@@ -2,10 +2,13 @@ import type { SidechatRepositories } from "@side-chat/db";
 
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { ConversationStore } from "#application/ports/turn/conversation-store";
-import type { MessageStore } from "#application/ports/turn/message-store";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 import type { ConversationTitleStore } from "#application/ports/turn/title/conversation-title-store";
-import type { TurnStore } from "#application/ports/turn/turn-store";
+import type {
+  TurnCancellationStore,
+  TurnExecutionClaimStore,
+  TurnStore,
+} from "#application/ports/turn/turn-store";
 import type {
   ClientToolDispatchStore,
   ClientToolWorkflowStore,
@@ -19,8 +22,9 @@ import type {
 export type PostgresTurnState = ConversationStore &
   ConversationQueryStore &
   ConversationTitleStore &
-  MessageStore &
   TurnStore &
+  TurnExecutionClaimStore &
+  TurnCancellationStore &
   ClientToolDispatchStore &
   ClientToolWorkflowStore &
   ToolApprovalDecisionStore &

@@ -12,12 +12,16 @@ import { stampFinishReason } from "../workflow-turn-execution.js";
 import { normalizeClientToolReplay } from "./client-tool-replay-transform.js";
 
 /** Adapt Workflow replay handles to the application replay port. */
-export type ReplayChatTurn = (runId: string, startIndex: number) => Promise<ReplayedChatTurn>;
+export type ReplayChatTurn = (
+  runId: string,
+  startIndex: number,
+  assistantMessageId: string,
+) => Promise<ReplayedChatTurn>;
 
 export function createWorkflowTurnReplay(replayTurn: ReplayChatTurn = replayChatTurn): TurnReplay {
   return {
-    async open(runId, startIndex) {
-      const replay = await replayTurn(runId, startIndex);
+    async open(runId, startIndex, assistantMessageId) {
+      const replay = await replayTurn(runId, startIndex, assistantMessageId);
       if (replay.status !== TURN_REPLAY_RESULTS.FOUND) return replay;
       return {
         status: TURN_REPLAY_RESULTS.FOUND,

@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   AUTH,
-  USER_MESSAGE,
   assistantTurnRecord,
   conversationRecord,
   fakeRepositories,
@@ -22,18 +21,17 @@ describe("postgres turn state query and title mapping", () => {
       ...assistantTurnRecord("turn_running"),
       runId: "run_running",
     };
+    const historyRecord = {
+      ...messageRecord(),
+      messageId: "message_history",
+      parts: [{ type: "text", text: "history" }],
+      metadataJson: { source: "stored" },
+    };
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        readConversationHistory: () =>
-          Promise.resolve([
-            {
-              ...messageRecord(),
-              messageId: "message_history",
-              parts: [{ type: "text", text: "history" }],
-              metadataJson: { source: "stored" },
-            },
-          ]),
-        findActiveAssistantTurn: () => Promise.resolve(active),
+        readConversationHistory: () => Promise.resolve([historyRecord]),
+        readConversationSnapshot: () =>
+          Promise.resolve({ messages: [historyRecord], activeTurn: active }),
       }),
     );
 
@@ -48,10 +46,23 @@ describe("postgres turn state query and title mapping", () => {
       ],
       hasMoreBefore: false,
     });
-    await expect(state.findActiveTurn(AUTH, "conversation_1")).resolves.toEqual({
-      turnId: "turn_running",
-      runId: "run_running",
-      status: "running",
+    await expect(state.readState(AUTH, "conversation_1")).resolves.toEqual({
+      history: {
+        messages: [
+          {
+            id: "message_history",
+            role: "user",
+            parts: [{ type: "text", text: "history" }],
+            metadata: { source: "stored" },
+          },
+        ],
+        hasMoreBefore: false,
+      },
+      activeTurn: {
+        turnId: "turn_running",
+        runId: "run_running",
+        status: "running",
+      },
     });
   });
 
@@ -82,7 +93,10 @@ describe("postgres turn state query and title mapping", () => {
     // The adapter probes one extra row to detect older history without a count.
     expect(commands[0]?.limit).toBe(3);
     expect(first.messages.map((message) => message.id)).toEqual(["m1", "m2"]);
-    expect(first).toMatchObject({ hasMoreBefore: true, nextBeforeSequenceIndex: 1 });
+    expect(first).toMatchObject({
+      hasMoreBefore: true,
+      nextBeforeSequenceIndex: 1,
+    });
 
     const second = await state.readHistory(AUTH, "conversation_1", {
       limit: 2,
@@ -97,11 +111,17 @@ describe("postgres turn state query and title mapping", () => {
   it("does not discover a running turn until its durable run id is bound", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        findActiveAssistantTurn: () => Promise.resolve(assistantTurnRecord("turn_unbound")),
+        readConversationSnapshot: () =>
+          Promise.resolve({
+            messages: [],
+            activeTurn: assistantTurnRecord("turn_unbound"),
+          }),
       }),
     );
 
-    await expect(state.findActiveTurn(AUTH, "conversation_1")).resolves.toBeUndefined();
+    await expect(state.readState(AUTH, "conversation_1")).resolves.toEqual({
+      history: { messages: [], hasMoreBefore: false },
+    });
   });
 
   it("maps one scoped active-turn query without per-conversation reads", async () => {
@@ -125,7 +145,10 @@ describe("postgres turn state query and title mapping", () => {
         status: "running",
       },
     ]);
-    expect(command).toEqual({ workspaceId: AUTH.workspaceId, subjectId: AUTH.subjectId });
+    expect(command).toEqual({
+      workspaceId: AUTH.workspaceId,
+      subjectId: AUTH.subjectId,
+    });
   });
 
   it("checks title eligibility and delegates the conditional title write", async () => {
@@ -133,8 +156,6 @@ describe("postgres turn state query and title mapping", () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
         findConversation: () => Promise.resolve(conversationRecord()),
-        readConversationHistory: () =>
-          Promise.resolve([{ ...messageRecord(), messageId: USER_MESSAGE.id }]),
         prepareConversationTitle: (command) => {
           titleCommand = command;
           return Promise.resolve({
@@ -145,9 +166,9 @@ describe("postgres turn state query and title mapping", () => {
       }),
     );
 
-    await expect(
-      state.readTitleEligibility(AUTH, "conversation_1", USER_MESSAGE.id),
-    ).resolves.toEqual({ eligible: true });
+    await expect(state.readTitleEligibility(AUTH, "conversation_1")).resolves.toEqual({
+      eligible: true,
+    });
     await state.prepareConversationTitle(AUTH, "conversation_1", "Prepared conversation title");
 
     expect(titleCommand).toMatchObject({

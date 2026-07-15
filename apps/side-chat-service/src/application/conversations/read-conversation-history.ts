@@ -1,14 +1,17 @@
-import { safeValidateUIMessages, type UIMessage } from "ai";
+import { dynamicTool, jsonSchema, safeValidateUIMessages, type UIMessage } from "ai";
 
 import { sideChatMessageMetadataSchema } from "@side-chat/stream-profile";
 
 import type {
   ConversationHistoryQuery,
+  ConversationHistoryPage,
   ConversationQueryStore,
   StoredConversationMessage,
 } from "#application/ports/conversation-query-store";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import type { AuthContext } from "#domain/auth-context";
+import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
+import { withoutTerminalToolApprovalMetadata } from "#application/turn/tools/approvals/terminal-tool-approval-metadata";
 
 export const UNAVAILABLE_HISTORY_TEXT = "Historical content is unavailable after an upgrade";
 
@@ -18,10 +21,9 @@ type ValidateUIMessagesArgs = Parameters<typeof safeValidateUIMessages>[0];
  * The current tool/data schemas a persisted structured part is validated against.
  *
  * A `tool-*`/`data-*` part survives a read only when its owning schema is present
- * here and the part validates against it. The default is empty
- * ({@link EMPTY_STRUCTURED_PART_CATALOGS}), so today every structured part
- * degrades; wiring a real catalog through this seam lets a future tool or data
- * schema be honored without changing the read logic.
+ * here and the part validates against it. Composition supplies the registered
+ * server-tool schemas; the empty catalog remains the safe fallback for callers
+ * that deliberately own no structured parts.
  */
 export type StructuredPartCatalogs = Readonly<{
   tools: NonNullable<ValidateUIMessagesArgs["tools"]>;
@@ -33,10 +35,34 @@ export const EMPTY_STRUCTURED_PART_CATALOGS: StructuredPartCatalogs = {
   dataSchemas: {},
 };
 
+/** Build the read-time validators for the server tools registered in this service. */
+export function structuredPartCatalogsForServerTools(
+  definitions: readonly Pick<ServerToolDefinition, "name" | "description" | "inputSchema">[],
+): StructuredPartCatalogs {
+  return {
+    tools: Object.fromEntries(
+      definitions.map((definition) => [
+        definition.name,
+        dynamicTool({
+          description: definition.description,
+          inputSchema: jsonSchema(definition.inputSchema),
+        }),
+      ]),
+    ),
+    dataSchemas: {},
+  };
+}
+
 export type ReadConversationHistoryDependencies = Readonly<{
   queries: Pick<ConversationQueryStore, "readHistory">;
   telemetry: Pick<TelemetrySink, "record">;
-  /** Current tool/data schemas honored on read; omit to degrade every structured part. */
+  /** Current tool/data schemas honored on read; omit only when none are owned. */
+  structuredPartCatalogs?: StructuredPartCatalogs | undefined;
+}>;
+
+export type ReadConversationStateDependencies = Readonly<{
+  queries: Pick<ConversationQueryStore, "readState">;
+  telemetry: Pick<TelemetrySink, "record">;
   structuredPartCatalogs?: StructuredPartCatalogs | undefined;
 }>;
 
@@ -48,6 +74,11 @@ export type ConversationHistoryResult = Readonly<{
   nextCursor?: number | undefined;
 }>;
 
+export type ConversationStateResult = Readonly<{
+  messages: readonly UIMessage[];
+  activeTurn?: Awaited<ReturnType<ConversationQueryStore["readState"]>>["activeTurn"];
+}>;
+
 /** Validate persisted SDK messages at the read boundary and degrade drift per message. */
 export async function readConversationHistory(
   dependencies: ReadConversationHistoryDependencies,
@@ -57,6 +88,29 @@ export async function readConversationHistory(
 ): Promise<ConversationHistoryResult> {
   const catalogs = dependencies.structuredPartCatalogs ?? EMPTY_STRUCTURED_PART_CATALOGS;
   const page = await dependencies.queries.readHistory(auth, conversationId, query);
+  return projectHistoryPage(dependencies, catalogs, page);
+}
+
+/** Validate one coherent history + active-turn snapshot for the widget boundary. */
+export async function readConversationState(
+  dependencies: ReadConversationStateDependencies,
+  auth: AuthContext,
+  conversationId: string,
+): Promise<ConversationStateResult> {
+  const catalogs = dependencies.structuredPartCatalogs ?? EMPTY_STRUCTURED_PART_CATALOGS;
+  const snapshot = await dependencies.queries.readState(auth, conversationId);
+  const history = await projectHistoryPage(dependencies, catalogs, snapshot.history);
+  return {
+    messages: history.messages,
+    ...(snapshot.activeTurn === undefined ? {} : { activeTurn: snapshot.activeTurn }),
+  };
+}
+
+async function projectHistoryPage(
+  dependencies: Pick<ReadConversationHistoryDependencies, "telemetry">,
+  catalogs: StructuredPartCatalogs,
+  page: ConversationHistoryPage,
+): Promise<ConversationHistoryResult> {
   const messages = await Promise.all(
     page.messages.map((message) => validateStoredMessage(dependencies, catalogs, message)),
   );
@@ -70,7 +124,7 @@ export async function readConversationHistory(
 }
 
 async function validateStoredMessage(
-  dependencies: ReadConversationHistoryDependencies,
+  dependencies: Pick<ReadConversationHistoryDependencies, "telemetry">,
   catalogs: StructuredPartCatalogs,
   message: StoredConversationMessage,
 ): Promise<UIMessage> {
@@ -115,7 +169,7 @@ function toValidationCandidate(message: StoredConversationMessage) {
   return {
     id: message.id,
     role: message.role,
-    parts: [...message.parts],
+    parts: message.parts.map(withoutTerminalToolApprovalMetadata),
     ...(metadata === undefined ? {} : { metadata }),
   };
 }

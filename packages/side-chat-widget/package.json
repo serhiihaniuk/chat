@@ -33,6 +33,11 @@
       "types": "./src/shared/ui/*.tsx",
       "development": "./src/shared/ui/*.tsx",
       "default": "./dist/shared/ui/*.js"
+    },
+    "#testing/*": {
+      "types": "./src/testing/*.ts",
+      "development": "./src/testing/*.ts",
+      "default": "./dist/testing/*.js"
     }
   },
   "exports": {
@@ -65,7 +70,6 @@
     "test": "cd ../.. && vitest run packages/side-chat-widget/src --passWithNoTests"
   },
   "dependencies": {
-    "@ai-sdk/react": "4.0.23",
     "@ai-sdk/workflow": "1.0.22",
     "@base-ui/react": "1.5.0",
     "@side-chat/chat-protocol": "0.0.0",

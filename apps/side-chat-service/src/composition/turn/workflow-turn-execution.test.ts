@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { validateSettings } from "#config/settings/resolve-settings";
 import { createDefaultConfig } from "#config/settings/settings.test-fixture";
 import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES } from "#domain/turn/turn";
-import { CHAT_TURN_OUTCOMES } from "#workflows/production/chat-turn";
+import { CHAT_TURN_ERROR_CODES, CHAT_TURN_OUTCOMES } from "#workflows/production/chat-turn";
 
 import { createWorkflowTurnExecution, type StartChatTurn } from "./workflow-turn-execution.js";
 
@@ -225,6 +225,36 @@ describe("createWorkflowTurnExecution", () => {
     const started = await execution.start(TURN_INPUT);
 
     await expect(started.terminal).resolves.toMatchObject({ assistantMessage });
+  });
+
+  it("stamps a public failed terminal onto the live finish metadata", async () => {
+    const execution = createWorkflowTurnExecution(testSettings(), () =>
+      Promise.resolve({
+        runId: "run-1",
+        stream: chunks({ type: "finish" }),
+        terminal: Promise.resolve({
+          status: CHAT_TURN_OUTCOMES.FAILED,
+          code: CHAT_TURN_ERROR_CODES.PROVIDER_TIMEOUT,
+        }),
+      }),
+    );
+
+    const started = await execution.start(TURN_INPUT);
+
+    await expect(readAll(started.stream)).resolves.toEqual([
+      {
+        type: "finish",
+        finishReason: "error",
+        messageMetadata: {
+          usage: usage(0, 0),
+          terminal: { status: "failed", errorCode: "timeout" },
+        },
+      },
+    ]);
+    await expect(started.terminal).resolves.toMatchObject({
+      status: TURN_TERMINAL_STATUSES.FAILED,
+      safeErrorCode: "provider_timeout",
+    });
   });
 });
 

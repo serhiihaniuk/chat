@@ -20,7 +20,9 @@ export const MESSAGE_ROLES = ["user", "assistant", "system", "tool"] as const;
 export type MessageRole = (typeof MESSAGE_ROLES)[number];
 
 export const ASSISTANT_TURN_STATUSES = [
-  "running",
+  // The product aggregate has not committed a terminal. Workflow status, not
+  // this value, determines whether execution is actually live.
+  "open",
   "completed",
   // Every failure mode collapses to one status; the safe error code carries the
   // detail. v7 drops the old app's per-cause statuses (provider/tool/persistence
@@ -77,3 +79,10 @@ export type HostCommandResultStatus = (typeof HOST_COMMAND_RESULT_STATUSES)[numb
  * not correctness (ADR 0009).
  */
 export const HOST_COMMAND_RESULT_NOTIFY_CHANNEL = "host_command_result";
+
+/**
+ * Identity-only assistant-turn lifecycle notifications for subject activity SSE.
+ * The status write and notification commit together, so a reconnecting client can
+ * repair missed hints from the durable active-turn snapshot.
+ */
+export const TURN_ACTIVITY_NOTIFY_CHANNEL = "turn_activity";

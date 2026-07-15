@@ -229,16 +229,22 @@ const useRunningConversationActivity = ({
 }: RunningConversationActivityInput): ReadonlySet<string> => {
   const hasConnectedRef = useRef(false);
 
-  return useActivityStream({
+  const activity = useActivityStream({
     client,
     // The conversation query performs the initial list read. Later connects may
     // have missed lifecycle events, so they refresh the list before showing dots.
-    onConnected: () => {
+    onSynchronized: () => {
       if (!hasConnectedRef.current) {
         hasConnectedRef.current = true;
         return;
       }
       void refreshConversations();
+    },
+    onVisibilityReconcile: () => {
+      void refreshConversations();
+      if (conversationId !== undefined && streamOwnedConversationId !== conversationId) {
+        void refreshHistory(conversationId);
+      }
     },
     // Another tab can start a turn for the conversation shown here. Pull history
     // so its active turn is resumed, unless this tab's stream already owns it.
@@ -248,6 +254,7 @@ const useRunningConversationActivity = ({
       void refreshHistory(conversationId);
     },
   });
+  return activity.runningConversationIds;
 };
 
 // On replay_expired the stream buffer is gone: drop the live-run guard so history

@@ -67,6 +67,18 @@ export const tokenGroups: Record<string, readonly TokenRow[]> = {
       usage: "Panel header height (rail aligns to it).",
     },
     {
+      token: "--size-icon-sm",
+      resolvesTo: "0.875rem",
+      property: "width/height",
+      usage: "Compact glyph size for inline actions and status notices.",
+    },
+    {
+      token: "--size-icon-md",
+      resolvesTo: "1rem",
+      property: "width/height",
+      usage: "Standard glyph size for panel chrome and icon buttons.",
+    },
+    {
       token: "--size-control",
       resolvesTo: "2rem",
       property: "width/height",
@@ -121,6 +133,24 @@ export const tokenGroups: Record<string, readonly TokenRow[]> = {
       resolvesTo: "1.5rem / 1.25",
       property: "font-size/line",
       usage: "Section heading.",
+    },
+    {
+      token: "--weight-normal",
+      resolvesTo: "400",
+      property: "font-weight",
+      usage: "Body copy and quiet activity text.",
+    },
+    {
+      token: "--weight-medium",
+      resolvesTo: "500",
+      property: "font-weight",
+      usage: "Emphasized controls and compact row labels.",
+    },
+    {
+      token: "--weight-semibold",
+      resolvesTo: "600",
+      property: "font-weight",
+      usage: "Section and Markdown headings.",
     },
   ],
   radius: [

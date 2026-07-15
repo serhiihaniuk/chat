@@ -7,3 +7,8 @@ export type PostgresDrizzleRepositoryContext = {
   readonly db: NodePgDatabase<typeof sidechatTables>;
   readonly ids: ReturnType<typeof createIdGenerator>;
 };
+
+/** Transaction handle shared by aggregate repository operations. */
+export type PostgresDrizzleTransaction = Parameters<
+  Parameters<PostgresDrizzleRepositoryContext["db"]["transaction"]>[0]
+>[0];

@@ -17,13 +17,44 @@ the public UI-chunk cursor over the raw Workflow journal, replays the prefix,
 and tails the same run; simultaneous subscribers receive independent readers.
 Workflow stores the live stream, execution journal, and recoverable terminal outcome.
 The route process projects that outcome through application-owned PostgreSQL
-ports before closing the response. The same durable projection supplies
-tenant-scoped history and active-turn discovery; a bound running turn exposes
-its exact Workflow `runId`, and terminal projection makes discovery empty.
+ports before closing the response. The same durable projection supplies one
+tenant-scoped conversation snapshot: validated history plus a bound Workflow
+`runId` only when the product turn is `open` and the Workflow run is actually
+`pending` or `running`. Product `open` is not itself evidence of live
+execution. A terminal or missing Workflow run therefore cannot keep the
+snapshot active after a process crash.
 Workflow journal maintenance is a separate boot-and-interval lifecycle: it
 validates the pinned World schema, skips legal holds and non-terminal runs, and
-prunes eligible journals transactionally. The legacy connection-bound lifecycle below remains authoritative
-only for `apps/partner-ai-service` during this transition.
+prunes eligible journals transactionally. [ADR 0018](../adr/0018-terminal-projection-reconciliation.md)
+defines the replacement service's effective-activity join, admission-time
+repair, durable cancellation intent, and pre-provider Workflow claim. Their
+ownership, failure behavior, and cost bounds live in
+[turn-terminal-reconciliation.md](turn-terminal-reconciliation.md). The legacy
+connection-bound lifecycle below remains authoritative only for
+`apps/partner-ai-service` during this transition.
+
+### Native terminal visibility
+
+The replacement service exposes one externally visible terminal boundary. Its
+finalization repository transaction writes the optional assistant message, the
+terminal turn row (including usage and safe terminal metadata), the conversation
+timestamp, and the identity-only turn-activity notification together. The
+notification is delivered only after commit. Therefore a conversation snapshot
+that returns no run cannot omit an admitted terminal assistant message.
+
+The terminal fold deliberately separates two authorities. The provider's final
+result owns status, finish reason, and usage. The closed Workflow journal owns the
+assistant text and reasoning parts because it is the exact visible projection
+already published to subscribers. Successful, failed, timed-out, and cancelled
+turns all read that projection before finalization; the provider aggregate is only
+the completed-turn fallback when the journal contains no visible deltas. This
+keeps a completed thinking trace identical before and after refresh.
+
+This atomic handoff is required even though Workflow execution is durable. The
+Workflow journal owns replay; PostgreSQL owns the durable browser snapshot. The
+widget keeps its live session through a `settling` phase and releases it only
+after the authoritative conversation snapshot contains the terminal projection.
+See [ADR 0017](../adr/0017-native-conversation-reconciliation.md).
 
 The replacement route validates and translates the HTTP request; it does not
 choose a model. `PrepareTurnInput` carries the requested model and reasoning
@@ -148,11 +179,14 @@ from the exit cause plus durable cancel intent:
 
 `sidechat.blocked` is a terminal safety-stop, not an error. In both service
 wings, title generation is post-success enrichment: it starts only after the
-completed terminal is durable, checks first-exchange eligibility, and writes
-conditionally. The new PostgreSQL wing performs that write inside the durable
-title workflow; its in-memory development fallback is process-local because
-the store itself is process-local. A timeout or failure is observed safely and
-can never create a second terminal or change the completed turn.
+completed terminal is durable, checks that the conversation is still untitled,
+and writes conditionally. A later completed turn retries the isolated job when
+an earlier title attempt timed out or failed; the first successful conditional
+write wins, so later turns cannot retitle. The new PostgreSQL wing performs that
+write inside the durable title workflow; its in-memory development fallback is
+process-local because the store itself is process-local. A timeout or failure is
+observed safely and can never create a second terminal or change the completed
+turn.
 
 ## Failure split
 

@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
-import { toMessageId, toToolApprovalId } from "#schema-contract";
+import { toAssistantMessageId, toMessageId, toToolApprovalId } from "#schema-contract";
 import { auditEvents, toolApprovals } from "#drizzle/schema";
 import { DB_REPOSITORY_ERROR_CODES } from "#repositories/errors";
 import {
@@ -12,7 +12,11 @@ import { conversationListRepositoryContract } from "#testing/conversation-list-c
 import { clientToolDispatchRepositoryContract } from "#testing/client-tool-dispatch-contract.test-support";
 import { toolApprovalRepositoryContract } from "#testing/approvals/tool-approval-contract.test-support";
 import { sidechatRepositoryContract } from "#testing/repository-contract.test-support";
-import { startTurn, workspaceId } from "#testing/repository-contract.helpers";
+import {
+  readConversationHistory,
+  startTurn,
+  workspaceId,
+} from "#testing/repository-contract.helpers";
 import { turnResolutionRepositoryContract } from "#testing/turn/turn-resolution-contract.test-support";
 
 const databaseUrl = requireDatabaseUrl();
@@ -85,6 +89,40 @@ describe("postgres drizzle repositories", () => {
       expect(
         [first.record.sequenceIndex, second.record.sequenceIndex].sort((a, b) => a - b),
       ).toEqual([0, 1]);
+    } finally {
+      await repositories.close();
+    }
+  });
+  it("commits one assistant message when terminal finalizers race", async () => {
+    const repositories = createPostgresDrizzleSidechatRepositories({
+      connectionString: databaseUrl,
+    });
+    const scope = nextClientToolScope();
+    try {
+      const turn = await startTurn(repositories, scope);
+      const finalize = (suffix: string) =>
+        repositories.finalizeAssistantTurn({
+          workspaceId: workspaceId(scope),
+          assistantTurnId: turn.assistantTurnId,
+          status: "completed",
+          assistantMessage: {
+            messageId: toAssistantMessageId(`${turn.conversationId}:assistant_${suffix}`),
+            parts: [{ type: "text", text: `answer ${suffix}` }],
+            metadataJson: {},
+          },
+          finishReason: "stop",
+          usage: ZERO_USAGE,
+          now: NOW,
+        });
+
+      const outcomes = await Promise.all([finalize("a"), finalize("b")]);
+      const history = await readConversationHistory(repositories, scope, turn.conversationId);
+      const assistantMessages = history.filter((message) => message.role === "assistant");
+      const winner = outcomes.find((outcome) => outcome.claimed);
+
+      expect(outcomes.filter((outcome) => outcome.claimed)).toHaveLength(1);
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.messageId).toBe(winner?.record.assistantMessageId);
     } finally {
       await repositories.close();
     }
@@ -308,6 +346,7 @@ describe("postgres drizzle repositories", () => {
       await repositories.close();
     }
   });
+
   it("plans the hot reads as index scans, never a seq scan of the full table", async () => {
     const repositories = createPostgresDrizzleSidechatRepositories({
       connectionString: databaseUrl,
@@ -316,14 +355,14 @@ describe("postgres drizzle repositories", () => {
       // Disable seq scans within the transaction so the planner must pick an index
       // if one covers the query; an uncovered query would still seq-scan (at a
       // punitive cost) and the index-name assertion would fail.
-      // No index perfectly covers (workspace_id, subject_id, status = 'running'),
-      // but the partial one-running-per-conversation unique index matches the
-      // status predicate, so the tiny running working set is index-served instead
+      // No index perfectly covers (workspace_id, subject_id, status = 'open'),
+      // but the partial one-open-per-conversation unique index matches the
+      // status predicate, so the tiny open working set is index-served instead
       // of a full sequential scan of every turn ever recorded.
       const activityPlan = await explainWithoutSeqScan(
         repositories,
         sql`select * from sidechat.assistant_turns
-            where workspace_id = 'w' and subject_id = 's' and status = 'running'
+            where workspace_id = 'w' and subject_id = 's' and status = 'open'
             order by started_at desc`,
       );
       expect(activityPlan).not.toContain("Seq Scan");
@@ -360,6 +399,13 @@ const explainWithoutSeqScan = (
   });
 
 const NOW = "2026-05-23T13:00:00.000Z";
+const ZERO_USAGE = {
+  inputTokens: 0,
+  outputTokens: 0,
+  totalTokens: 0,
+  reasoningTokens: 0,
+  cachedInputTokens: 0,
+} as const;
 let clientToolScopeIndex = 0;
 
 const nextClientToolScope = (): string => {

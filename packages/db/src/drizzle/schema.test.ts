@@ -21,6 +21,10 @@ const grants = readFileSync(
   new URL("../../sql/runtime-role-grants.sql", import.meta.url),
   "utf8",
 ).replaceAll("\r\n", "\n");
+const workflowIntegrationGrants = readFileSync(
+  new URL("../../sql/workflow-integration-grants.sql", import.meta.url),
+  "utf8",
+).replaceAll("\r\n", "\n");
 
 describe("sidechat drizzle schema and migration", () => {
   it("exports the day-one logical tables", () => {
@@ -63,12 +67,16 @@ describe("sidechat drizzle schema and migration", () => {
     // Every failure collapses to one `failed` status; the reaper's per-cause
     // statuses are gone.
     expect(migration).toContain(
-      "status in ('running', 'completed', 'failed', 'cancelled', 'blocked')",
+      "status in ('open', 'completed', 'failed', 'cancelled', 'blocked')",
     );
-    // The lease/cancel recovery columns went with the reaper.
+    expect(migration).toContain('"run_bound_at" timestamp with time zone');
+    expect(migration).toContain('"cancel_requested_at" timestamp with time zone');
+    expect(migration).toContain(
+      'CONSTRAINT "assistant_turns_run_binding_check" CHECK ((run_id is null and run_bound_at is null) or (run_id is not null and run_bound_at is not null))',
+    );
+    // Product admission does not invent a second Workflow lease protocol.
     expect(migration).not.toContain("owner_instance_id");
     expect(migration).not.toContain("lease_epoch");
-    expect(migration).not.toContain("cancel_requested_at");
     // The durable message body is the AI SDK `parts` array — no `content_text`.
     expect(migration).toContain('"parts" jsonb NOT NULL');
     expect(migration).not.toContain("content_text");
@@ -78,10 +86,10 @@ describe("sidechat drizzle schema and migration", () => {
 
   it("indexes the hot query working sets and drops the redundant message index", () => {
     // Partial unique index over only running turns: it is both the race-safe
-    // one-running-per-conversation busy guard and the in-flight lookup the resume
+    // one-open-per-conversation busy guard and the in-flight lookup the resume
     // and activity reads scan — never the full history.
     expect(migration).toContain(
-      `CREATE UNIQUE INDEX "${SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_ONE_RUNNING_PER_CONVERSATION}" ON "sidechat"."assistant_turns" USING btree ("conversation_id") WHERE status = 'running';`,
+      `CREATE UNIQUE INDEX "${SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_ONE_OPEN_PER_CONVERSATION}" ON "sidechat"."assistant_turns" USING btree ("conversation_id") WHERE status = 'open';`,
     );
     expect(migration).toContain(
       `CREATE UNIQUE INDEX "${SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_RUN}" ON "sidechat"."assistant_turns" USING btree ("run_id") WHERE run_id is not null;`,
@@ -114,6 +122,18 @@ describe("sidechat drizzle schema and migration", () => {
     );
     // Runtime must never receive CREATE on the schema.
     expect(grants).not.toMatch(/GRANT[^;]*\bCREATE\b[^;]*TO sidechat_runtime/u);
+  });
+
+  it("grants the runtime only Workflow run identity and lifecycle", () => {
+    expect(workflowIntegrationGrants).toContain(
+      "GRANT USAGE ON SCHEMA workflow TO sidechat_runtime",
+    );
+    expect(workflowIntegrationGrants).toContain(
+      "GRANT SELECT (id, status) ON workflow.workflow_runs TO sidechat_runtime",
+    );
+    expect(workflowIntegrationGrants).not.toMatch(
+      /GRANT[^;]*\b(?:INSERT|UPDATE|DELETE)\b[^;]*TO sidechat_runtime/u,
+    );
   });
 });
 

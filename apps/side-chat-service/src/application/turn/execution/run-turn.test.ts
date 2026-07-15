@@ -2,7 +2,7 @@ import type { UIMessage, UIMessageChunk } from "ai";
 import { describe, expect, it, vi } from "vitest";
 
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
-import type { MessageStore } from "#application/ports/turn/message-store";
+import type { TurnStore } from "#application/ports/turn/turn-store";
 import type {
   StartedTurnExecution,
   TurnExecution,
@@ -81,7 +81,7 @@ describe("runTurn", () => {
   it("errors the response stream when in-memory persistence fails", async () => {
     const persistenceFailure = new Error("assistant persistence failed");
     const harness = createHarness(Promise.resolve(COMPLETED_TERMINAL), {
-      messages: { appendAssistantMessage: () => Promise.reject(persistenceFailure) },
+      finalize: () => Promise.reject(persistenceFailure),
     });
     const running = await runTurn(harness.dependencies, turnInput());
 
@@ -148,7 +148,7 @@ describe("runTurn", () => {
 
 function createHarness(
   terminal: Promise<TurnExecutionTerminal>,
-  options: { durable?: boolean; messages?: MessageStore } = {},
+  options: { durable?: boolean; finalize?: TurnStore["finalize"] } = {},
 ) {
   const state = new InMemoryTurnState([
     {
@@ -173,8 +173,7 @@ function createHarness(
       ? {}
       : {
           routeFinalization: {
-            turns: state,
-            messages: options.messages ?? state,
+            turns: options.finalize ? { finalize: options.finalize } : state,
           },
         }),
   };

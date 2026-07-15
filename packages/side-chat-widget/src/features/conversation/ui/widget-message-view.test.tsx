@@ -10,7 +10,7 @@ import {
 import { WidgetMessageView } from "./widget-message-view.js";
 
 describe("WidgetMessageView", () => {
-  it("renders assistant content and the reasoning timeline with compact tool rows", () => {
+  it("renders assistant content with its completed reasoning collapsed", () => {
     const message = createAssistantMessage({
       content: "Here is the answer.",
       isStreaming: true,
@@ -39,18 +39,12 @@ describe("WidgetMessageView", () => {
       ],
     });
 
-    // Detailed exposure expands the reasoning trace; a tool that carries
-    // input/result renders as the expandable detail row, collapsed by default.
-    const html = renderToStaticMarkup(
-      <WidgetMessageView message={message} reasoningVisibility="detailed" />,
-    );
+    const html = renderToStaticMarkup(<WidgetMessageView message={message} />);
 
     expect(html).toContain("Here is the answer.");
-    expect(html).toContain("Checked portfolio context");
-    expect(html).toContain("Mock web search");
-    expect(html).toContain('data-slot="tool-detail-row"');
-    expect(html).toContain('data-state="success"');
-    // Collapsed by default: the result payload discloses on expand only.
+    expect(html).toContain("Thought process");
+    expect(html).not.toContain("rotate-180");
+    expect(html).not.toContain("Checked portfolio context");
     expect(html).not.toContain("found context");
   });
 
@@ -86,9 +80,7 @@ describe("WidgetMessageView", () => {
       ],
     });
 
-    const html = renderToStaticMarkup(
-      <WidgetMessageView message={message} reasoningVisibility="detailed" />,
-    );
+    const html = renderToStaticMarkup(<WidgetMessageView message={message} />);
 
     expect(html.indexOf("Searching the web")).toBeLessThan(html.indexOf("Mock web search"));
     expect(html.indexOf("Mock web search")).toBeLessThan(html.indexOf("Prepared final answer"));
@@ -100,7 +92,6 @@ describe("WidgetMessageView", () => {
         message={createAssistantMessage({
           content: "Common causes include:\n\n- Too much debt\n- Asset bubbles",
         })}
-        reasoningVisibility="minimal"
       />,
     );
 
@@ -120,7 +111,6 @@ describe("WidgetMessageView", () => {
           activity: { items: [] },
           isStreaming: true,
         }}
-        reasoningVisibility="minimal"
       />,
     );
 
@@ -143,7 +133,6 @@ describe("WidgetMessageView", () => {
             }),
           ],
         })}
-        reasoningVisibility="minimal"
       />,
     );
 
@@ -152,7 +141,7 @@ describe("WidgetMessageView", () => {
     expect(html).toContain("rotate-180");
   });
 
-  it("opens live tool activity even with minimal reasoning visibility", () => {
+  it("opens live tool activity", () => {
     const html = renderToStaticMarkup(
       <WidgetMessageView
         message={createAssistantMessage({
@@ -173,7 +162,6 @@ describe("WidgetMessageView", () => {
             }),
           ],
         })}
-        reasoningVisibility="minimal"
       />,
     );
 
@@ -182,7 +170,7 @@ describe("WidgetMessageView", () => {
     expect(html).toContain("rotate-180");
   });
 
-  it("keeps completed minimal reasoning collapsed by default", () => {
+  it("keeps completed reasoning collapsed by default", () => {
     const html = renderToStaticMarkup(
       <WidgetMessageView
         message={createAssistantMessage({
@@ -192,19 +180,19 @@ describe("WidgetMessageView", () => {
               activityId: "reasoning_001",
               activityKind: "reasoning",
               sequence: 1,
-              title: "Checked context",
+              title: "**Checked** context",
             }),
           ],
         })}
-        reasoningVisibility="minimal"
       />,
     );
 
     expect(html).toContain("Thought process");
     expect(html).not.toContain("rotate-180");
+    expect(html).not.toContain("Checked");
   });
 
-  it("keeps completed detailed reasoning expanded by default", () => {
+  it("keeps another completed reasoning trace collapsed by default", () => {
     const html = renderToStaticMarkup(
       <WidgetMessageView
         message={createAssistantMessage({
@@ -218,12 +206,11 @@ describe("WidgetMessageView", () => {
             }),
           ],
         })}
-        reasoningVisibility="detailed"
       />,
     );
 
     expect(html).toContain("Thought process");
-    expect(html).toContain("rotate-180");
+    expect(html).not.toContain("rotate-180");
   });
 
   it("renders failed host commands as compact error tool rows", () => {
@@ -254,7 +241,6 @@ describe("WidgetMessageView", () => {
             }),
           ],
         })}
-        reasoningVisibility="detailed"
       />,
     );
 
@@ -265,15 +251,14 @@ describe("WidgetMessageView", () => {
 
   it("shows copy only for a completed assistant answer", () => {
     const completed = renderToStaticMarkup(
-      <WidgetMessageView
-        message={createAssistantMessage({ content: "Copy this answer" })}
-        reasoningVisibility="minimal"
-      />,
+      <WidgetMessageView message={createAssistantMessage({ content: "Copy this answer" })} />,
     );
     const streaming = renderToStaticMarkup(
       <WidgetMessageView
-        message={createAssistantMessage({ content: "Still streaming", isStreaming: true })}
-        reasoningVisibility="minimal"
+        message={createAssistantMessage({
+          content: "Still streaming",
+          isStreaming: true,
+        })}
       />,
     );
 

@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { SidechatRepositories } from "#repositories/contract";
-import {
-  toAssistantMessageId,
-  toConversationId,
-  toSubjectId,
-  toWorkspaceId,
-} from "#schema-contract";
+import { toConversationId, toSubjectId, toWorkspaceId } from "#schema-contract";
 import {
   closeIfNeeded,
   now,
@@ -27,7 +22,8 @@ const ZERO_USAGE = {
  * Shared turn-resolution contract for the postgres repository adapter.
  *
  * It proves the read surface the resumable routes depend on: a turn resolves by
- * id, by request id, and as a conversation's active turn until it goes terminal;
+ * id and by request id. Product `open` alone is deliberately not active: the
+ * Postgres integration suite proves effective activity against real Workflow rows.
  * an unknown, cross-workspace, or cross-subject id resolves to `undefined` rather
  * than throwing, so a guessed or leaked id maps to a not-found response.
  */
@@ -39,13 +35,13 @@ export const turnResolutionRepositoryContract = (
   const nextScope = () => `${label.replace(/\W+/gu, "_")}_resolution_${++scopeCounter}`;
 
   describe("turn resolution contract", () => {
-    it("resolves turns by id, request id, and active conversation state", async () => {
+    it("resolves records while excluding product-open rows without Workflow evidence", async () => {
       const repositories = createRepositories();
       const scope = nextScope();
       try {
         const turn = await startTurn(repositories, scope);
 
-        // By id and by request id resolve to the same running turn.
+        // By id and by request id resolve to the same product-open turn.
         await expect(
           repositories.findAssistantTurn({
             workspaceId: workspaceId(scope),
@@ -54,7 +50,7 @@ export const turnResolutionRepositoryContract = (
           }),
         ).resolves.toMatchObject({
           assistantTurnId: turn.assistantTurnId,
-          status: "running",
+          status: "open",
         });
         await expect(
           repositories.findAssistantTurnByRequest({
@@ -63,21 +59,20 @@ export const turnResolutionRepositoryContract = (
           }),
         ).resolves.toMatchObject({ assistantTurnId: turn.assistantTurnId });
 
-        // A running turn is the conversation's active turn.
+        // Product-open is not enough to claim runtime activity.
         await expect(
           repositories.findActiveAssistantTurn({
             workspaceId: workspaceId(scope),
             subjectId: subjectId(scope),
             conversationId: turn.conversationId,
           }),
-        ).resolves.toMatchObject({ assistantTurnId: turn.assistantTurnId });
+        ).resolves.toBeUndefined();
 
         // Once terminal, the conversation no longer reports an active turn.
-        await repositories.claimAssistantTurnTerminal({
+        await repositories.finalizeAssistantTurn({
           workspaceId: workspaceId(scope),
           assistantTurnId: turn.assistantTurnId,
           status: "completed",
-          assistantMessageId: toAssistantMessageId(turn.userMessageId),
           finishReason: "stop",
           usage: ZERO_USAGE,
           now,
@@ -199,11 +194,10 @@ export const turnResolutionRepositoryContract = (
       try {
         const turn = await startTurn(repositories, scope);
 
-        const first = await repositories.claimAssistantTurnTerminal({
+        const first = await repositories.finalizeAssistantTurn({
           workspaceId: workspaceId(scope),
           assistantTurnId: turn.assistantTurnId,
           status: "completed",
-          assistantMessageId: toAssistantMessageId(turn.userMessageId),
           finishReason: "stop",
           usage: ZERO_USAGE,
           now,
@@ -212,7 +206,7 @@ export const turnResolutionRepositoryContract = (
 
         // A crash replay or duplicate finalize matches no running row: a no-op that
         // leaves the durable status untouched rather than raising.
-        const replay = await repositories.claimAssistantTurnTerminal({
+        const replay = await repositories.finalizeAssistantTurn({
           workspaceId: workspaceId(scope),
           assistantTurnId: turn.assistantTurnId,
           status: "failed",

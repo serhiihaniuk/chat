@@ -57,6 +57,7 @@ export function MarkdownContent({
         parseIncompleteMarkdown={mode === "streaming"}
         dir="auto"
         components={components}
+        controls={{ code: { copy: true, download: false } }}
         // Streamdown's built-in confirm modal renders outside the widget's token
         // scope (unstyled over the host page), so link safety stays on but the
         // modal is ours: the panel-scoped Dialog, with copy from the labels
@@ -88,6 +89,24 @@ export function MarkdownContent({
  * footnotes block; the `SourcesFold` renders those sources instead.
  */
 const citationComponents = (sources: readonly FootnoteSource[]) => ({
+  h1: (props: ComponentProps<"h1">): ReactElement => (
+    <h1 {...props} className="sc-message-heading-1" />
+  ),
+  h2: (props: ComponentProps<"h2">): ReactElement => (
+    <h2 {...props} className="sc-message-heading-2" />
+  ),
+  h3: (props: ComponentProps<"h3">): ReactElement => (
+    <h3 {...props} className="sc-message-heading-3" />
+  ),
+  h4: (props: ComponentProps<"h4">): ReactElement => (
+    <h4 {...props} className="sc-message-heading-3" />
+  ),
+  h5: (props: ComponentProps<"h5">): ReactElement => (
+    <h5 {...props} className="sc-message-heading-3" />
+  ),
+  h6: (props: ComponentProps<"h6">): ReactElement => (
+    <h6 {...props} className="sc-message-heading-3" />
+  ),
   sup: (props: ComponentProps<"sup">): ReactElement => {
     const source = footnoteSourceForMarker(sources, reactNodeText(props.children));
     return source ? <InlineCitation number={source.number} source={source} /> : <sup {...props} />;

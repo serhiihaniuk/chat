@@ -3,19 +3,18 @@ import { describe, expect, it, vi } from "vitest";
 import {
   postWorkflowApprovalDecision,
   postWorkflowClientToolOutput,
-  readWorkflowActiveTurn,
   readWorkflowCapabilities,
-  readWorkflowChatHistory,
+  readWorkflowConversationState,
   readWorkflowModels,
   readWorkflowTools,
   type WorkflowConversationClient,
 } from "../index.js";
 
-describe("readWorkflowChatHistory", () => {
+describe("readWorkflowConversationState", () => {
   it("accepts empty history for a new conversation", async () => {
     const client = createClient(() => Response.json({ messages: [] }));
 
-    await expect(readWorkflowChatHistory(client)).resolves.toEqual([]);
+    await expect(readWorkflowConversationState(client)).resolves.toEqual({ messages: [] });
   });
 
   it("accepts validated native usage metadata in history", async () => {
@@ -40,9 +39,9 @@ describe("readWorkflowChatHistory", () => {
       }),
     );
 
-    await expect(readWorkflowChatHistory(client)).resolves.toMatchObject([
-      { id: "message-1", metadata: { usage: { totalTokens: 5 } } },
-    ]);
+    await expect(readWorkflowConversationState(client)).resolves.toMatchObject({
+      messages: [{ id: "message-1", metadata: { usage: { totalTokens: 5 } } }],
+    });
   });
 
   it("rejects private fields in native usage metadata", async () => {
@@ -66,7 +65,7 @@ describe("readWorkflowChatHistory", () => {
       }),
     );
 
-    await expect(readWorkflowChatHistory(client)).rejects.toThrow(
+    await expect(readWorkflowConversationState(client)).rejects.toThrow(
       "Conversation history contains invalid messages.",
     );
   });
@@ -78,7 +77,7 @@ describe("readWorkflowChatHistory", () => {
       }),
     );
 
-    await expect(readWorkflowChatHistory(client)).rejects.toThrow(
+    await expect(readWorkflowConversationState(client)).rejects.toThrow(
       "Conversation history contains invalid messages.",
     );
   });
@@ -86,7 +85,7 @@ describe("readWorkflowChatHistory", () => {
   it("hides a non-contract HTTP response body from the public error", async () => {
     const client = createClient(() => new Response("private upstream failure", { status: 500 }));
 
-    await expect(readWorkflowChatHistory(client)).rejects.toMatchObject({
+    await expect(readWorkflowConversationState(client)).rejects.toMatchObject({
       code: "http_error",
       message: "Chat request failed with status 500.",
       retryable: false,
@@ -105,44 +104,42 @@ describe("readWorkflowChatHistory", () => {
       ),
     );
 
-    await expect(readWorkflowChatHistory(client)).rejects.toMatchObject({
+    await expect(readWorkflowConversationState(client)).rejects.toMatchObject({
       code: "provider_failed",
       message: "The model provider failed safely.",
       retryable: true,
     });
   });
-});
-
-describe("readWorkflowActiveTurn", () => {
   it("returns the live run for reattach", async () => {
     const client = createClient(() =>
       Response.json({
+        messages: [],
         activeTurn: { turnId: "turn-1", runId: "run-1", status: "running" },
       }),
     );
 
-    await expect(readWorkflowActiveTurn(client)).resolves.toEqual({
-      turnId: "turn-1",
-      runId: "run-1",
+    await expect(readWorkflowConversationState(client)).resolves.toEqual({
+      messages: [],
+      activeTurn: { turnId: "turn-1", runId: "run-1" },
     });
   });
 
   it("returns undefined when no run is live", async () => {
-    const client = createClient(() => Response.json({ activeTurn: null }));
+    const client = createClient(() => Response.json({ messages: [], activeTurn: null }));
 
-    await expect(readWorkflowActiveTurn(client)).resolves.toBeUndefined();
+    await expect(readWorkflowConversationState(client)).resolves.toEqual({ messages: [] });
   });
 
   it("returns undefined for a malformed active turn", async () => {
-    const client = createClient(() => Response.json({ activeTurn: { runId: 5 } }));
+    const client = createClient(() => Response.json({ messages: [], activeTurn: { runId: 5 } }));
 
-    await expect(readWorkflowActiveTurn(client)).resolves.toBeUndefined();
+    await expect(readWorkflowConversationState(client)).resolves.toEqual({ messages: [] });
   });
 
   it("hides a failed discovery response body from the public error", async () => {
     const client = createClient(() => new Response("private", { status: 500 }));
 
-    await expect(readWorkflowActiveTurn(client)).rejects.toMatchObject({
+    await expect(readWorkflowConversationState(client)).rejects.toMatchObject({
       code: "http_error",
       status: 500,
     });
@@ -383,7 +380,7 @@ describe("workflow interaction endpoints", () => {
     });
   });
 
-  it("posts approval decisions with an optional reason and classifies typed conflicts", async () => {
+  it("posts binary approval decisions and classifies typed conflicts", async () => {
     let body: unknown;
     const client = createClient((input, init) => {
       body = JSON.parse(String(init?.body));
@@ -398,9 +395,9 @@ describe("workflow interaction endpoints", () => {
     });
 
     await expect(
-      postWorkflowApprovalDecision(client, "run-1", "approval-1", false, "No longer needed"),
+      postWorkflowApprovalDecision(client, "run-1", "approval-1", false),
     ).resolves.toMatchObject({ state: "denied", accepted: true });
-    expect(body).toEqual({ approved: false, reason: "No longer needed" });
+    expect(body).toEqual({ approved: false });
 
     const conflictClient = createClient(() =>
       Promise.resolve(

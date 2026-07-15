@@ -8,7 +8,6 @@ import {
   type SideChatConfig,
 } from "./src/config/declaration/side-chat-config.js";
 import { AZURE_PROVIDER } from "./src/config/providers/azure-provider-config.js";
-import { MOCK_WEB_SEARCH_TOOL_NAME } from "./src/application/turn/tools/server-tools/registered-server-tools.js";
 
 const config: SideChatConfig = defineSideChatConfig({
   models: {
@@ -37,7 +36,8 @@ const config: SideChatConfig = defineSideChatConfig({
     modelId: AZURE_PROVIDER.MODELS.GPT_4O.MODEL_ID,
     timeoutMs: 10_000,
   },
-  serverTools: [MOCK_WEB_SEARCH_TOOL_NAME],
+  // The built-in search simulation requires OpenAI gpt-5.4-mini.
+  serverTools: [],
   hostContext: {
     enabled: true,
     maxSerializedBytes: 16_384,
@@ -54,7 +54,7 @@ const config: SideChatConfig = defineSideChatConfig({
   },
   timeouts: {
     queueMs: 5_000,
-    providerMs: 45_000,
+    providerMs: 180_000,
     clientToolMs: 30_000,
   },
   agent: {

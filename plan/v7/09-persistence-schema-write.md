@@ -34,7 +34,7 @@ Depends on: Step 05 (interfaces agreed; may run in parallel with 06–08). Unblo
 - **Ids**: AI SDK `createIdGenerator()` creates all `UIMessage.id` values with one configured prefix/size; repository DB-id utilities continue to create conversation/turn/audit row ids. Never derive ids from mutable content.
 - **User message**: persisted in the Step 05 route after admission.
 - **Assistant message**: persisted in `onEnd` from the final `UIMessage`. **Upsert keyed on the deterministic message id** because `onEnd` may replay after a crash.
-- **Terminal transition**: `running → terminal` is a guarded state transition executed once; a second attempt is a no-op. Combined with the workflow-level catch (Step 05), the invariant holds: **no turn ends without durable status** — this replaces the reaper.
+- **Terminal transition**: `running → terminal` is a guarded state transition executed once; a second attempt is a no-op. The Workflow finalizer owns the normal path. [ADR 0018](../../docs/adr/0018-terminal-projection-reconciliation.md) adds a bounded cross-schema backstop when the Workflow run is terminal or missing but the product row still says `running`; it does not restore lease or age-based death detection.
 - **Usage**: from the end event's aggregate usage (v7 aggregates across steps; `finalStep` is last-step-only — don't confuse them).
 - **Failure path**: persist exactly the client-visible partial assistant `UIMessage` on mid-stream failure; the turn row carries `failed` plus the safe error code. Do not discard already-rendered text and do not append raw provider error content to message parts.
 
@@ -46,6 +46,9 @@ Depends on: Step 05 (interfaces agreed; may run in parallel with 06–08). Unblo
 4. concurrent second turn while one is `running` → unique-index rejection surfaces as the busy error (race-safe, not check-then-act);
 5. tenant isolation on every write (two-tenant test);
 6. empty assistant message (Step 08 case) persists with a sane shape.
+7. terminal Workflow run plus product `running` row → the reconciler records a safe failed terminal projection once;
+8. missing bound Workflow run plus product `running` row → the reconciler records a safe failed terminal projection once;
+9. cancel against a terminal or missing bound run → reconcile or record cancellation and acknowledge instead of returning resource unavailable.
 
 ## Verification
 
@@ -64,7 +67,7 @@ If the container command is unavailable, the step stays `in_review`, not `comple
 ## Completion checklist
 
 - [x] Schema via standard drizzle workflow; no lease shapes; DDL recorded.
-- [x] Idempotent assistant upsert + guarded terminal transition proven under replay.
+- [x] Atomic aggregate finalization + guarded terminal transition proven under replay.
 - [x] Partial unique index backing the busy check.
 - [x] Edge cases proven against a real container (see deviations for 1/6).
 
@@ -72,9 +75,9 @@ If the container command is unavailable, the step stays `in_review`, not `comple
 
 Scope decision: the user dropped the "keep the old app green" constraint (2026-07-11) to avoid a dual-schema coexistence. `packages/db` was reshaped in place for v7; the old app (`partner-ai-service`, `partner-ai-core`) is left non-compiling on purpose and stays only as the Step 08 parity reference until Step 20 deletes it. The v7 wing (db + service) is fully green and container-verified.
 
-Final DDL and id policy: `messages.parts jsonb` (the durable `UIMessage` body, no `content_text`); `assistant_turns` folds usage (`input/output/total/reasoning/cached_input_tokens`), adds `run_id` + provenance (`model_provider/model_id/instructions_version/config_version/content_filter_version`), drops all four lease columns, and enforces the busy guard with the partial unique index `assistant_turns_one_running_per_conversation_uq (conversation_id) WHERE status='running'`; `conversations.legal_hold`. Deleted: the lease/reaper subsystem, the turn cancel/activity NOTIFY machinery, and the entire in-memory db adapter. **Ids**: `UIMessage.id` is caller-generated and deterministic (the service passes `${turnId}-assistant` / the accepted user id) and is the upsert key; conversation/turn ids keep the repository id generators. Repository terminal write is one method — `claimAssistantTurnTerminal` (guarded `UPDATE ... WHERE status='running'`).
+Final DDL and id policy: `messages.parts jsonb` (the durable `UIMessage` body, no `content_text`); `assistant_turns` folds usage (`input/output/total/reasoning/cached_input_tokens`), adds `run_id` + provenance (`model_provider/model_id/instructions_version/config_version/content_filter_version`), drops all four lease columns, and enforces the busy guard with the partial unique index `assistant_turns_one_running_per_conversation_uq (conversation_id) WHERE status='running'`; `conversations.legal_hold`. Deleted: the lease/reaper subsystem and the entire in-memory db adapter. **Ids**: `UIMessage.id` is caller-generated and deterministic (the service passes `${turnId}-assistant` / the accepted user id) and is the upsert key; conversation/turn ids keep the repository id generators. The corrected repository terminal boundary is `finalizeAssistantTurn`: one transaction guards the running-to-terminal transition and commits the optional assistant message, usage, conversation timestamp, and identity-only activity notification. ADR 0017 supersedes the earlier separate-claim handoff.
 
-`onEnd` payload source used: the v7 service has no Vercel `onEnd`; the durable Workflow terminal outcome flows to `finalize-turn`, which appends the assistant message (id-keyed upsert) and calls `claimAssistantTurnTerminal`. Assistant text is mapped to `parts: [{type:'text', text}]` by the persistence adapter (the app keeps its simple `TurnMessage`; the durable row is a valid `UIMessage`).
+`onEnd` payload source used: the v7 service has no Vercel `onEnd`; the durable Workflow terminal outcome flows to `finalize-turn`, which calls the aggregate finalization boundary once. Safe completed or interrupted assistant output is already a durable-valid `UIMessage`; content-filtered output is excluded. A replay after a committed terminal observes `claimed: false` and does not duplicate history.
 
 Partial-persist invariant evidence: `packages/db` `test:db:container` 13/13 and a service adapter round-trip against real Postgres 6/6 — proving the race-safe busy guard (2nd concurrent begin → `conversation_busy` → `BUSY`), id-keyed idempotent replay of begin/append/claim, the guarded terminal CAS (already-terminal replay is a no-op), cross-subject `FORBIDDEN`, and `assertRunOwned` rejection. drizzle 0.45.2 wraps the driver error in `DrizzleQueryError`, so the unique-constraint name is read from `error.cause`.
 

@@ -58,16 +58,13 @@ export function createCompatibilityApp(): Hono {
     return context.json(await startWrapperApprovalGateProbe(request.requestId));
   });
 
-  app.post(
-    "/compatibility/probes/wrapper-approval-gate/:runId/:approvalId",
-    async (context) => {
-      const resumed = await approveWrapperApprovalGate(
-        context.req.param("runId"),
-        context.req.param("approvalId"),
-      );
-      return context.json({ resumed }, resumed ? 200 : 404);
-    },
-  );
+  app.post("/compatibility/probes/wrapper-approval-gate/:runId/:approvalId", async (context) => {
+    const resumed = await approveWrapperApprovalGate(
+      context.req.param("runId"),
+      context.req.param("approvalId"),
+    );
+    return context.json({ resumed }, resumed ? 200 : 404);
+  });
 
   app.get("/compatibility/chat-turns/:runId/journal-shape", async (context) => {
     return context.json(await inspectTestingChatTurnJournal(context.req.param("runId")));

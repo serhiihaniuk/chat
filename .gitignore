@@ -45,10 +45,5 @@ design_system.html
 # Workflow engine local run data (dev)
 .workflow-data/
 
-# Pi restores these from .pi/settings.json or creates them at runtime.
-.pi/npm/
-.pi/git/
-.pi/runtime/
-.pi/sessions/
-.pi/worktrees/
+# Generated agent transcripts and prompt artifacts are local runtime data.
 .pi-subagents/

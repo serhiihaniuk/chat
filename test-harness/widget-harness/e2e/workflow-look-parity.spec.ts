@@ -114,6 +114,10 @@ async function routeNativeFixture(page: Page): Promise<void> {
   await page.route("**/side-chat-api/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (path.endsWith("/capabilities")) {
+      await route.fulfill({ json: { hostContext: { enabled: false } } });
+      return;
+    }
     if (path.endsWith("/conversations")) {
       await route.fulfill({
         json: {
@@ -142,12 +146,19 @@ async function routeNativeFixture(page: Page): Promise<void> {
       await route.fulfill({ json: { tools: [] } });
       return;
     }
-    if (path.endsWith("/messages")) {
-      await route.fulfill({ json: { messages: nativeMessages } });
+    if (path.endsWith("/state")) {
+      await route.fulfill({ json: { messages: nativeMessages, activeTurn: null } });
       return;
     }
-    if (path.endsWith("/active-turn")) {
-      await route.fulfill({ json: { activeTurn: null } });
+    if (path.endsWith("/activity")) {
+      await route.fulfill({
+        body: `data: ${JSON.stringify({
+          type: "sidechat.turn-activity-sync",
+          activeTurns: [],
+        })}\n\n`,
+        contentType: "text/event-stream",
+        status: 200,
+      });
       return;
     }
     await route.abort("failed");

@@ -231,7 +231,6 @@ const renderConversation = (root: Root, messages: readonly WidgetMessage[]): voi
         isLoadingHistory={false}
         messages={messages}
         onRetry={() => undefined}
-        reasoningVisibility="minimal"
       />,
     );
   });

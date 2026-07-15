@@ -52,6 +52,12 @@ export type ConversationHistoryPage = Readonly<{
   nextBeforeSequenceIndex?: number | undefined;
 }>;
 
+/** One transactionally coherent selected-conversation read model. */
+export type ConversationStateSnapshot = Readonly<{
+  history: ConversationHistoryPage;
+  activeTurn?: ActiveConversationTurn | undefined;
+}>;
+
 /** Read-only persistence seam for the route-owned conversation resources. */
 export interface ConversationQueryStore {
   readHistory(
@@ -59,11 +65,8 @@ export interface ConversationQueryStore {
     conversationId: string,
     query?: ConversationHistoryQuery,
   ): Promise<ConversationHistoryPage>;
+  readState(auth: AuthContext, conversationId: string): Promise<ConversationStateSnapshot>;
   listConversations(auth: AuthContext): Promise<readonly ConversationSummary[]>;
   /** Read every bound running turn owned by this authenticated subject. */
   listActiveTurns(auth: AuthContext): Promise<readonly ActiveConversationTurnSummary[]>;
-  findActiveTurn(
-    auth: AuthContext,
-    conversationId: string,
-  ): Promise<ActiveConversationTurn | undefined>;
 }

@@ -13,6 +13,24 @@ const allowedCatalogInputs = new Set([
   "apps/side-chat-service/sidechat.azure.config.ts",
   "apps/side-chat-service/sidechat.fake.config.ts",
 ]);
+// Each exception is one pool-owning Node `use step` seam. Keeping exact
+// file/specifier pairs prevents this from becoming a general adapter escape.
+const workflowStepBoundaryImports = new Set([
+  `${sourceRoot}workflows/production/client-tool-dispatch.ts::#composition/workflow/client-tool-store`,
+  `${sourceRoot}workflows/production/chat-turn-claim.ts::#composition/workflow/turn-execution-store`,
+  `${sourceRoot}workflows/production/approvals/tool-approval.ts::#composition/workflow/tool-approval-store`,
+  `${sourceRoot}workflows/production/conversation-title/persist-conversation-title.ts::#adapters/persistence/postgres-turn-state`,
+  `${sourceRoot}workflows/production/conversation-title/record-conversation-title-run.ts::#adapters/persistence/postgres-turn-state`,
+  `${sourceRoot}workflows/production/chat-turn-finalize.ts::#adapters/persistence/postgres-turn-state`,
+]);
+const allowedWorkflowDependencies = new Set([
+  "ai",
+  "workflow",
+  "@ai-sdk/workflow",
+  // Durable workflows persist native UI messages. This zero-dependency contract
+  // owns their public metadata vocabulary; it is not an outer implementation.
+  "@side-chat/stream-profile",
+]);
 const errors = [];
 const sourceFiles = listSourceFiles(root).filter(
   (file) => file.startsWith(sourceRoot) || allowedCatalogInputs.has(file),
@@ -202,44 +220,7 @@ function isAdapterBoundaryViolation(specifier) {
 }
 
 function isWorkflowBoundaryViolation(file, specifier) {
-  if (
-    file === `${sourceRoot}workflows/production/client-tool-dispatch.ts` &&
-    specifier === "#composition/workflow/client-tool-store"
-  ) {
-    // This exact import is a Node-only store factory called directly inside
-    // one `use step` activity; widening it would leak adapters into workflows.
-    return false;
-  }
-  if (
-    file === `${sourceRoot}workflows/production/approvals/tool-approval.ts` &&
-    specifier === "#composition/workflow/tool-approval-store"
-  ) {
-    // The approval state machine uses the same pool-owning Node step seam as
-    // client-tool dispatch; workflow-realm code still cannot import adapters.
-    return false;
-  }
-  if (
-    file === `${sourceRoot}workflows/production/conversation-title/persist-conversation-title.ts` &&
-    specifier === "#adapters/persistence/postgres-turn-state"
-  ) {
-    return false;
-  }
-  if (
-    file ===
-      `${sourceRoot}workflows/production/conversation-title/record-conversation-title-run.ts` &&
-    specifier === "#adapters/persistence/postgres-turn-state"
-  ) {
-    // Same Node `use step` pool-owning seam as persist-conversation-title.ts.
-    return false;
-  }
-  if (
-    file === `${sourceRoot}workflows/production/chat-turn-finalize.ts` &&
-    specifier === "#adapters/persistence/postgres-turn-state"
-  ) {
-    // The durable finalize step owns and closes its own pool inside one Node
-    // `use step` activity, the same seam persist-conversation-title.ts uses.
-    return false;
-  }
+  if (workflowStepBoundaryImports.has(`${file}::${specifier}`)) return false;
   if (specifier.startsWith(".")) return false;
   if (specifier.startsWith("#application/")) return false;
   // Domain is the innermost pure layer with no outward dependencies, so any
@@ -253,10 +234,7 @@ function isWorkflowBoundaryViolation(file, specifier) {
   if (specifier === "#composition/workflow/testing") {
     return !file.startsWith(`${sourceRoot}workflows/testing/`);
   }
-  if (specifier === "ai" || specifier === "workflow" || specifier.startsWith("workflow/")) {
-    return false;
-  }
-  if (specifier === "@ai-sdk/workflow") return false;
+  if (allowedWorkflowDependencies.has(specifier) || specifier.startsWith("workflow/")) return false;
   return !specifier.startsWith("vitest");
 }
 

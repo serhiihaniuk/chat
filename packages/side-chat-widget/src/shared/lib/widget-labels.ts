@@ -32,7 +32,6 @@ export type WidgetLabels = {
   readonly activityApprovalRequired: string;
   readonly approvalApprove: string;
   readonly approvalDeny: string;
-  readonly approvalReason: string;
   readonly approvalApproved: string;
   readonly approvalDenied: string;
   readonly approvalExpired: string;
@@ -94,7 +93,6 @@ export const defaultWidgetLabels: WidgetLabels = {
   activityApprovalRequired: "Approval required",
   approvalApprove: "Approve",
   approvalDeny: "Deny",
-  approvalReason: "Reason (optional)",
   approvalApproved: "Approved",
   approvalDenied: "Denied",
   approvalExpired: "Approval expired",
@@ -156,7 +154,6 @@ export const resolveWidgetLabels = (overrides: SideChatWidgetLabels | undefined)
     activityApprovalRequired: read("activityApprovalRequired"),
     approvalApprove: read("approvalApprove"),
     approvalDeny: read("approvalDeny"),
-    approvalReason: read("approvalReason"),
     approvalApproved: read("approvalApproved"),
     approvalDenied: read("approvalDenied"),
     approvalExpired: read("approvalExpired"),

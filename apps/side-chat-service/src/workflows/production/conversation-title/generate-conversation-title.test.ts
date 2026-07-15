@@ -23,11 +23,7 @@ it("does not resolve a persistent title workflow before its durable write", asyn
         releaseWrite = resolve;
       }),
   );
-  const result = finalizeGeneratedConversationTitle(
-    INPUT,
-    "Pricing launch plan",
-    persist,
-  );
+  const result = finalizeGeneratedConversationTitle(INPUT, "Pricing launch plan", persist);
   let resolved = false;
   void result.then(() => {
     resolved = true;

@@ -5,12 +5,13 @@ export {
 export {
   cancelWorkflowChatRun,
   normalizeWorkflowChatError,
-  readWorkflowActiveTurn,
-  readWorkflowChatHistory,
+  openWorkflowActivityStream,
+  readWorkflowConversationState,
   WORKFLOW_CHAT_TRANSPORT_ERROR_CODE,
 } from "./model/workflow-chat-client.js";
 export type {
   WorkflowActiveTurn,
+  WorkflowConversationState,
   WorkflowChatClient,
   WorkflowChatHttpError,
   WorkflowChatRequestConfig,

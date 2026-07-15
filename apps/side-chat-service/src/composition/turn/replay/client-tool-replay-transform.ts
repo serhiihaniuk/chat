@@ -8,71 +8,102 @@ import type { UIMessageChunk } from "ai";
  * scrub chain. The current server-tool catalog is empty, so every replayed tool
  * call is client-owned; Step 12 must pass explicit ownership when that changes.
  *
- * Preserved invariant: ordinary content, distinct tool calls, and incomplete
- * cursor suffixes keep their original order. Only a later completed step whose
- * tool-call ids were already emitted is removed.
+ * Preserved invariant: ordinary content streams immediately and incomplete
+ * cursor suffixes keep their order. The transform holds only `start-step` long
+ * enough to identify a repeated tool step; it never buffers a live text step.
  */
-export function normalizeClientToolReplay(): TransformStream<
-  UIMessageChunk,
-  UIMessageChunk
-> {
+export function normalizeClientToolReplay(): TransformStream<UIMessageChunk, UIMessageChunk> {
   const completedToolCalls = new Set<string>();
-  let bufferedStep: UIMessageChunk[] | undefined;
+  let activeStep: ReplayStep | undefined;
 
   return new TransformStream({
     transform(chunk, controller) {
       if (chunk.type === "start-step") {
-        flushPartialStep(bufferedStep, controller);
-        bufferedStep = [chunk];
+        flushInterruptedStep(activeStep, controller);
+        activeStep = {
+          start: chunk,
+          mode: "pending",
+          toolCallIds: new Set(),
+        };
         return;
       }
-      if (bufferedStep === undefined) {
+      if (activeStep === undefined) {
         controller.enqueue(markClientToolChunk(chunk));
         return;
       }
-
-      bufferedStep.push(chunk);
-      if (chunk.type !== "finish-step") return;
-      flushCompletedStep(bufferedStep, completedToolCalls, controller);
-      bufferedStep = undefined;
+      if (chunk.type === "finish-step") {
+        finishStep(activeStep, chunk, completedToolCalls, controller);
+        activeStep = undefined;
+        return;
+      }
+      forwardStepChunk(activeStep, chunk, completedToolCalls, controller);
     },
     flush(controller) {
-      flushPartialStep(bufferedStep, controller);
+      flushInterruptedStep(activeStep, controller);
     },
   });
 }
 
-function flushCompletedStep(
-  step: readonly UIMessageChunk[],
+type ReplayStep = {
+  readonly start: UIMessageChunk;
+  mode: "pending" | "passing" | "suppressing";
+  readonly toolCallIds: Set<string>;
+};
+
+function forwardStepChunk(
+  step: ReplayStep,
+  chunk: UIMessageChunk,
   completedToolCalls: Set<string>,
   controller: TransformStreamDefaultController<UIMessageChunk>,
 ): void {
-  const toolCallIds = step.flatMap(toolInputCallId);
-  const repeated =
-    toolCallIds.length > 0 &&
-    toolCallIds.every((toolCallId) => completedToolCalls.has(toolCallId));
-  if (repeated) return;
-  for (const chunk of step) controller.enqueue(markClientToolChunk(chunk));
-  for (const toolCallId of toolCallIds) completedToolCalls.add(toolCallId);
+  const toolCallId = replayToolCallId(chunk);
+  if (step.mode === "pending") {
+    if (toolCallId !== undefined && completedToolCalls.has(toolCallId)) {
+      step.mode = "suppressing";
+      return;
+    }
+    controller.enqueue(step.start);
+    step.mode = "passing";
+  }
+  if (step.mode === "suppressing") return;
+  if (toolCallId !== undefined) {
+    if (completedToolCalls.has(toolCallId)) return;
+    step.toolCallIds.add(toolCallId);
+  }
+  controller.enqueue(markClientToolChunk(chunk));
 }
 
-function flushPartialStep(
-  step: readonly UIMessageChunk[] | undefined,
+function finishStep(
+  step: ReplayStep,
+  finish: UIMessageChunk,
+  completedToolCalls: Set<string>,
   controller: TransformStreamDefaultController<UIMessageChunk>,
 ): void {
-  if (step === undefined) return;
-  for (const chunk of step) controller.enqueue(markClientToolChunk(chunk));
+  if (step.mode === "suppressing") return;
+  if (step.mode === "pending") controller.enqueue(step.start);
+  controller.enqueue(finish);
+  for (const toolCallId of step.toolCallIds) completedToolCalls.add(toolCallId);
 }
 
-function toolInputCallId(chunk: UIMessageChunk): string[] {
+function flushInterruptedStep(
+  step: ReplayStep | undefined,
+  controller: TransformStreamDefaultController<UIMessageChunk>,
+): void {
+  if (step?.mode === "pending") controller.enqueue(step.start);
+}
+
+function replayToolCallId(chunk: UIMessageChunk): string | undefined {
   if (
-    chunk.type !== "tool-input-start" &&
-    chunk.type !== "tool-input-available" &&
-    chunk.type !== "tool-input-error"
+    chunk.type === "tool-input-start" ||
+    chunk.type === "tool-input-delta" ||
+    chunk.type === "tool-input-available" ||
+    chunk.type === "tool-input-error" ||
+    chunk.type === "tool-output-available" ||
+    chunk.type === "tool-output-error"
   ) {
-    return [];
+    return chunk.toolCallId;
   }
-  return [chunk.toolCallId];
+  return undefined;
 }
 
 function markClientToolChunk(chunk: UIMessageChunk): UIMessageChunk {

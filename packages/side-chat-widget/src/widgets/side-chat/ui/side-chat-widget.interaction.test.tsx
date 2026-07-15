@@ -86,19 +86,14 @@ describe("SideChatWidget interactions", () => {
       },
     );
 
-    renderWidget(
-      client,
-      {
-        dispatchCommand: dispatchCommandImpl,
-        getContext: () =>
-          Promise.resolve({
-            schemaVersion: "test.host-context.v1",
-            collectedAt: "2026-05-23T13:00:00.000Z",
-          }),
-      },
-      // Detailed exposure expands the rebuilt reasoning trace while the turn streams.
-      "detailed",
-    );
+    renderWidget(client, {
+      dispatchCommand: dispatchCommandImpl,
+      getContext: () =>
+        Promise.resolve({
+          schemaVersion: "test.host-context.v1",
+          collectedAt: "2026-05-23T13:00:00.000Z",
+        }),
+    });
     await submit("open record");
 
     await waitForText("Open resource");
@@ -239,7 +234,6 @@ describe("SideChatWidget interactions", () => {
 const renderWidget = (
   client: SideChatApiClient,
   hostBridge?: Pick<HostBridge, "getContext" | "dispatchCommand">,
-  reasoningVisibility?: "minimal" | "detailed",
 ) =>
   mountWidget(
     <SideChatWidget
@@ -248,7 +242,6 @@ const renderWidget = (
       defaultTurnProfileId="gpt-5.4-mini"
       labels={{ placeholder: "Message", send: "Send", title: "Workspace Assistant" }}
       {...omitUndefinedField("hostBridge", hostBridge)}
-      {...omitUndefinedField("reasoningVisibility", reasoningVisibility)}
     />,
   );
 

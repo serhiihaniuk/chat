@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  CLIENT_TOOL_CATALOG_LIMITS,
-  hasClientToolNameConflict,
-} from "./client-tool-catalog.js";
+import { CLIENT_TOOL_CATALOG_LIMITS, hasClientToolNameConflict } from "./client-tool-catalog.js";
 import { isSupportedClientToolSchema } from "./client-tool-schema.js";
 
 const openFileTool = {
@@ -20,12 +17,8 @@ const openFileTool = {
 describe("client tool catalog", () => {
   it("detects duplicate and server-shadowing names before admission", () => {
     expect(hasClientToolNameConflict([openFileTool, openFileTool])).toBe(true);
-    expect(
-      hasClientToolNameConflict([openFileTool], new Set([openFileTool.name])),
-    ).toBe(true);
-    expect(
-      hasClientToolNameConflict([openFileTool], new Set(["search_web"])),
-    ).toBe(false);
+    expect(hasClientToolNameConflict([openFileTool], new Set([openFileTool.name]))).toBe(true);
+    expect(hasClientToolNameConflict([openFileTool], new Set(["search_web"]))).toBe(false);
   });
 
   it("admits the pinned Workflow draft-07 subset and rejects unsupported schema features", () => {
@@ -36,9 +29,7 @@ describe("client tool catalog", () => {
         pattern: "^[A-Za-z0-9_-]{1,64}$",
       }),
     ).toBe(true);
-    expect(
-      isSupportedClientToolSchema({ type: "string", format: "date-time" }),
-    ).toBe(false);
+    expect(isSupportedClientToolSchema({ type: "string", format: "date-time" })).toBe(false);
     expect(
       isSupportedClientToolSchema({
         $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -58,23 +49,16 @@ describe("client tool catalog", () => {
     [{ $ref: "https://example.com/schema.json" }, "remote reference"],
     [{ pattern: "(a+)+$" }, "nested-quantifier pattern"],
     [{ pattern: "[" }, "invalid pattern"],
-  ] as const)(
-    "rejects malformed or unsafe keyword values: %s",
-    (schema, _reason) => {
-      expect(isSupportedClientToolSchema(schema)).toBe(false);
-    },
-  );
+  ] as const)("rejects malformed or unsafe keyword values: %s", (schema, _reason) => {
+    expect(isSupportedClientToolSchema(schema)).toBe(false);
+  });
 
   it("bounds schema depth, node count, and serialized bytes", () => {
     expect(
-      isSupportedClientToolSchema(
-        nestedSchema(CLIENT_TOOL_CATALOG_LIMITS.MAX_SCHEMA_DEPTH),
-      ),
+      isSupportedClientToolSchema(nestedSchema(CLIENT_TOOL_CATALOG_LIMITS.MAX_SCHEMA_DEPTH)),
     ).toBe(true);
     expect(
-      isSupportedClientToolSchema(
-        nestedSchema(CLIENT_TOOL_CATALOG_LIMITS.MAX_SCHEMA_DEPTH + 1),
-      ),
+      isSupportedClientToolSchema(nestedSchema(CLIENT_TOOL_CATALOG_LIMITS.MAX_SCHEMA_DEPTH + 1)),
     ).toBe(false);
 
     const tooManyNodes = {

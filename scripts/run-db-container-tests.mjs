@@ -5,6 +5,7 @@ import {
   applySidechatMigrations,
   startPostgresTestContainer,
 } from "./lib/postgres-testcontainer.mjs";
+import { applyWorkflowIntegrationGrants } from "./lib/apply-workflow-integration-grants.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 
@@ -16,6 +17,7 @@ const run = async () => {
     await spawnNode(["node_modules/@workflow/world-postgres/bin/setup.js"], {
       WORKFLOW_POSTGRES_URL: postgres.connectionString,
     });
+    await applyWorkflowIntegrationGrants(postgres.connectionString);
     await spawnNpm(["run", "test:db:integration"], {
       SIDECHAT_TEST_DATABASE_URL: postgres.connectionString,
       WORKFLOW_POSTGRES_URL: postgres.connectionString,

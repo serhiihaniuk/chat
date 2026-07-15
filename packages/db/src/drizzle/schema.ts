@@ -124,6 +124,14 @@ export const assistantTurns = sidechat.table(
     // The durable Workflow run this turn attaches to (reconnect/replay handle).
     // Null between the turn row insert and the run start, then bound once.
     runId: text("run_id"),
+    runBoundAt: timestamp("run_bound_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
+    cancelRequestedAt: timestamp("cancel_requested_at", {
+      mode: "string",
+      withTimezone: true,
+    }),
     // Provenance for a regulated deployment: exactly which model, prompt, config,
     // and content-filter version produced this turn (KNOWLEDGE §Regulated).
     modelProvider: text("model_provider").notNull(),
@@ -131,7 +139,7 @@ export const assistantTurns = sidechat.table(
     instructionsVersion: text("instructions_version").notNull(),
     configVersion: text("config_version").notNull(),
     contentFilterVersion: text("content_filter_version").notNull(),
-    status: text("status").$type<AssistantTurnStatus>().notNull().default("running"),
+    status: text("status").$type<AssistantTurnStatus>().notNull().default("open"),
     finishReason: text("finish_reason"),
     errorCode: text("error_code"),
     // Aggregate usage across all steps, folded onto the turn (v7 token detail).
@@ -163,9 +171,13 @@ export const assistantTurns = sidechat.table(
     // race-safe busy guard: a concurrent second turn hits a unique violation
     // instead of a check-then-act window. Partial, so it covers only the tiny
     // in-flight working set and terminal turns never collide.
-    uniqueIndex(SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_ONE_RUNNING_PER_CONVERSATION)
+    uniqueIndex(SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_ONE_OPEN_PER_CONVERSATION)
       .on(table.conversationId)
-      .where(sql`status = 'running'`),
+      .where(sql`status = 'open'`),
+    check(
+      "assistant_turns_run_binding_check",
+      sql`(run_id is null and run_bound_at is null) or (run_id is not null and run_bound_at is not null)`,
+    ),
     check("assistant_turns_status_check", inList("status", ASSISTANT_TURN_STATUSES)),
   ],
 );

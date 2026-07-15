@@ -135,9 +135,7 @@ export const createHarnessHostBridge = (
   };
 };
 
-export const createHarnessHostContext = (
-  config: WidgetHarnessConfig,
-): HostContext => ({
+export const createHarnessHostContext = (config: WidgetHarnessConfig): HostContext => ({
   schemaVersion: "widget-harness.host-context.v1",
   origin: "http://localhost:5173",
   title: `${config.workspaceId} widget harness`,

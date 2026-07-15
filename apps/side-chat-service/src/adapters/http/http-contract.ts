@@ -16,9 +16,10 @@ export const CHAT_HTTP_ROUTES = {
 
 export const QUERY_HTTP_ROUTES = {
   CAPABILITIES: "/api/capabilities",
+  ACTIVITY: "/api/activity",
   CONVERSATIONS: "/api/conversations",
   MESSAGES: "/api/conversations/:conversationId/messages",
-  ACTIVE_TURN: "/api/conversations/:conversationId/active-turn",
+  STATE: "/api/conversations/:conversationId/state",
   MODELS: "/api/models",
   TOOLS: "/api/tools",
 } as const;

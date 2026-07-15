@@ -1,5 +1,8 @@
 import type { TurnExecution } from "#application/ports/turn/turn-execution";
-import type { TurnStore } from "#application/ports/turn/turn-store";
+import {
+  CANCEL_REQUEST_DISPOSITIONS,
+  type TurnCancellationStore,
+} from "#application/ports/turn/turn-store";
 import type { AuthContext } from "#domain/auth-context";
 
 export type CancelTurnInput = Readonly<{
@@ -9,10 +12,16 @@ export type CancelTurnInput = Readonly<{
 }>;
 
 export async function cancelTurn(
-  turns: TurnStore,
+  turns: TurnCancellationStore,
   execution: TurnExecution,
   input: CancelTurnInput,
 ): Promise<void> {
-  await turns.assertRunOwned(input.auth, input.conversationId, input.runId);
-  await execution.cancel(input.runId);
+  const disposition = await turns.requestCancellation(
+    input.auth,
+    input.conversationId,
+    input.runId,
+  );
+  if (disposition === CANCEL_REQUEST_DISPOSITIONS.DELIVER) {
+    await execution.cancel(input.runId);
+  }
 }

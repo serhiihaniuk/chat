@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  HostCapabilities,
-  WidgetHostBridge,
-} from "@side-chat/host-bridge";
+import type { HostCapabilities, WidgetHostBridge } from "@side-chat/host-bridge";
 
 import type { WorkflowChatClient } from "#entities/workflow-chat";
 
@@ -22,20 +19,16 @@ const capabilities: HostCapabilities = {
 
 describe("dispatchWorkflowClientTool", () => {
   it("dispatches a dynamic tool through the bridge and posts its success", async () => {
-    const dispatch = vi.fn<NonNullable<WidgetHostBridge["dispatchToolCall"]>>(
-      async (toolCall) => ({
-        toolCallId: toolCall.toolCallId,
-        toolName: toolCall.toolName,
-        status: "applied" as const,
-        resultCode: "opened",
-        resolvedAt: "2026-07-12T00:00:00.000Z",
-        data: { persisted: false },
-      }),
-    );
+    const dispatch = vi.fn<NonNullable<WidgetHostBridge["dispatchToolCall"]>>(async (toolCall) => ({
+      toolCallId: toolCall.toolCallId,
+      toolName: toolCall.toolName,
+      status: "applied" as const,
+      resultCode: "opened",
+      resolvedAt: "2026-07-12T00:00:00.000Z",
+      data: { persisted: false },
+    }));
     const bridge = createBridge({ dispatchToolCall: dispatch });
-    const request = vi.fn<typeof fetch>(() =>
-      Promise.resolve(Response.json({ accepted: true })),
-    );
+    const request = vi.fn<typeof fetch>(() => Promise.resolve(Response.json({ accepted: true })));
     const outcome = await dispatchWorkflowClientTool({
       client: createClient(request),
       hostBridge: bridge,
@@ -71,9 +64,7 @@ describe("dispatchWorkflowClientTool", () => {
       capabilities: { schemaVersion: "test.capabilities.v1", commands: [] },
       dispatchToolCall: dispatch,
     });
-    const request = vi.fn<typeof fetch>(() =>
-      Promise.resolve(Response.json({ accepted: true })),
-    );
+    const request = vi.fn<typeof fetch>(() => Promise.resolve(Response.json({ accepted: true })));
     const outcome = await dispatchWorkflowClientTool({
       client: createClient(request),
       hostBridge: bridge,
@@ -95,15 +86,11 @@ describe("dispatchWorkflowClientTool", () => {
 
   it("turns a throwing dispatcher into a posted failed result", async () => {
     const bridge = createBridge({
-      dispatchToolCall: vi.fn<
-        NonNullable<WidgetHostBridge["dispatchToolCall"]>
-      >(async () => {
+      dispatchToolCall: vi.fn<NonNullable<WidgetHostBridge["dispatchToolCall"]>>(async () => {
         throw new Error("private host failure");
       }),
     });
-    const request = vi.fn<typeof fetch>(() =>
-      Promise.resolve(Response.json({ accepted: true })),
-    );
+    const request = vi.fn<typeof fetch>(() => Promise.resolve(Response.json({ accepted: true })));
 
     await expect(
       dispatchWorkflowClientTool({
@@ -124,9 +111,7 @@ describe("dispatchWorkflowClientTool", () => {
   });
 
   it("posts a calm failed result when no bridge is configured", async () => {
-    const request = vi.fn<typeof fetch>(() =>
-      Promise.resolve(Response.json({ accepted: true })),
-    );
+    const request = vi.fn<typeof fetch>(() => Promise.resolve(Response.json({ accepted: true })));
 
     await expect(
       dispatchWorkflowClientTool({

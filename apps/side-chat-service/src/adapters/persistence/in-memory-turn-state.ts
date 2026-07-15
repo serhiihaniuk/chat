@@ -9,20 +9,30 @@ import {
   type ConversationQueryStore,
   type StoredConversationMessage,
 } from "#application/ports/conversation-query-store";
-import type { MessageStore } from "#application/ports/turn/message-store";
-import type { BeginTurnInput, TurnStore } from "#application/ports/turn/turn-store";
+import {
+  CANCEL_REQUEST_DISPOSITIONS,
+  TURN_CLAIM_DISPOSITIONS,
+  type BeginTurnInput,
+  type TurnStore,
+} from "#application/ports/turn/turn-store";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
 import type { TurnMessage, TurnRef, TurnTerminal } from "#domain/turn/turn";
 
 import {
-  findLatestBoundTurn,
   listOwnedActiveTurns,
   sameOwner,
   type InMemoryStoredTurn,
 } from "./in-memory-turn-state/active-turns.js";
+import { createInMemoryTurnActivity } from "./in-memory-turn-state/activity.js";
+import { asError } from "./in-memory-turn-state/errors.js";
 import { storedUIMessage, storedUserMessage } from "./in-memory-turn-state/messages.js";
+import {
+  assertInMemoryRunAccessible,
+  findInMemoryActiveTurn,
+  readInMemoryConversationState,
+} from "./in-memory-turn-state/queries.js";
 
 export type SeedConversation = Readonly<{
   conversationId: string;
@@ -32,17 +42,14 @@ export type SeedConversation = Readonly<{
 }>;
 
 /**
- * Disposable Step 05 repository for local service and contract tests. The seed
- * list is the complete conversation catalog: unknown ids and mismatched owners
- * are rejected exactly as a database adapter would reject them. Step 09 replaces
- * this class without changing the application ports.
+ * Disposable local repository whose seed list is the complete owned catalog;
+ * unknown ids and mismatched owners are rejected like the database adapter.
  */
 export class InMemoryTurnState
   implements
     ConversationStore,
     ConversationQueryStore,
     ConversationTitleStore,
-    MessageStore,
     TurnStore,
     TurnRunAccess
 {
@@ -50,6 +57,8 @@ export class InMemoryTurnState
   readonly assistantMessages: UIMessage[] = [];
   readonly terminals = new Map<string, TurnTerminal>();
   readonly runningTurns = new Set<string>();
+  private readonly turnActivity = createInMemoryTurnActivity();
+  readonly turnActivityNotifications = this.turnActivity.source;
 
   private readonly conversations = new Map<string, SeedConversation>();
   private readonly conversationMessages = new Map<string, StoredConversationMessage[]>();
@@ -78,10 +87,7 @@ export class InMemoryTurnState
   ): Promise<ConversationHistoryPage> {
     try {
       this.requireOwnedConversation(auth, conversationId);
-      // Backward paging over array position as the sequence index, mirroring the
-      // Postgres adapter: `beforeSequenceIndex` is an exclusive upper bound and
-      // `nextBeforeSequenceIndex` is the oldest returned position, present only
-      // while older messages remain.
+      // Array positions mirror the Postgres backward-history cursor semantics.
       const all = this.conversationMessages.get(conversationId) ?? [];
       const limit = query?.limit ?? DEFAULT_HISTORY_PAGE_LIMIT;
       const upperExclusive = Math.min(query?.beforeSequenceIndex ?? all.length, all.length);
@@ -96,6 +102,21 @@ export class InMemoryTurnState
     } catch (error) {
       return Promise.reject(asError(error));
     }
+  }
+
+  readState(auth: AuthContext, conversationId: string) {
+    return readInMemoryConversationState(
+      this.readHistory(auth, conversationId),
+      findInMemoryActiveTurn(
+        auth,
+        conversationId,
+        this.runningTurns,
+        this.turns.values(),
+        (owner, ownedConversationId) => {
+          this.requireOwnedConversation(owner, ownedConversationId);
+        },
+      ),
+    );
   }
 
   listConversations(auth: AuthContext) {
@@ -116,11 +137,10 @@ export class InMemoryTurnState
     );
   }
 
-  readTitleEligibility(auth: AuthContext, conversationId: string, initialUserMessageId: string) {
+  readTitleEligibility(auth: AuthContext, conversationId: string) {
     const conversation = this.requireOwnedConversation(auth, conversationId);
-    const firstMessage = this.conversationMessages.get(conversationId)?.[0];
     return Promise.resolve({
-      eligible: conversation.title === undefined && firstMessage?.id === initialUserMessageId,
+      eligible: conversation.title === undefined,
       ...(conversation.title === undefined ? {} : { existingTitle: conversation.title }),
     });
   }
@@ -128,7 +148,10 @@ export class InMemoryTurnState
   prepareConversationTitle(auth: AuthContext, conversationId: string, titleText: string) {
     const conversation = this.requireOwnedConversation(auth, conversationId);
     if (conversation.title === undefined) {
-      this.conversations.set(conversationId, { ...conversation, title: titleText });
+      this.conversations.set(conversationId, {
+        ...conversation,
+        title: titleText,
+      });
     }
     return Promise.resolve();
   }
@@ -136,22 +159,6 @@ export class InMemoryTurnState
   recordConversationTitleRun(): Promise<void> {
     // No durable Workflow journal exists here, so title-run linkage is a no-op.
     return Promise.resolve();
-  }
-
-  findActiveTurn(auth: AuthContext, conversationId: string) {
-    try {
-      this.requireOwnedConversation(auth, conversationId);
-      const active = this.runningTurns.has(conversationId)
-        ? findLatestBoundTurn(this.turns.values(), conversationId)
-        : undefined;
-      return Promise.resolve(
-        active?.runId
-          ? { turnId: active.reference.turnId, runId: active.runId, status: "running" as const }
-          : undefined,
-      );
-    } catch (error) {
-      return Promise.reject(asError(error));
-    }
   }
 
   assertCanBegin(auth: AuthContext, conversationId: string): Promise<void> {
@@ -185,8 +192,16 @@ export class InMemoryTurnState
 
   bindRun(turn: TurnRef, runId: string): Promise<void> {
     const stored = this.requireTurn(turn);
+    if (stored.runId === runId) return Promise.resolve();
     this.turns.set(turn.turnId, { ...stored, runId });
+    this.turnActivity.publish(turn, "running");
     return Promise.resolve();
+  }
+
+  async claimRun(turn: TurnRef, runId: string) {
+    if (this.terminals.has(turn.turnId)) return TURN_CLAIM_DISPOSITIONS.FENCED;
+    await this.bindRun(turn, runId);
+    return TURN_CLAIM_DISPOSITIONS.EXECUTE;
   }
 
   assertRunOwned(auth: AuthContext, conversationId: string, runId: string): Promise<void> {
@@ -204,35 +219,33 @@ export class InMemoryTurnState
     }
   }
 
-  assertAccessible(auth: AuthContext, runId: string): Promise<void> {
-    try {
-      const turn = [...this.turns.values()].find((candidate) => candidate.runId === runId);
-      if (!turn) throw runNotFound();
-      this.requireOwnedConversation(auth, turn.reference.conversationId);
-      return Promise.resolve();
-    } catch (error) {
-      // A run-only route must not distinguish an unknown id from another
-      // tenant's id, even though conversation routes retain their richer errors.
-      if (error instanceof TurnRejectedError) {
-        return Promise.reject(runNotFound());
-      }
-      return Promise.reject(asError(error));
-    }
+  async requestCancellation(auth: AuthContext, conversationId: string, runId: string) {
+    await this.assertRunOwned(auth, conversationId, runId);
+    return CANCEL_REQUEST_DISPOSITIONS.DELIVER;
   }
 
-  appendAssistantMessage(turn: TurnRef, message: UIMessage): Promise<void> {
-    this.requireTurn(turn);
-    this.assistantMessages.push(message);
-    this.appendConversationMessage(turn.conversationId, storedUIMessage(message));
-    return Promise.resolve();
+  assertAccessible(auth: AuthContext, runId: string): Promise<{ turnId: string }> {
+    return assertInMemoryRunAccessible(
+      auth,
+      runId,
+      this.turns.values(),
+      (owner, conversationId) => {
+        this.requireOwnedConversation(owner, conversationId);
+      },
+    );
   }
 
-  claimTerminal(turn: TurnRef, terminal: TurnTerminal): Promise<boolean> {
+  finalize(turn: TurnRef, record: Parameters<TurnStore["finalize"]>[1]): Promise<boolean> {
     this.requireTurn(turn);
     if (this.terminals.has(turn.turnId)) return Promise.resolve(false);
 
-    this.terminals.set(turn.turnId, terminal);
+    if (record.assistantMessage !== undefined) {
+      this.assistantMessages.push(record.assistantMessage);
+      this.appendConversationMessage(turn.conversationId, storedUIMessage(record.assistantMessage));
+    }
+    this.terminals.set(turn.turnId, record.terminal);
     this.runningTurns.delete(turn.conversationId);
+    this.turnActivity.publish(turn, record.terminal.status);
     return Promise.resolve(true);
   }
 
@@ -283,13 +296,4 @@ export class InMemoryTurnState
     const messages = this.conversationMessages.get(conversationId) ?? [];
     this.conversationMessages.set(conversationId, [...messages, message]);
   }
-}
-
-function asError(error: unknown): Error {
-  if (error instanceof Error) return error;
-  return new Error("Unexpected in-memory turn-state failure", { cause: error });
-}
-
-function runNotFound(): TurnRejectedError {
-  return new TurnRejectedError(TURN_REJECTION_CODES.RUN_NOT_FOUND, "Turn run not found");
 }

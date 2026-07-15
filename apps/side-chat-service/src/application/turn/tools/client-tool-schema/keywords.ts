@@ -60,11 +60,7 @@ export const SINGLE_SCHEMA_KEYWORDS = new Set([
   "contains",
 ]);
 export const STRING_KEYWORDS = new Set(["$comment", "title", "description"]);
-export const BOOLEAN_KEYWORDS = new Set([
-  "readOnly",
-  "writeOnly",
-  "uniqueItems",
-]);
+export const BOOLEAN_KEYWORDS = new Set(["readOnly", "writeOnly", "uniqueItems"]);
 export const FINITE_NUMBER_KEYWORDS = new Set([
   "maximum",
   "exclusiveMaximum",

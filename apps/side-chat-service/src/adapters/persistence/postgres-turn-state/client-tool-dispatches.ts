@@ -26,9 +26,7 @@ export function createPostgresClientToolDispatchStore(
     },
 
     async read(dispatch) {
-      const record = await repositories.findClientToolDispatch(
-        toRepositoryIdentity(dispatch),
-      );
+      const record = await repositories.findClientToolDispatch(toRepositoryIdentity(dispatch));
       return record === undefined ? undefined : toSnapshot(record);
     },
 
@@ -80,8 +78,7 @@ export function createPostgresClientToolDispatchStore(
         outputJson: output,
         now: new Date().toISOString(),
       });
-      if (result === undefined)
-        throw new Error("Client-tool dispatch disappeared during settle");
+      if (result === undefined) throw new Error("Client-tool dispatch disappeared during settle");
       return {
         disposition: result.disposition,
         state: result.record.state,
@@ -115,9 +112,7 @@ function toSnapshot(record: {
   };
 }
 
-function requireOutputEnvelope(
-  value: Readonly<Record<string, JsonValue>> | undefined,
-) {
+function requireOutputEnvelope(value: Readonly<Record<string, JsonValue>> | undefined) {
   if (value === undefined || !("value" in value)) {
     throw new Error("Settled client-tool dispatch has no model output");
   }

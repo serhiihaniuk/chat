@@ -23,177 +23,116 @@ let build: PreparedCompiledService | undefined;
 let firstService: CompiledService | undefined;
 let secondService: CompiledService | undefined;
 let stoppedServiceOutput = "";
-let databaseProbe:
-  | ReturnType<typeof createClientToolDurabilityProbe>
-  | undefined;
+let databaseProbe: ReturnType<typeof createClientToolDurabilityProbe> | undefined;
 
-describe.skipIf(!HAS_DATABASE)(
-  "client-tool durability",
-  { timeout: 180_000 },
-  () => {
-    beforeAll(async () => {
-      const databaseUrl = requireDatabaseUrl();
-      databaseProbe = createClientToolDurabilityProbe(databaseUrl);
-      build = await prepareCompiledService({
-        environment: {
-          ...serviceProcessEnv(),
-          [SERVICE_ENV_KEYS.SIDECHAT_DATABASE_URL]: databaseUrl,
-          [SERVICE_ENV_KEYS.WORKFLOW_POSTGRES_URL]: databaseUrl,
-          [SERVICE_ENV_KEYS.WORKFLOW_TARGET_WORLD]: "@workflow/world-postgres",
-        },
-        configName: BUNDLED_CONFIG_NAMES.FAKE,
-        configNameEnvKey: SERVICE_ENV_KEYS.CONFIG_NAME,
-        localBaseUrlEnvKey: SERVICE_ENV_KEYS.WORKFLOW_LOCAL_BASE_URL,
-        localDataDirectoryEnvKey: SERVICE_ENV_KEYS.WORKFLOW_LOCAL_DATA_DIR,
-        providerObservationPrefix: PROVIDER_OBSERVATION_PREFIX,
-        targetWorldEnvKey: SERVICE_ENV_KEYS.WORKFLOW_TARGET_WORLD,
-        useConfiguredTargetWorld: true,
-      });
-      firstService = await build.start();
-    }, 300_000);
+describe.skipIf(!HAS_DATABASE)("client-tool durability", { timeout: 180_000 }, () => {
+  beforeAll(async () => {
+    const databaseUrl = requireDatabaseUrl();
+    databaseProbe = createClientToolDurabilityProbe(databaseUrl);
+    build = await prepareCompiledService({
+      environment: {
+        ...serviceProcessEnv(),
+        [SERVICE_ENV_KEYS.SIDECHAT_DATABASE_URL]: databaseUrl,
+        [SERVICE_ENV_KEYS.WORKFLOW_POSTGRES_URL]: databaseUrl,
+        [SERVICE_ENV_KEYS.WORKFLOW_TARGET_WORLD]: "@workflow/world-postgres",
+      },
+      configName: BUNDLED_CONFIG_NAMES.FAKE,
+      configNameEnvKey: SERVICE_ENV_KEYS.CONFIG_NAME,
+      localBaseUrlEnvKey: SERVICE_ENV_KEYS.WORKFLOW_LOCAL_BASE_URL,
+      localDataDirectoryEnvKey: SERVICE_ENV_KEYS.WORKFLOW_LOCAL_DATA_DIR,
+      providerObservationPrefix: PROVIDER_OBSERVATION_PREFIX,
+      targetWorldEnvKey: SERVICE_ENV_KEYS.WORKFLOW_TARGET_WORLD,
+      useConfiguredTargetWorld: true,
+    });
+    firstService = await build.start();
+  }, 300_000);
 
-    afterAll(async () => {
-      await Promise.all([firstService?.close(), secondService?.close()]);
-      await databaseProbe?.close();
-      await build?.close();
-    }, 300_000);
+  afterAll(async () => {
+    await Promise.all([firstService?.close(), secondService?.close()]);
+    await databaseProbe?.close();
+    await build?.close();
+  }, 300_000);
 
-    it("resumes a dispatched tool after a full service restart", async () => {
-      const requestId = `client-tool-${crypto.randomUUID()}`;
-      const toolCallId = `client-tool-${requestId}`;
-      await requireDatabaseProbe().seedConversation(
-        `conversation-${requestId}`,
-      );
-      const started = await startClientToolTurn(
-        requireService(firstService),
-        requestId,
-      );
-      await expectStarted(started);
-      const runId = requireRunId(started);
+  it("resumes a dispatched tool after a full service restart", async () => {
+    const requestId = `client-tool-${crypto.randomUUID()}`;
+    const toolCallId = `client-tool-${requestId}`;
+    await requireDatabaseProbe().seedConversation(`conversation-${requestId}`);
+    const started = await startClientToolTurn(requireService(firstService), requestId);
+    await expectStarted(started);
+    const runId = requireRunId(started);
 
-      await requireDatabaseProbe().waitForDispatch(
-        runId,
-        toolCallId,
-        "dispatched",
-      );
-      await requireDatabaseProbe().waitForWorkflowHook(
-        `tool:${runId}:${toolCallId}`,
-      );
-      await started.body?.cancel();
-      stoppedServiceOutput = requireService(firstService).output();
-      await firstService?.close();
-      firstService = undefined;
-      secondService = await requireBuild().start();
+    await requireDatabaseProbe().waitForDispatch(runId, toolCallId, "dispatched");
+    await requireDatabaseProbe().waitForWorkflowHook(`tool:${runId}:${toolCallId}`);
+    await started.body?.cancel();
+    stoppedServiceOutput = requireService(firstService).output();
+    await firstService?.close();
+    firstService = undefined;
+    secondService = await requireBuild().start();
 
-      const acknowledgement = await submitWhenReady(
-        requireService(secondService),
-        runId,
-        toolCallId,
-      );
-      expect(acknowledgement).toMatchObject({
-        runId,
-        toolCallId,
-        state: "settled",
-        accepted: true,
-      });
-
-      const settled = await requireDatabaseProbe().waitForDispatch(
-        runId,
-        toolCallId,
-        "settled",
-      );
-      expect(settled.state).toBe("settled");
-      expect(
-        await requireDatabaseProbe().countDispatchRows(
-          settled.assistantTurnId,
-          toolCallId,
-        ),
-      ).toBe(1);
-      const replayStream = await replayCompletedTurn(runId);
-      assertCompletedStream(replayStream, requestId);
-      expect(replayStream).toContain('"output":{"status":"settled"}');
-      expect(countStreamParts(replayStream, "tool-input-available")).toBe(1);
-      expect(countStreamParts(replayStream, "tool-output-available")).toBe(1);
-      expect(combinedServiceOutput()).toContain(
-        '"event":"client-tool-output-observed"',
-      );
-      expect(combinedServiceOutput()).not.toContain(PRIVATE_TOOL_OUTPUT);
+    const acknowledgement = await submitWhenReady(requireService(secondService), runId, toolCallId);
+    expect(acknowledgement).toMatchObject({
+      runId,
+      toolCallId,
+      state: "settled",
+      accepted: true,
     });
 
-    it("settles an abandoned client-tool wait as timed out", async () => {
-      const requestId = `client-tool-timeout-${crypto.randomUUID()}`;
-      const toolCallId = `client-tool-${requestId}`;
-      await requireDatabaseProbe().seedConversation(
-        `conversation-${requestId}`,
-      );
-      const started = await startClientToolTurn(
-        requireService(secondService),
-        requestId,
-      );
-      const runId = requireRunId(started);
-      await requireDatabaseProbe().waitForDispatch(
-        runId,
-        toolCallId,
-        "dispatched",
-      );
+    const settled = await requireDatabaseProbe().waitForDispatch(runId, toolCallId, "settled");
+    expect(settled.state).toBe("settled");
+    expect(
+      await requireDatabaseProbe().countDispatchRows(settled.assistantTurnId, toolCallId),
+    ).toBe(1);
+    const replayStream = await replayCompletedTurn(runId);
+    assertCompletedStream(replayStream, requestId);
+    expect(replayStream).toContain('"output":{"status":"settled"}');
+    expect(countStreamParts(replayStream, "tool-input-available")).toBe(1);
+    expect(countStreamParts(replayStream, "tool-output-available")).toBe(1);
+    expect(combinedServiceOutput()).toContain('"event":"client-tool-output-observed"');
+    expect(combinedServiceOutput()).not.toContain(PRIVATE_TOOL_OUTPUT);
+  });
 
-      const stream = await started.text();
-      expect(
-        (
-          await requireDatabaseProbe().waitForDispatch(
-            runId,
-            toolCallId,
-            "timed_out",
-          )
-        ).state,
-      ).toBe("timed_out");
-      assertCompletedStream(stream, requestId);
-    });
+  it("settles an abandoned client-tool wait as timed out", async () => {
+    const requestId = `client-tool-timeout-${crypto.randomUUID()}`;
+    const toolCallId = `client-tool-${requestId}`;
+    await requireDatabaseProbe().seedConversation(`conversation-${requestId}`);
+    const started = await startClientToolTurn(requireService(secondService), requestId);
+    const runId = requireRunId(started);
+    await requireDatabaseProbe().waitForDispatch(runId, toolCallId, "dispatched");
 
-    it("settles a cancelled client-tool wait as aborted", async () => {
-      const requestId = `client-tool-cancel-${crypto.randomUUID()}`;
-      const toolCallId = `client-tool-${requestId}`;
-      const conversationId = `conversation-${requestId}`;
-      await requireDatabaseProbe().seedConversation(conversationId);
-      const started = await startClientToolTurn(
-        requireService(secondService),
-        requestId,
-      );
-      const runId = requireRunId(started);
-      await requireDatabaseProbe().waitForDispatch(
-        runId,
-        toolCallId,
-        "dispatched",
-      );
+    const stream = await started.text();
+    expect(
+      (await requireDatabaseProbe().waitForDispatch(runId, toolCallId, "timed_out")).state,
+    ).toBe("timed_out");
+    assertCompletedStream(stream, requestId);
+  });
 
-      const cancelled = await fetch(
-        `${requireService(secondService).baseUrl}/api/chat/${runId}/cancel`,
-        {
-          method: "POST",
-          headers: { ...AUTHORIZATION, "content-type": "application/json" },
-          body: JSON.stringify({ conversationId }),
-          signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
-        },
-      );
-      expect(cancelled.status).toBe(200);
-      await started.text();
-      expect(
-        (
-          await requireDatabaseProbe().waitForDispatch(
-            runId,
-            toolCallId,
-            "aborted",
-          )
-        ).state,
-      ).toBe("aborted");
-    });
-  },
-);
+  it("settles a cancelled client-tool wait as aborted", async () => {
+    const requestId = `client-tool-cancel-${crypto.randomUUID()}`;
+    const toolCallId = `client-tool-${requestId}`;
+    const conversationId = `conversation-${requestId}`;
+    await requireDatabaseProbe().seedConversation(conversationId);
+    const started = await startClientToolTurn(requireService(secondService), requestId);
+    const runId = requireRunId(started);
+    await requireDatabaseProbe().waitForDispatch(runId, toolCallId, "dispatched");
 
-function startClientToolTurn(
-  service: CompiledService,
-  requestId: string,
-): Promise<Response> {
+    const cancelled = await fetch(
+      `${requireService(secondService).baseUrl}/api/chat/${runId}/cancel`,
+      {
+        method: "POST",
+        headers: { ...AUTHORIZATION, "content-type": "application/json" },
+        body: JSON.stringify({ conversationId }),
+        signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
+      },
+    );
+    expect(cancelled.status).toBe(200);
+    await started.text();
+    expect((await requireDatabaseProbe().waitForDispatch(runId, toolCallId, "aborted")).state).toBe(
+      "aborted",
+    );
+  });
+});
+
+function startClientToolTurn(service: CompiledService, requestId: string): Promise<Response> {
   return fetch(`${service.baseUrl}/api/chat`, {
     method: "POST",
     headers: {
@@ -257,16 +196,14 @@ async function submitWhenReady(
     }
     await delay(50);
   }
-  throw new Error(
-    `Client-tool dispatch never became ready:\n${combinedServiceOutput()}`,
-  );
+  throw new Error(`Client-tool dispatch never became ready:\n${combinedServiceOutput()}`);
 }
 
 async function replayCompletedTurn(runId: string): Promise<string> {
-  const replay = await fetch(
-    `${requireService(secondService).baseUrl}/api/chat/${runId}/stream`,
-    { headers: AUTHORIZATION, signal: AbortSignal.timeout(HTTP_TIMEOUT_MS) },
-  );
+  const replay = await fetch(`${requireService(secondService).baseUrl}/api/chat/${runId}/stream`, {
+    headers: AUTHORIZATION,
+    signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
+  });
   expect(replay.status).toBe(200);
   return replay.text();
 }
@@ -293,11 +230,8 @@ function requireBuild(): PreparedCompiledService {
   return build;
 }
 
-function requireDatabaseProbe(): ReturnType<
-  typeof createClientToolDurabilityProbe
-> {
-  if (!databaseProbe)
-    throw new Error("Postgres durability probe is unavailable");
+function requireDatabaseProbe(): ReturnType<typeof createClientToolDurabilityProbe> {
+  if (!databaseProbe) throw new Error("Postgres durability probe is unavailable");
   return databaseProbe;
 }
 
@@ -309,9 +243,7 @@ function requireRunId(response: Response): string {
 
 async function expectStarted(response: Response): Promise<void> {
   if (response.status === 200) return;
-  throw new Error(
-    `Expected turn start 200, received ${response.status}: ${await response.text()}`,
-  );
+  throw new Error(`Expected turn start 200, received ${response.status}: ${await response.text()}`);
 }
 
 function countStreamParts(stream: string, type: string): number {

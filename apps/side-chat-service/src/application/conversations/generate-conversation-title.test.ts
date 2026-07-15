@@ -10,7 +10,7 @@ import {
 } from "./generate-conversation-title.js";
 
 describe("conversation title generation", () => {
-  it("starts only for the persisted initial exchange and writes the normalized title once", async () => {
+  it("writes the normalized title once and skips after the title exists", async () => {
     const harness = titleHarness();
 
     await startConversationTitleGeneration(harness.dependencies, titleInput());
@@ -24,8 +24,32 @@ describe("conversation title generation", () => {
       timeoutMs: 1_000,
       persistInWorkflow: false,
     });
-    expect(harness.telemetry).toContainEqual({ type: "conversation.title_generated" });
-    expect(harness.telemetry).toContainEqual({ type: "conversation.title_skipped" });
+    expect(harness.telemetry).toContainEqual({
+      type: "conversation.title_generated",
+    });
+    expect(harness.telemetry).toContainEqual({
+      type: "conversation.title_skipped",
+    });
+  });
+
+  it("retries after an earlier title result was unusable", async () => {
+    const harness = titleHarness({
+      resultTitles: [undefined, "Recovered conversation title"],
+    });
+
+    await startConversationTitleGeneration(harness.dependencies, titleInput());
+    await vi.waitFor(() =>
+      expect(harness.telemetry).toContainEqual({
+        type: "conversation.title_skipped",
+      }),
+    );
+
+    await startConversationTitleGeneration(harness.dependencies, titleInput());
+    await vi.waitFor(() =>
+      expect(harness.preparedTitles).toEqual(["Recovered conversation title"]),
+    );
+
+    expect(harness.workflowInputs).toHaveLength(2);
   });
 
   it("does not repeat a title write completed by the durable workflow", async () => {
@@ -33,15 +57,21 @@ describe("conversation title generation", () => {
 
     await startConversationTitleGeneration(harness.dependencies, titleInput());
     await vi.waitFor(() =>
-      expect(harness.telemetry).toContainEqual({ type: "conversation.title_generated" }),
+      expect(harness.telemetry).toContainEqual({
+        type: "conversation.title_generated",
+      }),
     );
 
-    expect(harness.workflowInputs[0]).toMatchObject({ persistInWorkflow: true });
+    expect(harness.workflowInputs[0]).toMatchObject({
+      persistInWorkflow: true,
+    });
     expect(harness.preparedTitles).toEqual([]);
   });
 
   it("keeps workflow rejection and telemetry failure fail-open", async () => {
-    const harness = titleHarness({ workflowError: new Error("private provider failure") });
+    const harness = titleHarness({
+      workflowError: new Error("private provider failure"),
+    });
     harness.telemetryFails = true;
 
     await expect(
@@ -59,7 +89,9 @@ describe("conversation title generation", () => {
       startConversationTitleGeneration(harness.dependencies, titleInput()),
     ).resolves.toBeUndefined();
     await vi.waitFor(() =>
-      expect(harness.telemetry).toContainEqual({ type: "conversation.title_error" }),
+      expect(harness.telemetry).toContainEqual({
+        type: "conversation.title_error",
+      }),
     );
     expect(harness.preparedTitles).toEqual([]);
   });
@@ -79,6 +111,7 @@ function titleHarness(
   options: {
     workflowError?: Error;
     resultError?: Error;
+    resultTitles?: readonly (string | undefined)[];
     persistedInWorkflow?: boolean;
   } = {},
 ) {
@@ -113,14 +146,22 @@ function titleHarness(
         start: (input: unknown) => {
           workflowInputs.push(input);
           if (options.workflowError) return Promise.reject(options.workflowError);
+          const configuredTitle = options.resultTitles?.[workflowInputs.length - 1];
+          const result =
+            options.resultTitles === undefined
+              ? {
+                  title: "Pricing rollout risks",
+                  persisted: options.persistedInWorkflow === true,
+                }
+              : {
+                  ...(configuredTitle === undefined ? {} : { title: configuredTitle }),
+                  persisted: options.persistedInWorkflow === true,
+                };
           return Promise.resolve({
             runId: "title-run",
             result:
               options.resultError === undefined
-                ? Promise.resolve({
-                    title: "Pricing rollout risks",
-                    persisted: options.persistedInWorkflow === true,
-                  })
+                ? Promise.resolve(result)
                 : Promise.reject(options.resultError),
           });
         },
@@ -138,10 +179,13 @@ function titleHarness(
 }
 
 const titleInput = (): StartConversationTitleInput => ({
-  auth: { workspaceId: "workspace-1", subjectId: "subject-1", issuedAt: "2026-07-11T00:00:00Z" },
+  auth: {
+    workspaceId: "workspace-1",
+    subjectId: "subject-1",
+    issuedAt: "2026-07-11T00:00:00Z",
+  },
   conversationId: "conversation-1",
   requestId: "request-1",
-  initialUserMessageId: "message-1",
   userContent: "How should we roll out pricing?",
   assistantContent: "Start with a limited cohort and measure retention.",
   modelId: "title",

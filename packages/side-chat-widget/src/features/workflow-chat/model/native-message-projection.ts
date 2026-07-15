@@ -1,9 +1,9 @@
 import { asRecord, isRecord } from "@side-chat/shared";
 import type { SideChatMessageMetadata } from "@side-chat/stream-profile";
 
-import type { WorkflowUIMessage } from "#entities/workflow-chat";
-
 import type { WorkflowChatTerminal } from "./use-workflow-widget-chat.js";
+
+export { projectLatestAssistantUsage } from "./projection/assistant-usage-projection.js";
 
 export type WorkflowTimelineMessage = Readonly<{
   readonly id: string;
@@ -19,17 +19,6 @@ export type WorkflowTimelineToolState =
   | "output-available"
   | "output-error"
   | "output-denied";
-
-/** Read the folded usage total from the newest assistant message, if present. */
-export function projectLatestAssistantUsage(
-  messages: readonly WorkflowUIMessage[],
-): number | undefined {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message?.role === "assistant") return message.metadata?.usage.totalTokens;
-  }
-  return undefined;
-}
 
 export type WorkflowTimelineItem =
   | {
@@ -57,7 +46,6 @@ export type WorkflowTimelineItem =
         | {
             readonly id: string;
             readonly state: "requested" | "approved" | "denied";
-            readonly reason?: string | undefined;
           }
         | undefined;
       readonly input?: unknown;
@@ -113,20 +101,13 @@ function projectPart(
   id: string,
   role: "user" | "assistant",
 ): WorkflowTimelineItem | undefined {
-  const record = asRecord(part);
-  if (!record) {
-    noteUnknownNativePart("unknown");
-    return undefined;
-  }
-  const type = readString(record, "type");
-  if (!type) {
-    noteUnknownNativePart("unknown");
-    return undefined;
-  }
+  const nativePart = readNativePart(part);
+  if (!nativePart) return undefined;
+  const { record, type } = nativePart;
 
   if (type === "text" || type === "reasoning") {
     const text = readString(record, "text");
-    if (text === undefined) return undefined;
+    if (text === undefined || text.length === 0) return undefined;
     return {
       id,
       kind: type,
@@ -152,6 +133,16 @@ function projectPart(
   if (type === "step-start") return undefined;
 
   noteUnknownNativePart(type);
+  return undefined;
+}
+
+function readNativePart(
+  part: unknown,
+): Readonly<{ record: Readonly<Record<string, unknown>>; type: string }> | undefined {
+  const record = asRecord(part);
+  const type = readString(record, "type");
+  if (record && type) return { record, type };
+  noteUnknownNativePart("unknown");
   return undefined;
 }
 
@@ -266,11 +257,9 @@ function readApproval(
   let state: "requested" | "approved" | "denied" = "requested";
   if (approved === true) state = "approved";
   if (approved === false) state = "denied";
-  const reason = readString(approval, "reason");
   return {
     id,
     state,
-    reason,
   };
 }
 

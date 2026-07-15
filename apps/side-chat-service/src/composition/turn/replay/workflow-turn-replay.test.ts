@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { TURN_REPLAY_RESULTS } from "#application/ports/turn/replay/turn-replay";
 import { CHAT_TURN_OUTCOMES } from "#workflows/production/chat-turn";
 
+import { normalizeClientToolReplay } from "./client-tool-replay-transform.js";
 import { createWorkflowTurnReplay, type ReplayChatTurn } from "./workflow-turn-replay.js";
 
 describe("createWorkflowTurnReplay", () => {
@@ -33,9 +34,9 @@ describe("createWorkflowTurnReplay", () => {
       }),
     );
 
-    const replay = await createWorkflowTurnReplay(replayTurn).open("run-1", -2);
+    const replay = await createWorkflowTurnReplay(replayTurn).open("run-1", -2, "turn-1-assistant");
 
-    expect(replayTurn).toHaveBeenCalledWith("run-1", -2);
+    expect(replayTurn).toHaveBeenCalledWith("run-1", -2, "turn-1-assistant");
     expect(replay.status).toBe(TURN_REPLAY_RESULTS.FOUND);
     if (replay.status !== TURN_REPLAY_RESULTS.FOUND) return;
     expect(replay.tailIndex).toBe(4);
@@ -64,9 +65,9 @@ describe("createWorkflowTurnReplay", () => {
       const replayTurn = vi.fn<ReplayChatTurn>(() =>
         Promise.resolve(status === "not_found" ? { status } : { status, tailIndex: 2 }),
       );
-      await expect(createWorkflowTurnReplay(replayTurn).open("run-1", 9)).resolves.toEqual(
-        status === "not_found" ? { status } : { status, tailIndex: 2 },
-      );
+      await expect(
+        createWorkflowTurnReplay(replayTurn).open("run-1", 9, "turn-1-assistant"),
+      ).resolves.toEqual(status === "not_found" ? { status } : { status, tailIndex: 2 });
     },
   );
 
@@ -95,7 +96,7 @@ describe("createWorkflowTurnReplay", () => {
       }),
     );
 
-    const replay = await createWorkflowTurnReplay(replayTurn).open("run-1", 0);
+    const replay = await createWorkflowTurnReplay(replayTurn).open("run-1", 0, "turn-1-assistant");
 
     expect(replay.status).toBe(TURN_REPLAY_RESULTS.FOUND);
     if (replay.status !== TURN_REPLAY_RESULTS.FOUND) return;
@@ -130,6 +131,32 @@ describe("createWorkflowTurnReplay", () => {
         },
       },
     ]);
+  });
+
+  it("forwards live text before its step finishes", async () => {
+    const source = new ReadableStream<UIMessageChunk>({
+      start(controller) {
+        controller.enqueue({ type: "start-step" });
+        controller.enqueue({ type: "text-start", id: "text-1" });
+        controller.enqueue({ type: "text-delta", id: "text-1", delta: "partial reply" });
+      },
+    });
+    const reader = source.pipeThrough(normalizeClientToolReplay()).getReader();
+
+    await expect(readWithTimeout(reader, 250)).resolves.toEqual({
+      done: false,
+      value: { type: "start-step" },
+    });
+    await expect(readWithTimeout(reader, 250)).resolves.toEqual({
+      done: false,
+      value: { type: "text-start", id: "text-1" },
+    });
+    await expect(readWithTimeout(reader, 250)).resolves.toEqual({
+      done: false,
+      value: { type: "text-delta", id: "text-1", delta: "partial reply" },
+    });
+
+    await reader.cancel();
   });
 });
 
@@ -166,4 +193,21 @@ async function readAll(stream: ReadableStream<UIMessageChunk>): Promise<UIMessag
   const output: UIMessageChunk[] = [];
   for await (const chunk of stream) output.push(chunk);
   return output;
+}
+
+async function readWithTimeout<T>(
+  reader: ReadableStreamDefaultReader<T>,
+  timeoutMs: number,
+): Promise<ReadableStreamReadResult<T>> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      reader.read(),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error("Stream chunk did not arrive")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }

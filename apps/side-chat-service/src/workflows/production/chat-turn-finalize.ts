@@ -1,7 +1,7 @@
 import { createPostgresTurnState } from "#adapters/persistence/postgres-turn-state";
-import { TURN_TERMINAL_STATUSES, type TurnRef } from "#domain/turn/turn";
+import type { TurnRef } from "#domain/turn/turn";
 
-import type { ChatTurnFinalization } from "../chat-turn-outcome.js";
+import type { ChatTurnFinalization } from "../outcome/chat-turn-outcome.js";
 
 type ChatTurnFinalizeInput = Readonly<{
   databaseUrl: string;
@@ -10,10 +10,10 @@ type ChatTurnFinalizeInput = Readonly<{
 }>;
 
 /**
- * Persist the terminal inside the durable workflow, so a turn cannot end without a
- * durable status even if the route process dies. The claim is the idempotency
- * gate: only its winner appends the assistant message, and both it and the
- * id-keyed message upsert re-run cleanly, so replaying this step is a no-op.
+ * Persist the complete terminal projection inside the durable workflow. One
+ * repository transaction commits the optional assistant message, usage, turn
+ * status, conversation activity, and notification behind a guarded transition.
+ * A replay after commit is a no-op; there is no terminal-without-history window.
  */
 export async function runChatTurnFinalizeStep(input: ChatTurnFinalizeInput): Promise<void> {
   "use step";
@@ -21,14 +21,7 @@ export async function runChatTurnFinalizeStep(input: ChatTurnFinalizeInput): Pro
   // A resumed step may run in another process, so it owns and closes its pool.
   const store = createPostgresTurnState(input.databaseUrl);
   try {
-    const claimed = await store.claimTerminal(input.identity, input.finalization.terminal);
-    if (
-      claimed &&
-      input.finalization.terminal.status === TURN_TERMINAL_STATUSES.COMPLETED &&
-      input.finalization.assistantMessage !== undefined
-    ) {
-      await store.appendAssistantMessage(input.identity, input.finalization.assistantMessage);
-    }
+    await store.finalize(input.identity, input.finalization);
   } finally {
     await store.close();
   }

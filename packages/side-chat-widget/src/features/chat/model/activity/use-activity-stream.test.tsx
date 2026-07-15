@@ -3,7 +3,12 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { TURN_ACTIVITY_EVENT_TYPE, type TurnActivityEvent } from "@side-chat/chat-protocol";
+import {
+  TURN_ACTIVITY_EVENT_TYPE,
+  TURN_ACTIVITY_SYNC_EVENT_TYPE,
+  type TurnActivityEvent,
+  type TurnActivityStreamEvent,
+} from "@side-chat/chat-protocol";
 import type { SideChatApiClient } from "#entities/conversation";
 import { useActivityStream } from "./use-activity-stream.js";
 
@@ -33,7 +38,15 @@ const activityEvent = (conversationId: string, status: string): TurnActivityEven
   status,
 });
 
-const streamOf = (events: readonly TurnActivityEvent[]) => ({
+const synchronizationEvent = (...conversationIds: readonly string[]): TurnActivityStreamEvent => ({
+  type: TURN_ACTIVITY_SYNC_EVENT_TYPE,
+  activeTurns: conversationIds.map((conversationId) => ({
+    conversationId,
+    assistantTurnId: `turn_${conversationId}`,
+  })),
+});
+
+const streamOf = (events: readonly TurnActivityStreamEvent[]) => ({
   events: (async function* () {
     for (const event of events) {
       await Promise.resolve();
@@ -49,6 +62,7 @@ const openActivityStream = () => {
     release = resolve;
   });
   const events = (async function* () {
+    yield synchronizationEvent("c1");
     yield activityEvent("c1", "running");
     await gate;
   })();
@@ -59,7 +73,9 @@ const renderActivity = (
   client: Pick<SideChatApiClient, "subscribeActivity">,
   onEvent?: (event: TurnActivityEvent) => void,
 ) => {
-  const ref: { current: ReadonlySet<string> } = { current: new Set() };
+  const ref: {
+    current: ReturnType<typeof useActivityStream>;
+  } = { current: { runningConversationIds: new Set(), synchronized: false } };
   const Probe = () => {
     ref.current = useActivityStream({ client, onEvent });
     return null;
@@ -82,6 +98,7 @@ describe("useActivityStream", () => {
       subscribeActivity: () =>
         Promise.resolve(
           streamOf([
+            synchronizationEvent(),
             activityEvent("c1", "running"),
             activityEvent("c2", "running"),
             activityEvent("c1", "completed"),
@@ -92,14 +109,16 @@ describe("useActivityStream", () => {
     const ref = renderActivity(client);
     await flush();
 
-    expect([...ref.current]).toEqual(["c2"]);
+    expect([...ref.current.runningConversationIds]).toEqual(["c2"]);
+    expect(ref.current.synchronized).toBe(true);
   });
 
   it("returns an empty set when the client cannot stream activity", async () => {
     const ref = renderActivity({});
     await flush();
 
-    expect(ref.current.size).toBe(0);
+    expect(ref.current.runningConversationIds.size).toBe(0);
+    expect(ref.current.synchronized).toBe(false);
   });
 
   it("forwards every event to onEvent so a viewing tab can resume a turn", async () => {
@@ -107,7 +126,11 @@ describe("useActivityStream", () => {
     const client: Pick<SideChatApiClient, "subscribeActivity"> = {
       subscribeActivity: () =>
         Promise.resolve(
-          streamOf([activityEvent("c1", "running"), activityEvent("c1", "completed")]),
+          streamOf([
+            synchronizationEvent(),
+            activityEvent("c1", "running"),
+            activityEvent("c1", "completed"),
+          ]),
         ),
     };
 
@@ -120,6 +143,55 @@ describe("useActivityStream", () => {
       { conversationId: "c1", status: "running" },
       { conversationId: "c1", status: "completed" },
     ]);
+  });
+
+  it("treats the explicit snapshot frame, including an empty one, as the synchronization barrier", async () => {
+    let synchronizedCalls = 0;
+    const client: Pick<SideChatApiClient, "subscribeActivity"> = {
+      subscribeActivity: () => Promise.resolve(streamOf([synchronizationEvent()])),
+    };
+    const ref: { current: ReturnType<typeof useActivityStream> } = {
+      current: { runningConversationIds: new Set(), synchronized: false },
+    };
+    const Probe = () => {
+      ref.current = useActivityStream({
+        client,
+        onSynchronized: () => {
+          synchronizedCalls += 1;
+        },
+      });
+      return null;
+    };
+
+    act(() => root.render(createElement(Probe)));
+    await flush();
+
+    expect(ref.current.synchronized).toBe(true);
+    expect(ref.current.runningConversationIds.size).toBe(0);
+    expect(synchronizedCalls).toBe(1);
+  });
+
+  it("does not report synchronization merely because the HTTP connection opened", async () => {
+    let releaseSync: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      releaseSync = resolve;
+    });
+    const events = (async function* () {
+      yield activityEvent("c1", "running");
+      await gate;
+      yield synchronizationEvent("c1");
+    })();
+    const client: Pick<SideChatApiClient, "subscribeActivity"> = {
+      subscribeActivity: () => Promise.resolve({ events }),
+    };
+    const ref = renderActivity(client);
+
+    await flush();
+    expect(ref.current.synchronized).toBe(false);
+
+    releaseSync();
+    await flush();
+    expect(ref.current.synchronized).toBe(true);
   });
 
   it("backs off exponentially between reconnect attempts when the stream keeps failing", async () => {
@@ -156,7 +228,7 @@ describe("useActivityStream", () => {
 
   it("refetches the list on tab focus without aborting a healthy stream", async () => {
     let subscribeCalls = 0;
-    let onConnectedCalls = 0;
+    let refreshCalls = 0;
     const stream = openActivityStream();
     const client: Pick<SideChatApiClient, "subscribeActivity"> = {
       subscribeActivity: () => {
@@ -165,14 +237,14 @@ describe("useActivityStream", () => {
       },
     };
     const Probe = () => {
-      useActivityStream({ client, onConnected: () => (onConnectedCalls += 1) });
+      useActivityStream({ client, onVisibilityReconcile: () => (refreshCalls += 1) });
       return null;
     };
 
     act(() => root.render(createElement(Probe)));
     await flush();
     expect(subscribeCalls).toBe(1);
-    expect(onConnectedCalls).toBe(1);
+    expect(refreshCalls).toBe(0);
 
     // A tab refocus refetches the list but must NOT reopen the healthy stream.
     // Dispatch on the happy-dom document (the same object the hook listens on).
@@ -182,7 +254,7 @@ describe("useActivityStream", () => {
     await flush();
 
     expect(subscribeCalls).toBe(1);
-    expect(onConnectedCalls).toBe(2);
+    expect(refreshCalls).toBe(1);
     stream.release();
   });
 });

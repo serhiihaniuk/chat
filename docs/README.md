@@ -19,13 +19,12 @@ table to the doc that owns each topic.
 
 **Working in the code** — change a package, lifecycle, or boundary:
 
-- [architecture/](architecture/): system map, [assistant-turn.md](architecture/assistant-turn.md), [runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md), [package-boundaries.md](architecture/package-boundaries.md), [widget-and-host-integration.md](architecture/widget-and-host-integration.md), [extension-seams.md](architecture/extension-seams.md), [host-commands.md](architecture/host-commands.md), [effect.md](architecture/effect.md).
+- [architecture/](architecture/): system map, [assistant-turn.md](architecture/assistant-turn.md), [turn-terminal-reconciliation.md](architecture/turn-terminal-reconciliation.md), [runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md), [package-boundaries.md](architecture/package-boundaries.md), [widget-and-host-integration.md](architecture/widget-and-host-integration.md), [extension-seams.md](architecture/extension-seams.md), [host-commands.md](architecture/host-commands.md), [effect.md](architecture/effect.md).
 - [domain/vocabulary.md](domain/vocabulary.md): canonical terms and the synonyms to avoid.
 
 **Adopting or operating** — turn the starter into your team's application:
 
 - [operations/](operations/): [verification.md](operations/verification.md), [local-development.md](operations/local-development.md), [configuration.md](operations/configuration.md), [capacity-and-deployment.md](operations/capacity-and-deployment.md), [database.md](operations/database.md), [embed-widget-iframe.md](operations/embed-widget-iframe.md).
-- [pi/SETUP-GUIDE.md](pi/SETUP-GUIDE.md): configure and operate the repository-local Pi parent/implementer workflow.
 - [architecture/extension-seams.md](architecture/extension-seams.md): the seams for tools, guards, executors, observability, and host commands.
 - [architecture/host-commands.md](architecture/host-commands.md): the end-to-end walkthrough for adding a host-side tool (host command), with a runnable example.
 
@@ -33,30 +32,28 @@ table to the doc that owns each topic.
 
 Each file below owns its topic. Link to it; never re-derive its content elsewhere.
 
-| File                                                                                       | Owns                                                                             |
-| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| [domain/vocabulary.md](domain/vocabulary.md)                                               | Canonical terms and names to avoid.                                              |
-| [architecture/system-map.md](architecture/system-map.md)                                   | Product identity, package roles, first files.                                    |
-| [architecture/assistant-turn.md](architecture/assistant-turn.md)                           | The assistant-turn lifecycle and its order.                                      |
-| [architecture/runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md) | The three event vocabularies and the streaming transport.                        |
-| [architecture/package-boundaries.md](architecture/package-boundaries.md)                   | Import and data boundaries; common boundary mistakes.                            |
-| [architecture/widget-and-host-integration.md](architecture/widget-and-host-integration.md) | Widget layers, host bridge, copied UI quarantine.                                |
-| [architecture/extension-seams.md](architecture/extension-seams.md)                         | Adoption seams and contract locations.                                           |
-| [architecture/host-commands.md](architecture/host-commands.md)                             | Declaring, handling, and testing a host command end to end.                      |
-| [architecture/effect.md](architecture/effect.md)                                           | Where Effect lives, what each role must know, house style, traps.                |
-| [architecture/runtime-port.md](architecture/runtime-port.md)                               | The `AiRuntimePort` contract, integration levels, remote-engine adapter pattern. |
-| [operations/verification.md](operations/verification.md)                                   | Gate commands and what each proves.                                              |
-| [operations/local-development.md](operations/local-development.md)                         | Running the service and harnesses locally.                                       |
-| [operations/configuration.md](operations/configuration.md)                                 | The typed `sidechat.config.ts` and its tunables.                                 |
-| [operations/capacity-and-deployment.md](operations/capacity-and-deployment.md)             | Instance model, SSE budgets, and what grows forever.                             |
-| [operations/database.md](operations/database.md)                                           | Schema tooling, migrations, and role grants.                                     |
-| [operations/embed-widget-iframe.md](operations/embed-widget-iframe.md)                     | Embedding the widget in a host page via iframe.                                  |
-| [pi/SETUP-GUIDE.md](pi/SETUP-GUIDE.md)                                                     | Starting, verifying, and troubleshooting project-local Pi.                       |
-| [pi/KNOWLEDGE.md](pi/KNOWLEDGE.md)                                                         | Pi model routing, child-agent, and project/machine boundary decisions.           |
-| [pi/IMPLEMENTATION-PLAN.md](pi/IMPLEMENTATION-PLAN.md)                                     | Pi rollout sequence, acceptance status, risks, and rollback boundary.            |
-| [product/requirements.md](product/requirements.md)                                         | Functional, quality, safety, and adoption requirements.                          |
-| [product/todo.md](product/todo.md)                                                         | Deferred product work, kept out of active config.                                |
-| [adr/](adr/)                                                                               | Accepted architecture decisions and their rationale.                             |
+| File                                                                                         | Owns                                                                              |
+| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [domain/vocabulary.md](domain/vocabulary.md)                                                 | Canonical terms and names to avoid.                                               |
+| [architecture/system-map.md](architecture/system-map.md)                                     | Product identity, package roles, first files.                                     |
+| [architecture/assistant-turn.md](architecture/assistant-turn.md)                             | The assistant-turn lifecycle and its order.                                       |
+| [architecture/turn-terminal-reconciliation.md](architecture/turn-terminal-reconciliation.md) | How joined Workflow activity, product fencing, and guarded repair handle crashes. |
+| [architecture/runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md)   | The three event vocabularies and the streaming transport.                         |
+| [architecture/package-boundaries.md](architecture/package-boundaries.md)                     | Import and data boundaries; common boundary mistakes.                             |
+| [architecture/widget-and-host-integration.md](architecture/widget-and-host-integration.md)   | Widget layers, host bridge, copied UI quarantine.                                 |
+| [architecture/extension-seams.md](architecture/extension-seams.md)                           | Adoption seams and contract locations.                                            |
+| [architecture/host-commands.md](architecture/host-commands.md)                               | Declaring, handling, and testing a host command end to end.                       |
+| [architecture/effect.md](architecture/effect.md)                                             | Where Effect lives, what each role must know, house style, traps.                 |
+| [architecture/runtime-port.md](architecture/runtime-port.md)                                 | The `AiRuntimePort` contract, integration levels, remote-engine adapter pattern.  |
+| [operations/verification.md](operations/verification.md)                                     | Gate commands and what each proves.                                               |
+| [operations/local-development.md](operations/local-development.md)                           | Running the service and harnesses locally.                                        |
+| [operations/configuration.md](operations/configuration.md)                                   | The typed `sidechat.config.ts` and its tunables.                                  |
+| [operations/capacity-and-deployment.md](operations/capacity-and-deployment.md)               | Instance model, SSE budgets, and what grows forever.                              |
+| [operations/database.md](operations/database.md)                                             | Schema tooling, migrations, and role grants.                                      |
+| [operations/embed-widget-iframe.md](operations/embed-widget-iframe.md)                       | Embedding the widget in a host page via iframe.                                   |
+| [product/requirements.md](product/requirements.md)                                           | Functional, quality, safety, and adoption requirements.                           |
+| [product/todo.md](product/todo.md)                                                           | Deferred product work, kept out of active config.                                 |
+| [adr/](adr/)                                                                                 | Accepted architecture decisions and their rationale.                              |
 
 Package READMEs are local orientation cards: each links here for shared
 vocabulary, lifecycle, and boundaries, and never owns global terms.

@@ -17,6 +17,7 @@ import {
 import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 import type { HostContextPolicy } from "#domain/host-context";
+import type { TurnCancellationStore } from "#application/ports/turn/turn-store";
 
 import type { AuthVariables } from "../auth-middleware.js";
 import { errorResponse, HTTP_ERROR, turnRejectionResponse } from "../error-response.js";
@@ -34,6 +35,7 @@ export { readCappedBytes } from "./body/read-capped-bytes.js";
 
 export type ChatRouteDependencies = RunTurnDependencies &
   Readonly<{
+    turns: RunTurnDependencies["turns"] & TurnCancellationStore;
     keepaliveIntervalMs: number;
     outboundTransforms?: readonly OutboundTransformFactory[];
     replay: TurnReplay;
@@ -159,8 +161,15 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
     try {
       // Ownership precedes Workflow lookup so a guessed run id is never an
       // existence oracle across workspaces or subjects.
-      await dependencies.runAccess.assertAccessible(context.get("authContext"), runId);
-      const replay = await dependencies.replay.open(runId, startIndex);
+      const accessibleRun = await dependencies.runAccess.assertAccessible(
+        context.get("authContext"),
+        runId,
+      );
+      const replay = await dependencies.replay.open(
+        runId,
+        startIndex,
+        `${accessibleRun.turnId}-assistant`,
+      );
       if (replay.status === TURN_REPLAY_RESULTS.NOT_FOUND) {
         return errorResponse(requestId, HTTP_ERROR.NOT_FOUND, "Turn run not found.");
       }

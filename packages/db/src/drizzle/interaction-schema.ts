@@ -203,7 +203,6 @@ function defineToolApprovals({
       toolName: text("tool_name").notNull(),
       inputDigest: text("input_digest").notNull(),
       state: text("state").$type<ToolApprovalState>().notNull().default("requested"),
-      decisionReason: text("decision_reason"),
       decidedBySubjectId: text("decided_by_subject_id"),
       decidedByActorId: text("decided_by_actor_id"),
       requestedAt: timestamp("requested_at", {

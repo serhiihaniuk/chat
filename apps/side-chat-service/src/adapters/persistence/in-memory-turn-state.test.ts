@@ -1,6 +1,8 @@
+import { Effect, Option, Stream } from "effect";
+import type { UIMessage } from "ai";
 import { describe, expect, it } from "vitest";
 
-import { TURN_MESSAGE_ROLES } from "#domain/turn/turn";
+import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES } from "#domain/turn/turn";
 
 import { InMemoryTurnState } from "./in-memory-turn-state.js";
 
@@ -63,7 +65,9 @@ describe("InMemoryTurnState", () => {
     const turn = await state.beginTurn(beginInput());
     await state.bindRun(turn, "run-1");
 
-    await expect(state.assertAccessible(AUTH, "run-1")).resolves.toBeUndefined();
+    await expect(state.assertAccessible(AUTH, "run-1")).resolves.toEqual({
+      turnId: "turn-1",
+    });
     await expect(
       state.assertAccessible({ ...AUTH, subjectId: "another-subject" }, "run-1"),
     ).rejects.toMatchObject({ code: "turn_run_not_found" });
@@ -91,22 +95,75 @@ describe("InMemoryTurnState", () => {
     );
   });
 
-  it("titles only the persisted initial exchange and keeps the first title", async () => {
+  it("publishes running activity only after the resumable run id is bound", async () => {
+    const state = seededState();
+    const firstActivity = Effect.runPromise(
+      state.turnActivityNotifications.notifications.pipe(Stream.runHead),
+    );
+    let observedBeforeBind = false;
+    void firstActivity.then(() => {
+      observedBeforeBind = true;
+    });
+
+    const turn = await state.beginTurn(beginInput());
+    await Promise.resolve();
+    expect(observedBeforeBind).toBe(false);
+
+    await state.bindRun(turn, "run-1");
+    const notification = await firstActivity;
+    expect(Option.getOrUndefined(notification)).toMatchObject({
+      assistantTurnId: turn.turnId,
+      status: "running",
+    });
+  });
+
+  it("commits assistant output and terminal state as one idempotent finalization", async () => {
+    const state = seededState();
+    const turn = await state.beginTurn(beginInput());
+    await state.bindRun(turn, "run-1");
+    const assistantMessage: UIMessage = {
+      id: "assistant-1",
+      role: TURN_MESSAGE_ROLES.ASSISTANT,
+      parts: [{ type: "text", text: "Complete answer" }],
+    };
+    const record = {
+      terminal: {
+        status: TURN_TERMINAL_STATUSES.COMPLETED,
+        usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+      },
+      assistantMessage,
+    };
+
+    await expect(state.finalize(turn, record)).resolves.toBe(true);
+    await expect(state.finalize(turn, record)).resolves.toBe(false);
+
+    await expect(state.readHistory(AUTH, "conversation-1")).resolves.toMatchObject({
+      messages: [
+        { id: "user-1", role: "user" },
+        { id: "assistant-1", role: "assistant" },
+      ],
+    });
+    expect(state.terminals.get(turn.turnId)).toEqual(record.terminal);
+    expect(state.runningTurns.has("conversation-1")).toBe(false);
+  });
+
+  it("keeps an untitled conversation eligible and preserves the first title", async () => {
     const state = seededState();
     await state.beginTurn(beginInput());
 
-    await expect(
-      state.readTitleEligibility(AUTH, "conversation-1", USER_MESSAGE.id),
-    ).resolves.toEqual({ eligible: true });
+    await expect(state.readTitleEligibility(AUTH, "conversation-1")).resolves.toEqual({
+      eligible: true,
+    });
     await state.prepareConversationTitle(AUTH, "conversation-1", "Initial prepared title");
     await state.prepareConversationTitle(AUTH, "conversation-1", "Ignored replacement title");
 
     await expect(state.listConversations(AUTH)).resolves.toContainEqual(
       expect.objectContaining({ title: "Initial prepared title" }),
     );
-    await expect(
-      state.readTitleEligibility(AUTH, "conversation-1", USER_MESSAGE.id),
-    ).resolves.toEqual({ eligible: false, existingTitle: "Initial prepared title" });
+    await expect(state.readTitleEligibility(AUTH, "conversation-1")).resolves.toEqual({
+      eligible: false,
+      existingTitle: "Initial prepared title",
+    });
   });
 });
 

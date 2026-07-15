@@ -124,6 +124,9 @@
 
 :root {
   --radius: 0.625rem;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
   --background: oklch(0.994 0.003 264);
   --foreground: oklch(0.22 0.018 264);
   --card: oklch(1 0.002 264);
@@ -191,6 +194,8 @@
   --size-measure-message: 44.5rem;
   --size-measure-empty: 28.25rem;
   --size-header: 3.25rem;
+  --size-icon-sm: 0.875rem;
+  --size-icon-md: 1rem;
   --size-control: 2rem;
   --size-touch: 2.75rem;
 
@@ -331,18 +336,30 @@
   --message-inline-code-px: calc(var(--spacing) * 1);
   --message-inline-code-py: calc(var(--spacing) * 0.5);
   --message-inline-code-radius: var(--radius-sm);
+  --message-code-block-frame-pad: calc(var(--spacing) * 2);
+  --message-code-block-gap: calc(var(--spacing) * 2);
+  --message-code-block-header-height: calc(var(--spacing) * 10);
+  --message-code-block-placeholder-height: calc(var(--spacing) * 32);
   --message-code-block-pad: calc(var(--spacing) * 3);
   --message-code-block-radius: var(--radius-md);
   --message-code-font-size: var(--text-sm);
   --message-list-indent: calc(var(--spacing) * 5);
-  --message-heading-gap-before: calc(var(--spacing) * 4);
-  --message-heading-gap-after: calc(var(--spacing) * 2);
+  --message-ordered-list-indent: calc(var(--spacing) * 12);
+  --message-heading-gap-before: calc(var(--spacing) * 6);
+  --message-heading-gap-after: calc(var(--spacing) * 3);
   --message-heading-weight: 600;
+  --message-heading-1-font-size: var(--text-lg);
+  --message-heading-2-font-size: var(--text-md);
+  --message-heading-3-font-size: var(--text-base);
+  --message-heading-line-height: 1.4;
   --message-quote-border-width: 2px;
   --message-quote-indent: calc(var(--spacing) * 3);
   --message-table-font-size: var(--text-sm);
   --message-table-cell-px: calc(var(--spacing) * 2);
   --message-table-cell-py: calc(var(--spacing) * 1);
+
+  /* Reasoning trace typography stays quieter than provider-authored answer copy. */
+  --reasoning-thought-weight: var(--weight-normal);
 
   /* Tool detail — the expanded payload tree: row/key-value rhythm, the
      Input/Result panel padding, and the one-per-level nested indent. All resolve
@@ -612,6 +629,14 @@
 @utility h-header {
   height: var(--size-header);
 }
+@utility size-icon-sm {
+  width: var(--size-icon-sm);
+  height: var(--size-icon-sm);
+}
+@utility size-icon-md {
+  width: var(--size-icon-md);
+  height: var(--size-icon-md);
+}
 @utility size-control {
   width: var(--size-control);
   height: var(--size-control);
@@ -746,6 +771,14 @@
   transition: height var(--dur) var(--ease-out);
 }
 
+/* Reasoning keeps Markdown structure, but provider-authored `**emphasis**`
+   must not turn every planning summary into a semibold heading. */
+@utility sc-reasoning-markdown {
+  & [data-streamdown="strong"] {
+    font-weight: var(--reasoning-thought-weight);
+  }
+}
+
 /* Composer (Composer) — focus ring on the shell, + rotates to ×, send arms */
 @utility sc-composer {
   @apply flex flex-col rounded-xl border border-input bg-background shadow-(--shadow-card);
@@ -780,6 +813,11 @@
 /* Message actions (Message actions) — Copied is a transient state swap on the same button */
 @utility sc-action {
   @apply inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground bg-transparent hover:bg-accent cursor-pointer;
+  & > svg {
+    width: var(--size-icon-sm);
+    height: var(--size-icon-sm);
+    flex-shrink: 0;
+  }
   &[data-copied] {
     @apply text-success;
   }
@@ -1320,6 +1358,55 @@ a.sc-cite-source:hover {
     background: var(--message-muted-background);
     font-size: var(--message-code-font-size);
   }
+  /* Streamdown's code block is a composite frame, not a bare pre. Own the
+     stable data hooks because its internal utility classes are not part of the
+     widget stylesheet contract. Replace Streamdown's fixed 200px intrinsic
+     placeholder with a density-driven estimate so long answers stay virtualized
+     without making short snippets look empty. */
+  & [data-streamdown="code-block"] {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--message-code-block-gap);
+    margin-block: var(--message-block-gap);
+    padding: var(--message-code-block-frame-pad);
+    contain-intrinsic-size: auto var(--message-code-block-placeholder-height) !important;
+  }
+  & [data-streamdown="code-block-header"] {
+    display: flex;
+    align-items: center;
+    min-height: var(--message-code-block-header-height);
+  }
+  & [data-streamdown="code-block"] > :has(> [data-streamdown="code-block-actions"]) {
+    position: absolute;
+    z-index: 1;
+    inset-block-start: var(--message-code-block-frame-pad);
+    inset-inline-end: var(--message-code-block-frame-pad);
+    display: flex;
+    align-items: center;
+    min-height: var(--message-code-block-header-height);
+  }
+  & [data-streamdown="code-block-actions"] svg {
+    width: var(--size-icon-sm);
+    height: var(--size-icon-sm);
+  }
+  & [data-streamdown="code-block-body"] {
+    overflow-x: auto;
+    padding: var(--message-code-block-pad);
+    border: var(--message-markdown-border-width) solid var(--message-markdown-border);
+    border-radius: var(--message-code-block-radius);
+    background: var(--message-muted-background);
+    font-size: var(--message-code-font-size);
+  }
+  & [data-streamdown="code-block-body"] > pre {
+    margin: 0;
+    overflow-x: visible;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: inherit;
+  }
   & :where(ul) {
     margin-block: var(--message-block-gap);
     padding-inline-start: var(--message-list-indent);
@@ -1327,7 +1414,7 @@ a.sc-cite-source:hover {
   }
   & :where(ol) {
     margin-block: var(--message-block-gap);
-    padding-inline-start: var(--message-list-indent);
+    padding-inline-start: var(--message-ordered-list-indent);
     list-style-type: decimal;
   }
   & :where(li) {
@@ -1336,6 +1423,16 @@ a.sc-cite-source:hover {
   & :where(h1, h2, h3, h4, h5, h6) {
     margin-block: var(--message-heading-gap-before) var(--message-heading-gap-after);
     font-weight: var(--message-heading-weight);
+    line-height: var(--message-heading-line-height);
+  }
+  & .sc-message-heading-1 {
+    font-size: var(--message-heading-1-font-size);
+  }
+  & .sc-message-heading-2 {
+    font-size: var(--message-heading-2-font-size);
+  }
+  & .sc-message-heading-3 {
+    font-size: var(--message-heading-3-font-size);
   }
   & :where(blockquote) {
     margin-block: var(--message-block-gap);

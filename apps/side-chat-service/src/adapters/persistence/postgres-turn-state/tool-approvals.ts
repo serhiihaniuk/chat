@@ -54,7 +54,6 @@ export function createPostgresToolApprovalStore(
         decision: decision.approved
           ? TOOL_APPROVAL_DECISIONS.APPROVED
           : TOOL_APPROVAL_DECISIONS.DENIED,
-        ...(decision.reason === undefined ? {} : { reason: decision.reason }),
         approverSubjectId: toSubjectId(approval.subjectId),
         approverActorId: toActorId(approval.subjectId),
         now: new Date().toISOString(),
@@ -186,7 +185,6 @@ function toSnapshot(turn: AssistantTurnRecord, approval: ToolApprovalRecord): To
     expiresAt: approval.expiresAt,
     state: approval.state,
     approved: approvalBoolean(approval),
-    reason: approval.decisionReason,
   };
 }
 

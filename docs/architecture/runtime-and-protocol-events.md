@@ -13,6 +13,13 @@ v1 with `createUIMessageStreamResponse()`. The response carries
 `x-workflow-run-id`; idle SSE comments are injected only after encoding and are
 transparent to the AI SDK decoder. Step 06 narrows this vendor stream into
 the Side Chat profile through the `outboundTransforms` seam.
+
+At terminal, the replacement service reads the closed Workflow journal and
+rebuilds the same visible text/reasoning parts that were sent on that stream.
+Those parts become the durable assistant message; the provider result separately
+supplies status, finish reason, and usage. History therefore cannot drop a
+reasoning trace merely because the provider's final aggregate omitted it.
+
 Until cutover, the remainder of this document is authoritative only for the
 legacy `apps/partner-ai-service` and current widget.
 
@@ -29,8 +36,26 @@ After wake or replay, the workflow reloads and revalidates ownership, tool
 identity, input digest, current schema, and current approval policy. Approval
 enters a separately journaled idempotent execution step; denial, expiry, tool
 removal, schema drift, or policy drift becomes the native-normalizable
-`tool-output-denied` lifecycle. Private decision reasons and raw tool input do
-not enter the public stream.
+`tool-output-denied` lifecycle. Approval decisions are binary; free-text reasons
+are unsupported, and raw tool input does not enter the public stream.
+
+### Native cross-conversation activity
+
+`GET /api/activity` is a separate authenticated, subject-scoped SSE stream. It
+uses the browser-safe `sidechat.turn-activity-sync` and
+`sidechat.turn-activity` contracts from `chat-protocol`, not AI SDK UI-message
+parts. The service registers the subscriber, reads the complete set of bound
+running turns, emits exactly one sync frame (including an empty set), then
+forwards queued and future transitions. The sync frame is the application-level
+connection barrier: only after consuming it may a browser call the feed current.
+
+PostgreSQL publishes the running transition after a Workflow `runId` is bound.
+It publishes a terminal transition in the same transaction as the optional
+assistant message and terminal turn state. Notifications contain identity only;
+message content, prompts, reasoning, and provider payloads never enter
+`pg_notify`. The widget replaces its running-id set from every sync frame and
+uses later transitions only as reconciliation hints. Durable conversation
+snapshots and Workflow replay remain the correctness sources.
 
 One assistant turn produces a stream of events. That stream is rewritten three
 times as it crosses package boundaries, so the browser never sees a raw provider
@@ -212,17 +237,19 @@ a completeness test, so a new event cannot ship half-recognized.
 Two event families share the word "activity" but ride different streams and
 codecs. Do not conflate them.
 
-|                                | `sidechat.activity`                                   | `sidechat.turn-activity`                          |
-| ------------------------------ | ----------------------------------------------------- | ------------------------------------------------- |
-| Scope                          | reasoning/tool/host_command steps **inside one turn** | turn lifecycle **across conversations**           |
-| Stream                         | the per-turn `/chat/turns/:id/stream`                 | a separate `GET /chat/activity` SSE stream        |
-| Purpose                        | render activity rows in the open chat                 | the "generating" dot on chats you are not viewing |
-| Part of `SidechatStreamEvent`? | yes                                                   | no — own type, no sequence, no terminal           |
-| Codec                          | `sse-codec.ts`                                        | `activity-sse-codec.ts`                           |
+|                                | `sidechat.activity`                                   | `sidechat.turn-activity-sync` / `sidechat.turn-activity` |
+| ------------------------------ | ----------------------------------------------------- | -------------------------------------------------------- |
+| Scope                          | reasoning/tool/host_command steps **inside one turn** | turn lifecycle **across conversations**                  |
+| Stream                         | the per-turn `/chat/turns/:id/stream`                 | a separate subject-scoped activity SSE stream            |
+| Purpose                        | render activity rows in the open chat                 | synchronize and update cross-conversation running state  |
+| Part of `SidechatStreamEvent`? | yes                                                   | no — own union, no sequence, no terminal                 |
+| Codec                          | `sse-codec.ts`                                        | `activity-sse-codec.ts`                                  |
 
 The cross-conversation stream is already scoped to one (workspace, subject), so
-its wire event carries no scope and never closes on its own — it stays open until
-the browser disconnects. The widget consumes it through `useActivityStream`
+its wire events carry no scope and the stream stays open until the browser
+disconnects. Every connection begins with one complete sync frame, including an
+empty set; only later transition frames may be applied incrementally. The widget
+consumes it through `useActivityStream`
 (`packages/side-chat-widget/src/features/chat/model/activity/use-activity-stream.ts`).
 
 ## Where Boundaries Are Enforced

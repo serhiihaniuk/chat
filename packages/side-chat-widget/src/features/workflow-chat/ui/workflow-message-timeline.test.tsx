@@ -1,12 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { ReasoningVisibility, ToolDetailLevel } from "#entities/settings";
-import type { WorkflowUIMessage } from "#entities/workflow-chat";
+import type { ToolDetailLevel } from "#entities/settings";
 
 import type { WorkflowChatTerminal } from "../model/use-workflow-widget-chat.js";
 import {
-  projectLatestAssistantUsage,
   projectWorkflowMessageParts,
   type WorkflowTimelineMessage,
 } from "../model/native-message-projection.js";
@@ -29,21 +27,19 @@ const timedAssistant = (
   },
 });
 
-// isStreaming opens the activity fold so its trace rows render in static markup;
-// a completed turn keeps them behind the collapsed "Thought process" trigger.
+// Active thinking expands the trace. Answering and completed history render the
+// same trace collapsed behind its trigger.
 const renderTimeline = (
   message: WorkflowTimelineMessage,
   terminal?: WorkflowChatTerminal,
   isStreaming = false,
   toolDetail?: ToolDetailLevel,
-  reasoningVisibility?: ReasoningVisibility,
 ): string =>
   renderToStaticMarkup(
     <WorkflowMessageTimeline
       isStreaming={isStreaming}
       message={message}
       onRetry={() => undefined}
-      reasoningVisibility={reasoningVisibility}
       terminal={terminal}
       toolDetail={toolDetail}
     />,
@@ -77,43 +73,32 @@ describe("WorkflowMessageTimeline", () => {
     );
 
     expect(renderTimeline(message)).toContain("Thought for 2s");
-    expect(renderTimeline(message, undefined, true)).toContain("Thinking");
+    expect(
+      renderTimeline(assistant([{ type: "reasoning", text: "Still thinking" }]), undefined, true),
+    ).toContain("Thinking");
     expect(renderTimeline(assistant([{ type: "reasoning", text: "Legacy history" }]))).toContain(
       "Thought process",
     );
   });
 
-  it("projects usage from the newest assistant message only", () => {
-    const messages: WorkflowUIMessage[] = [
-      { id: "user-1", role: "user", parts: [] },
-      {
-        id: "assistant-1",
-        role: "assistant",
-        metadata: {
-          usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
-        },
-        parts: [],
-      },
-      { id: "user-2", role: "user", parts: [] },
-      {
-        id: "assistant-2",
-        role: "assistant",
-        metadata: {
-          usage: { inputTokens: 4, outputTokens: 5, totalTokens: 9 },
-        },
-        parts: [],
-      },
-    ];
+  it("renders a visible thinking trace before a streaming assistant has parts", () => {
+    const html = renderTimeline(assistant([]), undefined, true);
 
-    expect(projectLatestAssistantUsage(messages)).toBe(9);
-    expect(projectLatestAssistantUsage(messages.slice(0, 3))).toBe(3);
-    expect(projectLatestAssistantUsage(messages.slice(0, 1))).toBeUndefined();
+    expect(html).toContain("Thinking");
+    expect(html).toContain("Preparing");
   });
 
-  it("renders native text, reasoning, static and dynamic tools, approval, and denied states", () => {
+  it("does not replace the pending trace with an empty streaming reasoning row", () => {
+    const projected = projectWorkflowMessageParts(
+      assistant([{ type: "reasoning", text: "", state: "streaming" }]),
+    );
+
+    expect(projected).toEqual([]);
+  });
+
+  it("renders reasoning, static and dynamic tools, approval, and denied states", () => {
     const html = renderTimeline(
       assistant([
-        { type: "text", text: "Before" },
         { type: "reasoning", text: "Checking", state: "done" },
         {
           type: "tool-search",
@@ -134,13 +119,11 @@ describe("WorkflowMessageTimeline", () => {
           approval: { id: "approval-1" },
         },
         { type: "tool-delete", state: "output-denied" },
-        { type: "text", text: "After" },
       ]),
       undefined,
       true,
     );
 
-    expect(html).toContain("Before");
     expect(html).toContain("Thinking");
     expect(html).toContain('data-slot="tool-detail-row"');
     expect(html).toContain('data-slot="tool-row" data-state="success"');
@@ -148,9 +131,9 @@ describe("WorkflowMessageTimeline", () => {
     expect(html).toContain("Approval required");
     expect(html).toContain("Approve");
     expect(html).toContain("Deny");
-    expect(html).toContain("Reason (optional)");
+    expect(html).not.toContain("Reason (optional)");
+    expect(html).not.toContain("textarea");
     expect(html).toContain('data-slot="tool-row" data-state="denied"');
-    expect(html).toContain("After");
   });
 
   it("updates one approval row in place for decided and typed expired states", () => {
@@ -167,12 +150,13 @@ describe("WorkflowMessageTimeline", () => {
     const decidedHtml = renderToStaticMarkup(
       <WorkflowMessageTimeline
         approvalDecisions={{}}
+        isStreaming
         message={decided}
         onApprovalDecision={() => Promise.resolve()}
       />,
     );
-    expect(decidedHtml).toContain('data-slot="tool-approval" data-state="approved"');
-    expect(decidedHtml).toContain("disabled");
+    expect(decidedHtml).toContain('data-slot="tool-detail-row" data-state="running"');
+    expect(decidedHtml).not.toContain('data-slot="tool-approval"');
 
     const expired = assistant([
       {
@@ -227,22 +211,33 @@ describe("WorkflowMessageTimeline", () => {
     expect(input?.id).toBe(output?.id);
   });
 
-  it("groups reasoning and tools into one trace ahead of the answer", () => {
+  it("groups reasoning and tools in source order inside one trace", () => {
     const html = renderTimeline(
       assistant([
         { type: "reasoning", text: "thinking-trace" },
         { type: "dynamic-tool", toolName: "lookup", state: "input-streaming" },
-        { type: "text", text: "the-answer" },
       ]),
       undefined,
       true,
     );
 
-    // The thought and the tool row share one fold (thought then tool in source
-    // order), and the whole trace precedes the answer — the legacy composition.
+    // The thought and tool row share one fold in provider source order.
     expect(html.indexOf("thinking-trace")).toBeLessThan(html.indexOf("Lookup"));
     expect(html.indexOf("Lookup")).toBeGreaterThan(-1);
-    expect(html.indexOf("Lookup")).toBeLessThan(html.indexOf("the-answer"));
+  });
+
+  it("collapses live thinking as soon as answer text starts", () => {
+    const html = renderTimeline(
+      assistant([
+        { type: "reasoning", text: "thinking-trace" },
+        { type: "text", text: "answer-started" },
+      ]),
+      undefined,
+      true,
+    );
+
+    expect(html).toContain("Thought process");
+    expect(html).not.toContain("rotate-180");
   });
 
   it("drops tool rows from the trace at tool detail 'hidden' but keeps thoughts", () => {
@@ -289,18 +284,15 @@ describe("WorkflowMessageTimeline", () => {
     expect(html).not.toContain('data-slot="tool-detail-row"');
   });
 
-  it("keeps a completed trace open at reasoning visibility 'detailed'", () => {
+  it("keeps completed traces collapsed without promoting reasoning emphasis", () => {
     const message = assistant([
-      { type: "reasoning", text: "kept-open" },
+      { type: "reasoning", text: "**kept-open**" },
       { type: "text", text: "the-answer" },
     ]);
-    const detailed = renderTimeline(message, undefined, false, undefined, "detailed");
-    const minimal = renderTimeline(message, undefined, false, undefined, "minimal");
+    const html = renderTimeline(message);
 
-    // The chevron rotates only while the fold is open: "detailed" holds a completed
-    // trace open, "minimal" leaves it collapsed behind the trigger.
-    expect(detailed).toContain("rotate-180");
-    expect(minimal).not.toContain("rotate-180");
+    expect(html).not.toContain("rotate-180");
+    expect(html).not.toContain("kept-open");
   });
 
   it("renders source URL, source document, sanctioned image files, and non-network files", () => {

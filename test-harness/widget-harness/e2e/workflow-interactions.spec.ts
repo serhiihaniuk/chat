@@ -65,6 +65,29 @@ test("dispatches a native client tool through the host and posts one durable out
   let postedOutput: unknown;
   await routeWorkflowApi(page, {
     runId: "run-client-tool",
+    stateAfterStart: {
+      activeTurn: { turnId: "turn-client-tool", runId: "run-client-tool" },
+      messages: [
+        {
+          id: "user-client-tool",
+          role: "user",
+          parts: [{ type: "text", text: "Open ticket 4821" }],
+        },
+        {
+          id: "assistant-client-tool",
+          role: "assistant",
+          parts: [
+            {
+              type: "dynamic-tool",
+              toolCallId: "call-open-resource",
+              toolName: "open_resource",
+              state: "input-available",
+              input: { resourceType: "ticket", resourceId: "ticket-4821" },
+            },
+          ],
+        },
+      ],
+    },
     chunks: [
       { type: "start", messageId: "assistant-client-tool" },
       { type: "start-step" },
@@ -106,6 +129,30 @@ test("posts an approval decision and updates the existing approval row in place"
   let postedDecision: unknown;
   await routeWorkflowApi(page, {
     runId: "run-approval",
+    stateAfterStart: {
+      activeTurn: { turnId: "turn-approval", runId: "run-approval" },
+      messages: [
+        {
+          id: "user-approval",
+          role: "user",
+          parts: [{ type: "text", text: "Read the private document" }],
+        },
+        {
+          id: "assistant-approval",
+          role: "assistant",
+          parts: [
+            {
+              type: "dynamic-tool",
+              toolCallId: "call-needs-access",
+              toolName: "needs_access",
+              state: "approval-requested",
+              input: { resourceId: "document-private" },
+              approval: { id: "approval-task-15" },
+            },
+          ],
+        },
+      ],
+    },
     chunks: [
       { type: "start", messageId: "assistant-approval" },
       { type: "start-step" },
@@ -208,7 +255,7 @@ test("shows the empty state with quick actions before the first message", async 
   await expect(page.getByText("How can I help with this page?")).toBeVisible();
   await expect(page.getByRole("button", { name: "Summarize this page" })).toBeVisible();
   // The restored composer footer surfaces the workflow model selector.
-  await expect(page.getByText("gpt-5.6-luna")).toBeVisible();
+  await expect(page.getByRole("combobox").filter({ hasText: "gpt-5.6-luna" })).toBeVisible();
   await page.screenshot({
     path: resolve(parityEvidenceDirectory, "empty-state.png"),
     fullPage: true,
@@ -220,18 +267,12 @@ test("keeps a new-chat draft usable when its server history does not exist yet",
 }) => {
   let draftPersisted = false;
   let draftConversationId: string | undefined;
-  let draftHistoryRequests = 0;
-  let draftActiveTurnRequests = 0;
+  let draftStateRequests = 0;
   await page.route("**/side-chat-api/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    if (!draftPersisted && request.method() === "GET" && path.endsWith("/messages")) {
-      draftHistoryRequests += 1;
-      await route.fulfill({ status: 404, json: { error: "not_found" } });
-      return;
-    }
-    if (!draftPersisted && request.method() === "GET" && path.endsWith("/active-turn")) {
-      draftActiveTurnRequests += 1;
+    if (!draftPersisted && request.method() === "GET" && path.endsWith("/state")) {
+      draftStateRequests += 1;
       await route.fulfill({ status: 404, json: { error: "not_found" } });
       return;
     }
@@ -270,12 +311,11 @@ test("keeps a new-chat draft usable when its server history does not exist yet",
 
   await expect(page.getByText("How can I help with this page?")).toBeVisible();
   await expect(page.getByLabel("Message")).toBeVisible();
-  await expect(page.getByText("gpt-5.6-luna")).toBeVisible();
+  await expect(page.getByRole("combobox").filter({ hasText: "gpt-5.6-luna" })).toBeVisible();
   await expect(page.getByText("/ High", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add context and tools" })).toBeVisible();
   await expect(page.getByText("The requested resource is unavailable.")).toHaveCount(0);
-  expect(draftHistoryRequests).toBe(0);
-  expect(draftActiveTurnRequests).toBe(0);
+  expect(draftStateRequests).toBe(0);
   expect(new URL(page.url()).searchParams.get("conversationId")).toBeNull();
 
   await page.getByRole("button", { name: "Add context and tools" }).click();
@@ -296,6 +336,36 @@ test("selects server tools per turn and renders terminal context usage", async (
   await routeWorkflowApi(page, {
     runId: "run-tools-and-usage",
     tools: toolCatalog.tools,
+    stateAfterStart: {
+      activeTurn: null,
+      messages: [
+        {
+          id: "user-tools-and-usage",
+          role: "user",
+          parts: [{ type: "text", text: "Calculate the selected total" }],
+        },
+        {
+          id: "assistant-tools-and-usage",
+          role: "assistant",
+          parts: [
+            {
+              type: "text",
+              text: "The selected calculator is available for this turn.",
+            },
+          ],
+          metadata: {
+            terminal: { status: "completed", finishReason: "stop" },
+            usage: {
+              inputTokens: 10_000,
+              outputTokens: 2_800,
+              totalTokens: 12_800,
+              reasoningTokens: 0,
+              cachedInputTokens: 0,
+            },
+          },
+        },
+      ],
+    },
     onChatRequest: (body) => {
       chatRequest = body;
     },
@@ -392,22 +462,16 @@ test("selects server tools per turn and renders terminal context usage", async (
 test("discards a stale recovery cursor without routing to or selecting another chat", async ({
   page,
 }) => {
-  const historyRequests: string[] = [];
-  const discoveryRequests: string[] = [];
+  const stateRequests: string[] = [];
   await seedWorkflowRecoveryCursor(page, parityRecoveryStorageKey, {
     conversationId: "conversation-stale",
     runId: "run-stale",
   });
   await page.route("**/side-chat-api/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (route.request().method() === "GET" && path.endsWith("/messages")) {
-      historyRequests.push(path);
-      await route.fulfill({ status: 404, json: { error: "not_found" } });
-      return;
-    }
-    if (route.request().method() === "GET" && path.endsWith("/active-turn")) {
-      discoveryRequests.push(path);
-      await route.fulfill({ status: 200, json: { activeTurn: null } });
+    if (route.request().method() === "GET" && path.endsWith("/state")) {
+      stateRequests.push(path);
+      await route.fulfill({ status: 200, json: { messages: [], activeTurn: null } });
       return;
     }
     const fulfilled = await fulfillWorkflowRead(route, path, {
@@ -432,10 +496,10 @@ test("discards a stale recovery cursor without routing to or selecting another c
   await expect(page.getByText("How can I help with this page?")).toBeVisible();
   await expect(page.getByText("Recovered conversation")).toHaveCount(0);
   await expect(page.getByText("The requested resource is unavailable.")).toHaveCount(0);
-  expect(historyRequests).toEqual(["/side-chat-api/api/conversations/conversation-stale/messages"]);
-  expect(discoveryRequests).toEqual([
-    "/side-chat-api/api/conversations/conversation-stale/active-turn",
-  ]);
+  expect(stateRequests.length).toBeGreaterThanOrEqual(1);
+  expect(new Set(stateRequests)).toEqual(
+    new Set(["/side-chat-api/api/conversations/conversation-stale/state"]),
+  );
   await expect
     .poll(() => page.evaluate((key) => sessionStorage.getItem(key), parityRecoveryStorageKey))
     .toBeNull();
@@ -462,7 +526,7 @@ test("opens the settings view from the header gear and returns to the chat", asy
 test("lists workspace conversations in the sidebar and opens a different one", async ({ page }) => {
   await page.route("**/side-chat-api/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
-    const messages = path.includes("/conversation-refund/messages")
+    const messages = path.includes("/conversation-refund/state")
       ? [
           {
             id: "u-refund",
@@ -551,6 +615,17 @@ async function fulfillWorkflowRead(
   fixture: WorkflowReadFixture,
 ): Promise<boolean> {
   if (route.request().method() !== "GET") return false;
+  if (path.endsWith("/activity")) {
+    await route.fulfill({
+      body: `data: ${JSON.stringify({
+        type: "sidechat.turn-activity-sync",
+        activeTurns: [],
+      })}\n\n`,
+      contentType: "text/event-stream",
+      status: 200,
+    });
+    return true;
+  }
   if (path.endsWith("/conversations")) {
     await route.fulfill({
       json: {
@@ -572,8 +647,10 @@ async function fulfillWorkflowRead(
     await route.fulfill({ json: { messages: fixture.messages } });
     return true;
   }
-  if (path.endsWith("/active-turn")) {
-    await route.fulfill({ json: { activeTurn: fixture.activeTurn } });
+  if (path.endsWith("/state")) {
+    await route.fulfill({
+      json: { messages: fixture.messages, activeTurn: fixture.activeTurn },
+    });
     return true;
   }
   return false;
@@ -582,6 +659,12 @@ async function fulfillWorkflowRead(
 type WorkflowRouteScenario = Readonly<{
   readonly chunks: readonly Readonly<Record<string, unknown>>[];
   readonly runId: string;
+  readonly stateAfterStart?:
+    | Readonly<{
+        activeTurn: Readonly<Record<string, unknown>> | null;
+        messages: readonly Readonly<Record<string, unknown>>[];
+      }>
+    | undefined;
   readonly onApproval?: ((body: unknown) => void) | undefined;
   readonly onChatRequest?: ((body: unknown) => void) | undefined;
   readonly onToolOutput?: ((body: unknown) => void) | undefined;
@@ -589,40 +672,52 @@ type WorkflowRouteScenario = Readonly<{
 }>;
 
 async function routeWorkflowApi(page: Page, scenario: WorkflowRouteScenario): Promise<void> {
+  const runtime = { chatStarted: false };
   await page.route("**/side-chat-api/api/**", async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    const fulfilled = await fulfillWorkflowRead(route, url.pathname, {
-      activeTurn: null,
+    const path = new URL(route.request().url()).pathname;
+    const stateAfterStart = runtime.chatStarted ? scenario.stateAfterStart : undefined;
+    const readWasFulfilled = await fulfillWorkflowRead(route, path, {
+      activeTurn: stateAfterStart?.activeTurn ?? null,
       conversations: [],
-      messages: [],
+      messages: stateAfterStart?.messages ?? [],
       tools: scenario.tools ?? [],
     });
-    if (fulfilled) return;
-    if (request.method() === "POST" && url.pathname.endsWith("/api/chat")) {
-      scenario.onChatRequest?.(request.postDataJSON());
-      await fulfillWorkflowStream(route, scenario);
-      return;
-    }
-    if (request.method() === "POST" && url.pathname.endsWith("/output")) {
-      scenario.onToolOutput?.(request.postDataJSON());
-      await route.fulfill({ json: { accepted: true } });
-      return;
-    }
-    if (request.method() === "POST" && url.pathname.includes("/approvals/")) {
-      scenario.onApproval?.(request.postDataJSON());
-      await route.fulfill({
-        json: {
-          accepted: true,
-          approvalId: url.pathname.split("/").at(-1),
-          resumed: true,
-          state: "approved",
-        },
-      });
-      return;
-    }
+    if (readWasFulfilled) return;
+    if (await fulfillWorkflowMutation(route, path, scenario, runtime)) return;
     await route.abort("failed");
   });
+}
+
+async function fulfillWorkflowMutation(
+  route: Route,
+  path: string,
+  scenario: WorkflowRouteScenario,
+  runtime: { chatStarted: boolean },
+): Promise<boolean> {
+  const request = route.request();
+  if (request.method() !== "POST") return false;
+  if (path.endsWith("/api/chat")) {
+    runtime.chatStarted = true;
+    scenario.onChatRequest?.(request.postDataJSON());
+    await fulfillWorkflowStream(route, scenario);
+    return true;
+  }
+  if (path.endsWith("/output")) {
+    scenario.onToolOutput?.(request.postDataJSON());
+    await route.fulfill({ json: { accepted: true } });
+    return true;
+  }
+  if (!path.includes("/approvals/")) return false;
+  scenario.onApproval?.(request.postDataJSON());
+  await route.fulfill({
+    json: {
+      accepted: true,
+      approvalId: path.split("/").at(-1),
+      resumed: true,
+      state: "approved",
+    },
+  });
+  return true;
 }
 
 type WorkflowRecoveryScenario = Readonly<{

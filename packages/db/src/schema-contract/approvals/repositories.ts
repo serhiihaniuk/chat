@@ -53,7 +53,6 @@ export type DecideToolApprovalCommand = RepositoryCommandEnvelope &
     readonly toolName: string;
     readonly inputDigest: string;
     readonly decision: ToolApprovalDecision;
-    readonly reason?: string | undefined;
     readonly approverSubjectId: SubjectId;
     readonly approverActorId: ActorId;
   };

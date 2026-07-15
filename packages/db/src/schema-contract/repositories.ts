@@ -9,12 +9,10 @@ import type {
   HostCommandResultRecord,
   MessageRecord,
   ToolInvocationRecord,
-  ToolApprovalRecord,
   UsageRecord,
 } from "./entities.js";
 import type {
   ActorId,
-  AssistantMessageId,
   AssistantTurnId,
   ConversationId,
   HostCommandId,
@@ -30,17 +28,44 @@ import type {
   UserMessageId,
   WorkspaceId,
 } from "./ids/persistence-ids.js";
+import type { RepositoryCommandEnvelope } from "./shared/command-envelope.js";
+import type {
+  BindTurnRunCommand,
+  ClaimTurnRunCommand,
+  ClaimTurnRunResult,
+  FinalizeAssistantTurnCommand,
+  FinalizeAssistantTurnResult,
+  RequestTurnCancellationCommand,
+  ResolveConversationTurnAvailabilityCommand,
+  TurnCancellationDisposition,
+} from "./turn-lifecycle/commands.js";
 import type { ClientToolDispatchRepositoryContract } from "./client-tools/repositories.js";
+import type {
+  ConversationSnapshotRecord,
+  FindConversationCommand,
+  ListConversationsCommand,
+  ReadConversationHistoryCommand,
+  ReadConversationSnapshotCommand,
+} from "./conversation-state/queries.js";
 import type {
   CreateOrGetToolApprovalCommand,
   DecideToolApprovalCommand,
   ExpireToolApprovalCommand,
   ToolApprovalRepositoryContract,
 } from "./approvals/repositories.js";
-export type RepositoryCommandEnvelope = {
-  readonly workspaceId: WorkspaceId;
-  readonly now: string;
-};
+export type { RepositoryCommandEnvelope } from "./shared/command-envelope.js";
+export {
+  TURN_CANCELLATION_DISPOSITIONS,
+  type BindTurnRunCommand,
+  type ClaimTurnRunCommand,
+  type ClaimTurnRunResult,
+  type FinalizeAssistantTurnCommand,
+  type FinalizeAssistantTurnResult,
+  type RequestTurnCancellationCommand,
+  type ResolveConversationTurnAvailabilityCommand,
+  type TurnCancellationDisposition,
+  type TurnUsageTotals,
+} from "./turn-lifecycle/commands.js";
 
 export type CreateOrGetConversationCommand = RepositoryCommandEnvelope & {
   readonly conversationId?: ConversationId | undefined;
@@ -71,6 +96,7 @@ export type StartAssistantTurnCommand = RepositoryCommandEnvelope & {
   readonly instructionsVersion: string;
   readonly configVersion: string;
   readonly contentFilterVersion: string;
+  readonly recoveryGraceMs?: number | undefined;
 };
 
 export type RecordTurnContextSnapshotCommand = RepositoryCommandEnvelope & {
@@ -80,48 +106,6 @@ export type RecordTurnContextSnapshotCommand = RepositoryCommandEnvelope & {
   readonly hostContextHash: string;
   readonly capabilitiesHash: string;
   readonly contextRedactedJson: JsonObject;
-};
-
-export type BindTurnRunCommand = RepositoryCommandEnvelope & {
-  readonly assistantTurnId: AssistantTurnId;
-  /** The durable Workflow run id; bound once, after the run starts. */
-  readonly runId: string;
-};
-
-/** Aggregate token usage across a turn's steps, folded onto the terminal write. */
-export type TurnUsageTotals = {
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  readonly totalTokens: number;
-  readonly reasoningTokens: number;
-  readonly cachedInputTokens: number;
-};
-
-/**
- * The one guarded transition that moves a turn from `running` to a terminal status.
- *
- * `status` is any terminal (never `running`). `assistantMessageId`/`finishReason`
- * accompany a completed or blocked turn; `errorCode` a failed one.
- */
-export type ClaimAssistantTurnTerminalCommand = RepositoryCommandEnvelope & {
-  readonly assistantTurnId: AssistantTurnId;
-  readonly status: Exclude<AssistantTurnRecord["status"], "running">;
-  readonly assistantMessageId?: AssistantMessageId | undefined;
-  readonly finishReason?: string | undefined;
-  readonly errorCode?: string | undefined;
-  readonly usage: TurnUsageTotals;
-};
-
-/**
- * Outcome of a terminal claim.
- *
- * `claimed` is true only when this call moved the turn from `running` to a
- * terminal status, and false for an already-terminal turn (replay or duplicate
- * finalize); `record` returns the row. An unknown id raises `record_not_found`.
- */
-export type ClaimAssistantTurnTerminalResult = {
-  readonly record: AssistantTurnRecord;
-  readonly claimed: boolean;
 };
 
 export type FindAssistantTurnCommand = {
@@ -260,25 +244,12 @@ export type RecordHostCommandResultCommand = RepositoryCommandEnvelope & {
   readonly resolvedAt?: string | undefined;
 };
 
-export type ReadConversationHistoryCommand = {
-  readonly workspaceId: WorkspaceId;
-  readonly subjectId: SubjectId;
-  readonly conversationId: ConversationId;
-  readonly limit: number;
-  readonly afterSequenceIndex?: number | undefined;
-  readonly beforeSequenceIndex?: number | undefined;
-};
-
-export type ListConversationsCommand = {
-  readonly workspaceId: WorkspaceId;
-  readonly subjectId: SubjectId;
-  readonly limit: number;
-};
-
-export type FindConversationCommand = {
-  readonly workspaceId: WorkspaceId;
-  readonly subjectId: SubjectId;
-  readonly conversationId: ConversationId;
+export type {
+  ConversationSnapshotRecord,
+  FindConversationCommand,
+  ListConversationsCommand,
+  ReadConversationHistoryCommand,
+  ReadConversationSnapshotCommand,
 };
 
 export type PrepareConversationTitleCommand = RepositoryCommandEnvelope & {
@@ -310,7 +281,7 @@ export type RepositoryCommandInput =
   | StartAssistantTurnCommand
   | BindTurnRunCommand
   | RecordTurnContextSnapshotCommand
-  | ClaimAssistantTurnTerminalCommand
+  | FinalizeAssistantTurnCommand
   | RecordUsageCommand
   | ReadUsageSummaryCommand
   | RecordToolInvocationCommand
@@ -323,6 +294,7 @@ export type RepositoryCommandInput =
   | ExpireToolApprovalCommand
   | RecordHostCommandResultCommand
   | ReadConversationHistoryCommand
+  | ReadConversationSnapshotCommand
   | ListConversationsCommand
   | PrepareConversationTitleCommand
   | ResetConversationCommand
@@ -343,6 +315,10 @@ export type ConversationRepositoryContract = {
   readonly readConversationHistory: (
     command: ReadConversationHistoryCommand,
   ) => Promise<readonly MessageRecord[]>;
+  /** One repeatable-read snapshot for refresh/recovery; never tears history from active-turn state. */
+  readonly readConversationSnapshot: (
+    command: ReadConversationSnapshotCommand,
+  ) => Promise<ConversationSnapshotRecord>;
   readonly listConversations: (
     command: ListConversationsCommand,
   ) => Promise<readonly ConversationSummaryRecord[]>;
@@ -360,30 +336,40 @@ export type ConversationRepositoryContract = {
 };
 
 export type AssistantTurnRepositoryContract = {
-  // Open a running turn. Idempotent on `(workspace_id, request_id)`: a replayed
-  // start returns the existing row (`inserted: false`). The one-running-per-
+  // Open a product turn. Idempotent on `(workspace_id, request_id)`: a replayed
+  // start returns the existing row (`inserted: false`). The one-open-per-
   // conversation partial unique index is the race-safe busy guard — a concurrent
-  // second running turn raises `conversation_busy` rather than a check-then-act
+  // second open turn raises `conversation_busy` rather than a check-then-act
   // window.
   readonly startAssistantTurn: (
     command: StartAssistantTurnCommand,
   ) => Promise<RepositoryCommandResult<AssistantTurnRecord>>;
   // Bind the durable Workflow run id to a turn once its run has started.
   readonly bindTurnRun: (command: BindTurnRunCommand) => Promise<AssistantTurnRecord>;
+  /** Workflow-side pre-provider fence and idempotent run binding. */
+  readonly claimTurnRun: (command: ClaimTurnRunCommand) => Promise<ClaimTurnRunResult>;
+  /** Resolve and guardedly repair the existing product slot before admission. */
+  readonly resolveConversationTurnAvailability: (
+    command: ResolveConversationTurnAvailabilityCommand,
+  ) => Promise<boolean>;
+  /** Persist user intent before Workflow cancellation delivery is attempted. */
+  readonly requestTurnCancellation: (
+    command: RequestTurnCancellationCommand,
+  ) => Promise<TurnCancellationDisposition>;
   readonly recordTurnContextSnapshot: (
     command: RecordTurnContextSnapshotCommand,
   ) => Promise<RepositoryCommandResult<ContextSnapshotRecord>>;
-  // Moves a turn from `running` to a terminal status in one `UPDATE ... WHERE
-  // status = 'running'`, and returns `claimed: false` for an already-terminal
-  // turn — so a crash replay and a duplicate finalize are both no-ops. This is
-  // what makes "no turn ends without durable status" hold without a reaper.
-  readonly claimAssistantTurnTerminal: (
-    command: ClaimAssistantTurnTerminalCommand,
-  ) => Promise<ClaimAssistantTurnTerminalResult>;
+  // Finalizes one open turn as an aggregate transaction: the guarded status
+  // transition, optional assistant message, usage, conversation timestamp, and
+  // activity notification become visible together. An already-terminal replay
+  // returns `claimed: false`, so duplicate Workflow steps are no-ops.
+  readonly finalizeAssistantTurn: (
+    command: FinalizeAssistantTurnCommand,
+  ) => Promise<FinalizeAssistantTurnResult>;
   // Turn-record reads for the resumable routes, all workspace-scoped and
   // returning `undefined` (not throwing) for an unknown or cross-tenant id, so a
   // guessed id maps to a not-found response. `findActiveAssistantTurn` answers
-  // "is there a running turn to resume?"; `findAssistantTurnByRequest` is the
+  // "is there an effectively active turn to resume?"; `findAssistantTurnByRequest` is the
   // lost-`POST /chat`-reply resolver from `requestId` to the canonical turn.
   readonly findAssistantTurn: (
     command: FindAssistantTurnCommand,
@@ -401,7 +387,7 @@ export type AssistantTurnRepositoryContract = {
   readonly findAssistantTurnByRun: (
     command: FindAssistantTurnByRunCommand,
   ) => Promise<AssistantTurnRecord | undefined>;
-  // Every running turn for a subject across conversations. Powers the activity
+  // Every effectively active turn for a subject across conversations. Powers the activity
   // stream's snapshot on connect (one entry per conversation with a live turn).
   readonly listActiveAssistantTurns: (
     command: ListActiveAssistantTurnsCommand,

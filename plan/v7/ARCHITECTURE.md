@@ -124,25 +124,16 @@ The old core's `prepareStreamChatTurn` — the staged, commented, everything-bef
 **1. Route bundle, request time — `application/turn/prepare-turn.ts`.** Plain async, one named stage per line, same contract as the old core: everything that must succeed before the stream opens; a failure rejects the HTTP request instead of half-opening an SSE response.
 
 ```ts
-export async function prepareTurn(
-  deps: TurnDeps,
-  input: TurnRequest,
-): Promise<PreparedTurn> {
+export async function prepareTurn(deps: TurnDeps, input: TurnRequest): Promise<PreparedTurn> {
   // Resolve request policy before any stateful dependency can run.
-  const model = deps.modelPolicy(
-    input.requestedModelId,
-    input.requestedReasoningEffort,
-  );
+  const model = deps.modelPolicy(input.requestedModelId, input.requestedReasoningEffort);
   // Prove the authorized conversation is idle before admission or writes.
   await deps.turns.assertCanBegin(input.auth, input.conversationId);
   const admission = await deps.admission.admitTurn(input.conversationId);
   // Atomically store the accepted user message and running turn.
   const turn = await deps.turns.beginTurn({ ...input, model });
   // Host context is untrusted reference data and changes only execution messages.
-  const executionMessages = renderHostContext(
-    input.messages,
-    input.hostContext,
-  );
+  const executionMessages = renderHostContext(input.messages, input.hostContext);
   // Start the durable run with resolved policy and execution-only messages.
   const execution = await deps.execution.start({
     ...turn,
@@ -169,7 +160,7 @@ Old → new mapping (nothing is orphaned):
 | user message / assistant turn records                                        | store ports → `adapters/persistence`                                    |
 | `run-turn-generation`, protocol event stream, state machine, runtime mapping | **no successor — the engine's stream is the protocol**                  |
 | `finalization/**`                                                            | `application/turn/finalize-turn.ts`, invoked from the shell's end/catch |
-| lease/heartbeat/reaper                                                       | no successor — durable runs replaced death-detection                    |
+| lease/heartbeat/reaper                                                       | terminal projection reconciler only; Workflow owns live execution       |
 
 ## Anti-patterns (each observed on 2026-07-11; the lint carries fixtures for them)
 

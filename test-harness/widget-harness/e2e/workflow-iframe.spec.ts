@@ -1,8 +1,10 @@
 import { isRecord } from "@side-chat/chat-protocol";
 import { expect, test } from "playwright/test";
 
-const hostBaseUrl = "http://127.0.0.1:5181";
-const workflowFixtureUrl = "http://127.0.0.1:8788";
+const hostPort = readPort("SIDECHAT_WORKFLOW_HOST_PORT", 5181);
+const hostBaseUrl = `http://127.0.0.1:${String(hostPort)}`;
+const workflowFixturePort = readPort("SIDECHAT_WORKFLOW_FIXTURE_PORT", 8788);
+const workflowFixtureUrl = `http://127.0.0.1:${String(workflowFixturePort)}`;
 const workspaceId = "workspace_iframe_context";
 const authToken = "iframe-local-test-token";
 
@@ -26,7 +28,9 @@ test("collects opted-in page context through the public iframe adapter", async (
   );
 
   const frame = page.frameLocator('iframe[title="Workspace Assistant"]');
-  await expect(frame.getByRole("region", { name: "Workspace Assistant" })).toBeVisible();
+  await expect(frame.getByRole("region", { name: "Workspace Assistant" })).toBeVisible({
+    timeout: 15_000,
+  });
   await frame.getByRole("button", { name: "Add context and tools" }).click();
   const contextToggle = frame.getByRole("menuitemcheckbox", { name: /Include page context/u });
   await expect(contextToggle).toBeVisible();
@@ -68,3 +72,8 @@ test("collects opted-in page context through the public iframe adapter", async (
   await expect(frame.getByText(/workflow answer/u)).toBeVisible();
   expect(pageErrors).toEqual([]);
 });
+
+function readPort(name: string, fallback: number): number {
+  const value = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}

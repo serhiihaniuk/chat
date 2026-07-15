@@ -2,10 +2,7 @@ import type { UIMessageChunk } from "ai";
 
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
 
-type DynamicInputDelta = Extract<
-  UIMessageChunk,
-  { type: "tool-input-delta" }
-> & {
+type DynamicInputDelta = Extract<UIMessageChunk, { type: "tool-input-delta" }> & {
   readonly dynamic: true;
 };
 
@@ -26,18 +23,12 @@ export function preserveDynamicClientToolIdentity(
         controller.enqueue({ ...chunk, dynamic: true });
         return;
       }
-      if (
-        chunk.type === "tool-input-delta" &&
-        clientToolCalls.has(chunk.toolCallId)
-      ) {
+      if (chunk.type === "tool-input-delta" && clientToolCalls.has(chunk.toolCallId)) {
         const dynamicDelta: DynamicInputDelta = { ...chunk, dynamic: true };
         controller.enqueue(dynamicDelta);
         return;
       }
-      if (
-        isClientToolOutputChunk(chunk) &&
-        clientToolCalls.has(chunk.toolCallId)
-      ) {
+      if (isClientToolOutputChunk(chunk) && clientToolCalls.has(chunk.toolCallId)) {
         controller.enqueue({ ...chunk, dynamic: true });
         return;
       }
@@ -63,11 +54,6 @@ function isClientToolInputChunk(
 
 function isClientToolOutputChunk(
   chunk: UIMessageChunk,
-): chunk is Extract<
-  UIMessageChunk,
-  { type: "tool-output-available" | "tool-output-error" }
-> {
-  return (
-    chunk.type === "tool-output-available" || chunk.type === "tool-output-error"
-  );
+): chunk is Extract<UIMessageChunk, { type: "tool-output-available" | "tool-output-error" }> {
+  return chunk.type === "tool-output-available" || chunk.type === "tool-output-error";
 }

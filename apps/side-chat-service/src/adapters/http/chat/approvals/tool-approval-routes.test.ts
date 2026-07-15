@@ -12,8 +12,7 @@ import { fakeToolApprovalDecisionStore, toolApprovalRef } from "#testing/tool-ap
 const approval = toolApprovalRef();
 
 describe("tool approval route", () => {
-  it("returns an idempotent acknowledgement without echoing a private reason", async () => {
-    const reason = "PRIVATE_APPROVAL_REASON";
+  it("returns an idempotent acknowledgement for a binary decision", async () => {
     const resume = vi.fn(async () => false);
     const harness = await createServiceTestHarness({
       toolApprovals: fakeToolApprovalDecisionStore(),
@@ -22,11 +21,10 @@ describe("tool approval route", () => {
     try {
       const response = await harness.request(approvalRoute(), {
         method: "POST",
-        body: JSON.stringify({ approved: true, reason }),
+        body: JSON.stringify({ approved: true }),
       });
       const body = await response.text();
       expect(response.status).toBe(200);
-      expect(body).not.toContain(reason);
       expect(JSON.parse(body)).toMatchObject({ accepted: true, resumed: false, state: "approved" });
       expect(resume).toHaveBeenCalledOnce();
     } finally {
@@ -57,6 +55,7 @@ describe("tool approval route", () => {
   it.each([
     ["invalid JSON", "not-json"],
     ["invalid shape", JSON.stringify({ approved: "yes" })],
+    ["unsupported reason", JSON.stringify({ approved: true, reason: "not supported" })],
   ])("rejects %s without deciding", async (_label, body) => {
     const decide = vi.fn<ToolApprovalDecisionStore["decideApproval"]>();
     const harness = await createServiceTestHarness({

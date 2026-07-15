@@ -18,9 +18,9 @@ Clients load validated history, discover in-flight runs for reattachment, and pr
 
 ### Reads
 
-- `GET /api/conversations/:id/messages`: validate each stored `UIMessage` with current tool/data schemas. On drift, keep the stored record unchanged but return a safe projection containing only valid text parts; if none survive, return one neutral “Historical content is unavailable after an upgrade” text part. Increment telemetry with no content/id labels. Never 500 the whole list or pass unvalidated tool/data parts.
+- `GET /api/conversations/:id/state`: read messages and the newest bound running turn in one repeatable-read snapshot. Validate each stored `UIMessage` with current tool/data schemas. On drift, keep the stored record unchanged but return a safe projection containing only valid text parts; if none survive, return one neutral “Historical content is unavailable after an upgrade” text part. Increment telemetry with no content/id labels. Never 500 the whole list or pass unvalidated tool/data parts.
 - Conversations list, models list: shapes owned by the new wing's routes; TanStack Query on the widget keeps consuming them (Step 13).
-- **Run discovery**: `GET /api/conversations/:id/active-turn` → `{ turnId, runId, status }` for the newest non-terminal turn; empty after terminal. It powers fresh-tab reattachment and replaces `widget-run-marker`.
+- **Run discovery**: the same `/state` response includes `{ activeTurn: { turnId, runId } | null }`. It powers fresh-tab reattachment without allowing a terminal read to race ahead of admitted assistant history. This correction supersedes the original split `/messages` and `/active-turn` design; see ADR 0017.
 
 ### Pruning
 
@@ -32,7 +32,7 @@ Clients load validated history, discover in-flight runs for reattachment, and pr
 ## Edge cases (each a test)
 
 1. drift: a persisted message referencing a removed tool → degraded read per the recorded decision, telemetry counted, no 500;
-2. discovery returns the running turn during generation, empty after terminal;
+2. the coherent snapshot returns the running turn during generation, then terminal history plus no active turn after finalization;
 3. tenant isolation on history/list/discovery (two-tenant test);
 4. pruning removes only terminal runs past the window;
 5. the first sweep after downtime catches accumulated terminal runs;
@@ -53,7 +53,7 @@ npm run lint:custom
 ## Completion checklist
 
 - [x] History read with drift-degrade decision implemented and tested.
-- [x] Discovery endpoint live; marker machinery has no consumer in the new path.
+- [x] Coherent state endpoint live; split discovery reads have no consumer or route in the new path.
 - [x] Pruning proven as a self-healing, concurrency-safe sweep.
 - [x] Step 10's six executable edge cases pass and container evidence is recorded; Step 07 owns the deferred route integration case above.
 
@@ -63,4 +63,4 @@ Drift-degrade evidence: `read-conversation-history.test.ts` proves a removed str
 
 Pruning adapter and pinned-schema evidence: `npm run test:db:container` bootstraps the installed `@workflow/world-postgres` schema and passes the maintenance integration suite for eligibility, legal hold, archive rollback, batching, and concurrent advisory locking. The service sweeper tests prove immediate catch-up, scheduled retry, and overlap protection.
 
-Read-route shapes: authenticated `GET /api/conversations`, `GET /api/models`, `GET /api/conversations/:conversationId/messages`, and `GET /api/conversations/:conversationId/active-turn`. The last returns `{ activeTurn: { turnId, runId, status: "running" } | null }`; it exposes only a bound run and becomes null after terminal projection. Two-tenant tests cover list, history, and discovery isolation.
+Corrected read-route shapes: authenticated `GET /api/conversations`, `GET /api/models`, and `GET /api/conversations/:conversationId/state`. The state response returns `{ messages, activeTurn: { turnId, runId } | null }` from one repeatable-read transaction; it exposes only a bound run and becomes null in the same snapshot that exposes terminal history. Two-tenant tests cover catalog and state isolation. ADR 0017 records why the previously completed split-read route was removed before alpha.

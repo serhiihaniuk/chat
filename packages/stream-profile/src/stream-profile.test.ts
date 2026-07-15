@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { sideChatMessageMetadataSchema } from "./data-parts.js";
+import { SIDE_CHAT_MESSAGE_TERMINAL_STATUSES, sideChatMessageMetadataSchema } from "./index.js";
 import {
   SIDE_CHAT_ERROR_CODES,
   SIDE_CHAT_ERROR_VOCABULARY,
@@ -61,6 +61,10 @@ describe("native message metadata schema", () => {
         reasoningTokens: 0,
         cachedInputTokens: 0,
       },
+      terminal: {
+        status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.COMPLETED,
+        finishReason: "length",
+      },
     });
 
     expect(result).toEqual({
@@ -73,6 +77,42 @@ describe("native message metadata schema", () => {
           reasoningTokens: 0,
           cachedInputTokens: 0,
         },
+        terminal: {
+          status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.COMPLETED,
+          finishReason: "length",
+        },
+      },
+    });
+  });
+
+  it("accepts public failed and cancelled terminal projections", () => {
+    const usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+    expect(
+      sideChatMessageMetadataSchema["~standard"].validate({
+        usage,
+        terminal: {
+          status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.FAILED,
+          errorCode: SIDE_CHAT_ERROR_CODES.TIMEOUT,
+        },
+      }),
+    ).toEqual({
+      value: {
+        usage,
+        terminal: {
+          status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.FAILED,
+          errorCode: SIDE_CHAT_ERROR_CODES.TIMEOUT,
+        },
+      },
+    });
+    expect(
+      sideChatMessageMetadataSchema["~standard"].validate({
+        usage,
+        terminal: { status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.CANCELLED },
+      }),
+    ).toEqual({
+      value: {
+        usage,
+        terminal: { status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.CANCELLED },
       },
     });
   });
@@ -116,6 +156,14 @@ describe("native message metadata schema", () => {
       activityDurationMs: 1.5,
       usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
     },
+    {
+      usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+      terminal: { status: "failed", errorCode: "provider_timeout" },
+    },
+    {
+      usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+      terminal: { status: "cancelled", privateReason: "raw abort reason" },
+    },
   ])("rejects private or invalid metadata: %o", (value) => {
     const result = sideChatMessageMetadataSchema["~standard"].validate(value);
 
@@ -147,6 +195,9 @@ describe("native message metadata schema", () => {
         usage: {
           type: "object",
           additionalProperties: false,
+        },
+        terminal: {
+          oneOf: expect.any(Array),
         },
       },
     });

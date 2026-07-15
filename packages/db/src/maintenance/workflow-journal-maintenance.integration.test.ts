@@ -29,7 +29,7 @@ describe.skipIf(!configuredDatabaseUrl)("Postgres Workflow journal maintenance",
   it("archives all six tables and prunes only old, terminal, non-held bound runs", async () => {
     const eligible = await seedRun(inspectionPool, "eligible", {});
     const held = await seedRun(inspectionPool, "held", { legalHold: true });
-    const activeTurn = await seedRun(inspectionPool, "active-turn", { turnStatus: "running" });
+    const activeTurn = await seedRun(inspectionPool, "active-turn", { turnStatus: "open" });
     const activeWorkflow = await seedRun(inspectionPool, "active-workflow", {
       workflowStatus: "running",
       completedAt: undefined,
@@ -176,7 +176,7 @@ describe.skipIf(!configuredDatabaseUrl)("Postgres Workflow journal maintenance",
 
 type SeedOptions = Readonly<{
   legalHold?: boolean;
-  turnStatus?: "running" | "completed";
+  turnStatus?: "open" | "completed";
   workflowStatus?: "running" | "completed";
   completedAt?: Date | undefined;
 }>;
@@ -215,10 +215,10 @@ async function seedRun(pool: Pool, label: string, options: SeedOptions): Promise
   await pool.query(
     `insert into sidechat.assistant_turns
        (assistant_turn_id, request_id, conversation_id, workspace_id, subject_id,
-        actor_id, user_message_id, run_id, model_provider, model_id,
+        actor_id, user_message_id, run_id, run_bound_at, model_provider, model_id,
         instructions_version, config_version, content_filter_version, status,
         started_at, completed_at)
-     values ($1, $2, $3, $4, $5, $5, $6, $7, 'test', 'test',
+     values ($1, $2, $3, $4, $5, $5, $6, $7, $9, 'test', 'test',
              'v1', 'v1', 'v1', $8, $9, $10)`,
     [
       turnId,
@@ -230,7 +230,7 @@ async function seedRun(pool: Pool, label: string, options: SeedOptions): Promise
       runId,
       turnStatus,
       OLD_COMPLETION,
-      turnStatus === "running" ? undefined : OLD_COMPLETION,
+      turnStatus === "open" ? undefined : OLD_COMPLETION,
     ],
   );
   await seedWorkflowRows(pool, runId, workflowStatus, completedAt);

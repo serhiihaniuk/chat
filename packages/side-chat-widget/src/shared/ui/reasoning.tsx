@@ -9,7 +9,7 @@
  * model is thinking, and the chevron follows the controlled open state.
  *
  * The parent controls open state so it can expand live thinking, collapse a
- * short completed trace, or keep a detailed trace open. The panel height uses
+ * trace locally, and reopen it when a new live trace arrives. The panel height uses
  * Base UI's `--collapsible-panel-height` through `sc-collapsible-panel`; no
  * JavaScript `scrollHeight` measurement is needed.
  */
@@ -37,12 +37,14 @@ export function Reasoning({
   thinking = false,
   open,
   onOpenChange,
+  renderThought,
 }: {
   items: readonly ReasoningItem[];
   label: string;
   thinking?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  renderThought?: ((text: string) => ReactNode) | undefined;
 }): ReactElement {
   return (
     <Collapsible.Root open={open} onOpenChange={onOpenChange}>
@@ -55,7 +57,7 @@ export function Reasoning({
       <Collapsible.Panel className="sc-collapsible-panel ml-2">
         <div className="flex flex-col gap-2.5 py-2 pl-3.5">
           {items.map((item) => (
-            <ReasoningEntry key={item.id} item={item} />
+            <ReasoningEntry key={item.id} item={item} renderThought={renderThought} />
           ))}
         </div>
       </Collapsible.Panel>
@@ -63,9 +65,23 @@ export function Reasoning({
   );
 }
 
-const ReasoningEntry = ({ item }: { item: ReasoningItem }): ReactNode => {
+const ReasoningEntry = ({
+  item,
+  renderThought,
+}: {
+  item: ReasoningItem;
+  renderThought: ((text: string) => ReactNode) | undefined;
+}): ReactNode => {
   if (item.kind === "thought") {
-    return <p className="text-sm text-muted-foreground">{item.text}</p>;
+    return (
+      <div className="sc-reasoning-markdown" data-slot="reasoning-thought">
+        {renderThought ? (
+          renderThought(item.text)
+        ) : (
+          <p className="text-sm text-muted-foreground">{item.text}</p>
+        )}
+      </div>
+    );
   }
   if (item.kind === "tool") {
     return <ToolRow name={item.name} state={item.state} />;

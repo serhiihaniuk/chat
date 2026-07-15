@@ -1,23 +1,37 @@
 import type { UIMessageChunk } from "ai";
 
-import { SIDE_CHAT_FINISH_REASONS, type SideChatFinishReason } from "@side-chat/stream-profile";
+import {
+  isSideChatFinishReason,
+  SIDE_CHAT_FINISH_REASONS,
+  SIDE_CHAT_MESSAGE_TERMINAL_STATUSES,
+  type SideChatFinishReason,
+  type SideChatMessageTerminal,
+} from "@side-chat/stream-profile";
 
 import type { TurnExecution, TurnExecutionTerminal } from "#application/ports/turn/turn-execution";
 import { UI_MESSAGE_CHUNK_TYPES } from "#application/turn/stream/ui-message-chunk-types";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { Settings } from "#config/settings/resolve-settings";
-import { sumTurnUsage, type TurnMessage, type TurnUsage } from "#domain/turn/turn";
+import {
+  sumTurnUsage,
+  TURN_TERMINAL_STATUSES,
+  type TurnExecutionErrorCode,
+  type TurnMessage,
+  type TurnTerminalStatus,
+  type TurnUsage,
+} from "#domain/turn/turn";
 import {
   CHAT_TURN_OUTCOMES,
-  cancelChatTurn,
   chatTurnUsage,
   classifyChatTurnOutcome,
   startChatTurn,
+  toPublicTurnErrorCode,
   type ChatTurnTerminalOutcome,
   type ChatTurnWorkflowInput,
   type SerializableChatMessage,
   type StartedChatTurn,
 } from "#workflows/production/chat-turn";
+import { cancelChatTurn } from "#workflows/production/cancellation/index";
 
 export type StartChatTurn = (input: ChatTurnWorkflowInput) => Promise<StartedChatTurn>;
 
@@ -73,10 +87,7 @@ export function createWorkflowTurnExecution(
       };
     },
     async cancel(runId) {
-      const resumed = await cancelChatTurn(runId, TURN_CANCELLATION.USER_REASON);
-      if (!resumed) {
-        throw new TurnRejectedError(TURN_REJECTION_CODES.RUN_NOT_FOUND, "Turn run not found");
-      }
+      await cancelChatTurn(runId, TURN_CANCELLATION.USER_REASON);
     },
   };
 }
@@ -112,6 +123,8 @@ export function stampFinishReason(
   terminal: Promise<
     Readonly<{
       finishReason?: string;
+      safeErrorCode?: TurnExecutionErrorCode;
+      status?: TurnTerminalStatus;
       stepUsage?: readonly TurnUsage[];
       activityDurationMs?: number;
     }>
@@ -125,20 +138,21 @@ export function stampFinishReason(
           return;
         }
         const terminalOutcome = await terminal;
-        const reason = toFinishReason(terminalOutcome.finishReason);
-        const messageMetadata =
-          terminalOutcome.stepUsage === undefined
-            ? {}
-            : {
-                messageMetadata: {
-                  usage: sumTurnUsage(terminalOutcome.stepUsage),
-                  ...(terminalOutcome.activityDurationMs === undefined
-                    ? {}
-                    : {
-                        activityDurationMs: terminalOutcome.activityDurationMs,
-                      }),
-                },
-              };
+        const reason = finishReasonForTerminal(terminalOutcome);
+        const messageTerminal = toMessageTerminal(terminalOutcome);
+        const hasMetadata =
+          terminalOutcome.stepUsage !== undefined || messageTerminal !== undefined;
+        const messageMetadata = hasMetadata
+          ? {
+              messageMetadata: {
+                usage: sumTurnUsage(terminalOutcome.stepUsage ?? []),
+                ...(terminalOutcome.activityDurationMs === undefined
+                  ? {}
+                  : { activityDurationMs: terminalOutcome.activityDurationMs }),
+                ...(messageTerminal === undefined ? {} : { terminal: messageTerminal }),
+              },
+            }
+          : {};
         controller.enqueue(
           reason === undefined
             ? { ...chunk, ...messageMetadata }
@@ -149,9 +163,39 @@ export function stampFinishReason(
   );
 }
 
-function toFinishReason(value: string | undefined): SideChatFinishReason | undefined {
-  for (const reason of Object.values(SIDE_CHAT_FINISH_REASONS)) {
-    if (reason === value) return reason;
+function finishReasonForTerminal(terminal: {
+  readonly finishReason?: string | undefined;
+  readonly status?: TurnTerminalStatus | undefined;
+}): SideChatFinishReason | undefined {
+  if (terminal.status === TURN_TERMINAL_STATUSES.FAILED) {
+    return SIDE_CHAT_FINISH_REASONS.ERROR;
   }
-  return undefined;
+  return toFinishReason(terminal.finishReason);
+}
+
+function toMessageTerminal(terminal: {
+  readonly finishReason?: string | undefined;
+  readonly safeErrorCode?: TurnExecutionErrorCode | undefined;
+  readonly status?: TurnTerminalStatus | undefined;
+}): SideChatMessageTerminal | undefined {
+  if (terminal.status === TURN_TERMINAL_STATUSES.COMPLETED) {
+    return {
+      status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.COMPLETED,
+      ...(isSideChatFinishReason(terminal.finishReason)
+        ? { finishReason: terminal.finishReason }
+        : {}),
+    };
+  }
+  if (terminal.status === TURN_TERMINAL_STATUSES.CANCELLED) {
+    return { status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.CANCELLED };
+  }
+  if (terminal.status !== TURN_TERMINAL_STATUSES.FAILED) return undefined;
+  return {
+    status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.FAILED,
+    errorCode: toPublicTurnErrorCode(terminal.safeErrorCode),
+  };
+}
+
+function toFinishReason(value: string | undefined): SideChatFinishReason | undefined {
+  return isSideChatFinishReason(value) ? value : undefined;
 }

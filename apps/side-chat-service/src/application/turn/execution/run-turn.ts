@@ -107,7 +107,6 @@ function launchTitleGeneration(
     auth: input.auth,
     conversationId: input.conversationId,
     requestId: input.requestId,
-    initialUserMessageId: input.acceptedUserMessage.id,
     userContent: input.acceptedUserMessage.text,
     assistantContent,
     modelId: titleGeneration.modelId,

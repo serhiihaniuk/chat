@@ -1,14 +1,21 @@
 import {
   DbRepositoryError,
+  TURN_CANCELLATION_DISPOSITIONS,
   uniqueViolationConstraint,
   type SidechatRepositories,
 } from "@side-chat/db";
 import { toJsonObject } from "@side-chat/shared";
 
 import type { ConversationStore } from "#application/ports/turn/conversation-store";
-import type { MessageStore } from "#application/ports/turn/message-store";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
-import type { BeginTurnInput, TurnStore } from "#application/ports/turn/turn-store";
+import {
+  CANCEL_REQUEST_DISPOSITIONS,
+  TURN_CLAIM_DISPOSITIONS,
+  type BeginTurnInput,
+  type TurnCancellationStore,
+  type TurnExecutionClaimStore,
+  type TurnStore,
+} from "#application/ports/turn/turn-store";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
 import { TURN_MESSAGE_ROLES } from "#domain/turn/turn";
@@ -16,8 +23,9 @@ import { TURN_MESSAGE_ROLES } from "#domain/turn/turn";
 import type { TurnStateContext } from "../types.js";
 
 const CONVERSATIONS_PRIMARY_KEY_CONSTRAINT = "conversations_pkey";
+const TURN_RECOVERY_GRACE_MS = 60_000;
 
-// Provenance columns are non-null, so a running turn needs some value before
+// Provenance columns are non-null, so an open turn needs some value before
 // model selection. Step 18 replaces these placeholders with real provenance.
 const PENDING_PROVENANCE = {
   modelProvider: "pending",
@@ -28,15 +36,16 @@ const PENDING_PROVENANCE = {
 } as const;
 
 type TurnLifecycle = Pick<
-  ConversationStore & MessageStore & TurnStore & TurnRunAccess,
+  ConversationStore & TurnStore & TurnExecutionClaimStore & TurnCancellationStore & TurnRunAccess,
   | "assertOwned"
   | "assertCanBegin"
   | "beginTurn"
   | "bindRun"
+  | "claimRun"
   | "assertRunOwned"
+  | "requestCancellation"
   | "assertAccessible"
-  | "appendAssistantMessage"
-  | "claimTerminal"
+  | "finalize"
 >;
 
 /** Maps turn lifecycle ports to database repositories and their error contract. */
@@ -45,10 +54,11 @@ export const createPostgresTurnLifecycle = (context: TurnStateContext): TurnLife
   assertCanBegin: assertCanBegin(context),
   beginTurn: beginTurn(context),
   bindRun: bindRun(context),
+  claimRun: claimRun(context),
   assertRunOwned: assertRunOwned(context),
+  requestCancellation: requestCancellation(context),
   assertAccessible: assertRunAccessible(context),
-  appendAssistantMessage: appendAssistantMessage(context),
-  claimTerminal: claimTerminal(context),
+  finalize: finalize(context),
 });
 
 const assertOwned =
@@ -67,16 +77,14 @@ const assertOwned =
 const assertCanBegin =
   ({ repositories }: TurnStateContext): TurnStore["assertCanBegin"] =>
   async (auth, conversationId) => {
-    // This is only a fast pre-check. The unique index remains the race-safe
-    // one-running-turn guard inside beginTurn.
-    const active = await repositories.findActiveAssistantTurn({
+    const available = await repositories.resolveConversationTurnAvailability({
       workspaceId: auth.workspaceId,
       subjectId: auth.subjectId,
       conversationId,
+      now: new Date().toISOString(),
+      recoveryGraceMs: TURN_RECOVERY_GRACE_MS,
     });
-    if (active) {
-      throw busy();
-    }
+    if (!available) throw busy();
   };
 
 const beginTurn =
@@ -117,6 +125,24 @@ const bindRun =
     });
   };
 
+const claimRun =
+  ({ repositories }: TurnStateContext): TurnExecutionClaimStore["claimRun"] =>
+  async (turn, runId) => {
+    const result = await repositories.claimTurnRun({
+      workspaceId: turn.workspaceId,
+      subjectId: turn.subjectId,
+      conversationId: turn.conversationId,
+      assistantTurnId: turn.turnId,
+      runId,
+      now: new Date().toISOString(),
+    });
+    if (result.claimed) return TURN_CLAIM_DISPOSITIONS.EXECUTE;
+    if (result.record.status === "open" && result.record.cancelRequestedAt !== undefined) {
+      return TURN_CLAIM_DISPOSITIONS.CANCEL;
+    }
+    return TURN_CLAIM_DISPOSITIONS.FENCED;
+  };
+
 const assertRunOwned =
   ({ repositories }: TurnStateContext): TurnStore["assertRunOwned"] =>
   async (auth, conversationId, runId) => {
@@ -127,6 +153,28 @@ const assertRunOwned =
     });
     if (!turn || turn.conversationId !== conversationId) {
       throw runNotFound();
+    }
+  };
+
+const requestCancellation =
+  ({ repositories }: TurnStateContext): TurnCancellationStore["requestCancellation"] =>
+  async (auth, conversationId, runId) => {
+    try {
+      const disposition = await repositories.requestTurnCancellation({
+        workspaceId: auth.workspaceId,
+        subjectId: auth.subjectId,
+        conversationId,
+        runId,
+        now: new Date().toISOString(),
+      });
+      return disposition === TURN_CANCELLATION_DISPOSITIONS.DELIVER
+        ? CANCEL_REQUEST_DISPOSITIONS.DELIVER
+        : CANCEL_REQUEST_DISPOSITIONS.ACKNOWLEDGED;
+    } catch (error) {
+      if (error instanceof DbRepositoryError && error.code === "record_not_found") {
+        throw runNotFound();
+      }
+      throw error;
     }
   };
 
@@ -141,39 +189,34 @@ const assertRunAccessible =
     if (!turn) {
       throw runNotFound();
     }
+    return { turnId: turn.assistantTurnId };
   };
 
-const appendAssistantMessage =
-  ({ repositories }: TurnStateContext): MessageStore["appendAssistantMessage"] =>
-  async (turn, message) => {
-    await repositories.appendMessage({
-      workspaceId: turn.workspaceId,
-      subjectId: turn.subjectId,
-      conversationId: turn.conversationId,
-      messageId: message.id,
-      role: TURN_MESSAGE_ROLES.ASSISTANT,
-      parts: message.parts.map(toJsonObject),
-      metadataJson: message.metadata === undefined ? {} : toJsonObject(message.metadata),
-      now: new Date().toISOString(),
-    });
-  };
-
-const claimTerminal =
-  ({ repositories }: TurnStateContext): TurnStore["claimTerminal"] =>
-  async (turn, terminal) => {
-    const result = await repositories.claimAssistantTurnTerminal({
+const finalize =
+  ({ repositories }: TurnStateContext): TurnStore["finalize"] =>
+  async (turn, record) => {
+    const message = record.assistantMessage;
+    const result = await repositories.finalizeAssistantTurn({
       workspaceId: turn.workspaceId,
       assistantTurnId: turn.turnId,
-      status: terminal.status,
-      assistantMessageId: undefined,
-      finishReason: terminal.finishReason,
-      errorCode: terminal.safeErrorCode,
+      status: record.terminal.status,
+      ...(message === undefined
+        ? {}
+        : {
+            assistantMessage: {
+              messageId: message.id,
+              parts: message.parts.map(toJsonObject),
+              metadataJson: message.metadata === undefined ? {} : toJsonObject(message.metadata),
+            },
+          }),
+      finishReason: record.terminal.finishReason,
+      errorCode: record.terminal.safeErrorCode,
       usage: {
-        inputTokens: terminal.usage.inputTokens,
-        outputTokens: terminal.usage.outputTokens,
-        totalTokens: terminal.usage.totalTokens,
-        reasoningTokens: terminal.usage.reasoningTokens ?? 0,
-        cachedInputTokens: terminal.usage.cachedInputTokens ?? 0,
+        inputTokens: record.terminal.usage.inputTokens,
+        outputTokens: record.terminal.usage.outputTokens,
+        totalTokens: record.terminal.usage.totalTokens,
+        reasoningTokens: record.terminal.usage.reasoningTokens ?? 0,
+        cachedInputTokens: record.terminal.usage.cachedInputTokens ?? 0,
       },
       now: new Date().toISOString(),
     });
@@ -220,6 +263,7 @@ const startTurn = async (
       conversationId: input.conversationId,
       userMessageId: input.userMessage.id,
       ...PENDING_PROVENANCE,
+      recoveryGraceMs: TURN_RECOVERY_GRACE_MS,
       now,
     });
     return started.record;

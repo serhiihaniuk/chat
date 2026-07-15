@@ -1,18 +1,23 @@
 # Step 13: Widget — Transport and Chat State
 
-Read this when: wiring the widget's chat state onto `useChat` and `WorkflowChatTransport`.
+Read this when: reviewing the historical Step 13 transport integration.
 
-Source of truth for: transport configuration, auth wiring, history seeding, and send/stream/cancel state behavior.
+Source of truth for: the Step 13 implementation record only. ADR 0017 and Step 16 own the current session/lifecycle architecture.
 
 Not source of truth for: part rendering (Step 14), tool/approval interactions (Step 15), or recovery/multi-tab (Step 16).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
+> **Superseded ownership assumption (2026-07-14):** this step correctly adopted
+> native stream assembly, but incorrectly made `useChat` the conversation-state
+> authority. The current widget uses a widget-lifetime reducer session plus a
+> disposable transport-reader epoch. See [ADR 0017](../../docs/adr/0017-native-conversation-reconciliation.md).
+
 Depends on: Steps 07, 10 (their endpoints). Unblocks: Steps 14, 15, 16.
 
 ## Outcome
 
-The widget sends a message, streams the answer, and cancels — through `useChat` (`@ai-sdk/react`) with `WorkflowChatTransport`, seeded from validated history. Rendering may be minimal/raw in this step (text only); the old state layer is untouched and still present (deleted in Step 20). Component library and design system untouched.
+This step originally sent, streamed, and cancelled through `useChat` with `WorkflowChatTransport`, seeded from validated history. That transport adoption remains, but its lifecycle ownership was replaced by the Step 16/ADR 0017 session architecture. This section records the historical milestone rather than the current design.
 
 ## Current evidence to verify (the layer being replaced)
 
@@ -20,7 +25,7 @@ The widget sends a message, streams the answer, and cancels — through `useChat
 - Staying (updated shapes only): `entities/conversation/api/query/**` (TanStack Query reads).
 - Read `.claude/skills/sidechat-design-system` before touching any widget code.
 
-## Target design
+## Original target design (ownership superseded by ADR 0017)
 
 - One `useChat` per open conversation; `id` = conversation id; initial messages seeded from the Step 10 history read (validated `UIMessage[]`).
 - Transport: `WorkflowChatTransport` — `api` → Step 05 POST; auth headers/credentials/body via the prepare-hook functions (`prepareSendMessagesRequest`, `prepareReconnectToStreamRequest` — functions, so token refresh works); reconnect target Step 07's GET; `maxConsecutiveErrors` from config. (Reconnect _behavior_ is Step 16's scope; this step only wires the transport correctly.)
@@ -51,7 +56,7 @@ Plus a browser sanity run against the new wing (fake provider) via the preview w
 
 ## Completion checklist
 
-- [x] useChat + `WorkflowChatTransport` wired with auth prepare hooks.
+- [x] Historical `useChat` ownership was deleted; the reducer session consumes `WorkflowChatTransport` directly with authenticated request preparation.
 - [x] History seeding without duplicate bubbles.
 - [x] All six edge cases tested; browser sanity run screenshotted.
 - [x] Old state layer untouched but unused by this path.
@@ -63,10 +68,10 @@ Transport/config entry points: `entities/workflow-chat/api/workflow-chat-transpo
 `WorkflowChatClient` / `WorkflowSideChatWidgetProps` exports. The harness's
 `workflow-service` mode targets the v7 service without changing legacy modes.
 
-Id-reconciliation approach: history settles before the conversation-scoped
-`useChat` mounts. The native stream's `start.messageId` owns the assistant id;
-the widget does not create an optimistic assistant placeholder, so seed and
-stream cannot represent the same assistant twice.
+Id-reconciliation approach: the initial stream and replay both stamp the
+turn-scoped durable assistant id into `start.messageId`. The reducer upserts
+that identity monotonically while replay catches up, so history and live stream
+cannot represent the same assistant twice.
 
 Evidence: focused workflow tests 15/15; widget package 229/229; widget and
 harness builds; harness test 8/8; browser send/finish and cancel screenshots in

@@ -3,8 +3,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { runToolApprovalStep } from "../production/approvals/tool-approval.js";
 import { TOOL_APPROVAL_STATES } from "#application/ports/turn/tools/tool-approval-store";
+import {
+  defineServerTool,
+  SERVER_TOOL_APPROVAL_POLICIES,
+} from "#application/turn/tools/server-tools/server-tool-catalog";
 import { toolApprovalSnapshot } from "#testing/tool-approval-fixtures";
-import { TOOL_APPROVAL_DENIAL_REASONS } from "../tool-approvals/approval-output.js";
+import {
+  deniedToolOutput,
+  TOOL_APPROVAL_DENIAL_REASONS,
+} from "../tool-approvals/approval-output.js";
 import { isWorkflowRecord } from "../tool-approvals/workflow-value-guards.js";
 
 const { approvalStepMock, createHookMock, disposeHookMock, getWritableMock, sleepMock } =
@@ -25,7 +32,12 @@ vi.mock("../production/approvals/tool-approval.js", () => ({
   runToolApprovalStep: approvalStepMock,
 }));
 
-import { executeGatedServerTool, TOOL_APPROVAL_REQUEST_STREAM_PART_TYPE } from "./index.js";
+import {
+  executeGatedServerTool,
+  readServerToolSources,
+  TOOL_APPROVAL_REQUEST_STREAM_PART_TYPE,
+  writeServerToolSources,
+} from "./index.js";
 
 type TestServerExecute = (
   input: { issue: string },
@@ -99,6 +111,102 @@ describe("durable server-tool approval gate", () => {
       expect(execute).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("server-tool source projection", () => {
+  beforeEach(() => {
+    getWritableMock.mockReset();
+  });
+
+  it("writes tool-owned URLs as durable native source parts", async () => {
+    const sourceChunks: unknown[] = [];
+    getWritableMock.mockReturnValue(
+      new WritableStream({
+        write(chunk) {
+          sourceChunks.push(chunk);
+        },
+      }),
+    );
+    const definition = defineServerTool<
+      { query: string },
+      { results: readonly { title: string; url: string }[] }
+    >({
+      name: "test_search",
+      description: "Test search",
+      inputSchema: { type: "object" },
+      approvalPolicy: { kind: SERVER_TOOL_APPROVAL_POLICIES.ALWAYS },
+      validateInput: (input): input is { query: string } =>
+        typeof input === "object" && input !== null && "query" in input,
+      execute: async () => ({ results: [] }),
+      readSources: (output) =>
+        output.results.map((result) => ({ label: result.title, url: result.url })),
+    });
+
+    const sources = readServerToolSources(definition, {
+      results: [
+        { title: "First source", url: "https://first.test" },
+        { title: "Second source", url: "https://second.test" },
+      ],
+    });
+    await writeServerToolSources(sources, "call-1");
+
+    expect(sourceChunks).toEqual([
+      {
+        type: "source",
+        sourceType: "url",
+        id: "call-1:source:1",
+        url: "https://first.test",
+        title: "First source",
+      },
+      {
+        type: "source",
+        sourceType: "url",
+        id: "call-1:source:2",
+        url: "https://second.test",
+        title: "Second source",
+      },
+    ]);
+  });
+
+  it("does not open the workflow stream when a tool exposes no sources", async () => {
+    const definition = defineServerTool<{ query: string }, { ok: boolean }>({
+      name: "test_tool",
+      description: "Test tool",
+      inputSchema: { type: "object" },
+      approvalPolicy: { kind: SERVER_TOOL_APPROVAL_POLICIES.UNGATED },
+      validateInput: (input): input is { query: string } =>
+        typeof input === "object" && input !== null && "query" in input,
+      execute: async () => ({ ok: true }),
+    });
+
+    const sources = readServerToolSources(definition, { ok: true });
+
+    expect(sources).toEqual([]);
+    expect(getWritableMock).not.toHaveBeenCalled();
+  });
+
+  it("does not project a denied approval as a tool result", async () => {
+    const readSources = vi.fn<(output: { results: readonly [] }) => readonly []>(() => []);
+    const definition = defineServerTool<{ query: string }, { results: readonly [] }>({
+      name: "test_search",
+      description: "Test search",
+      inputSchema: { type: "object" },
+      approvalPolicy: { kind: SERVER_TOOL_APPROVAL_POLICIES.ALWAYS },
+      validateInput: (input): input is { query: string } =>
+        typeof input === "object" && input !== null && "query" in input,
+      execute: async () => ({ results: [] }),
+      readSources,
+    });
+
+    const sources = readServerToolSources(
+      definition,
+      deniedToolOutput(TOOL_APPROVAL_DENIAL_REASONS.DENIED),
+    );
+
+    expect(sources).toEqual([]);
+    expect(readSources).not.toHaveBeenCalled();
+    expect(getWritableMock).not.toHaveBeenCalled();
+  });
 });
 
 function approvalRequest(execute: ReturnType<typeof vi.fn<TestServerExecute>>) {

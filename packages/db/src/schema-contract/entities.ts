@@ -81,6 +81,10 @@ export type AssistantTurnRecord = TenantScopedRecord &
     readonly assistantMessageId?: AssistantMessageId;
     /** The durable Workflow run this turn attaches to; set once, after start. */
     readonly runId?: string;
+    /** When the route or Workflow claim first bound `runId`. */
+    readonly runBoundAt?: string;
+    /** Durable user intent, written before cancellation delivery is attempted. */
+    readonly cancelRequestedAt?: string;
     // Provenance for a regulated deployment: exactly which model, prompt, config,
     // and content-filter version produced this turn.
     readonly modelProvider: string;
@@ -174,7 +178,6 @@ export type ToolApprovalRecord = TenantScopedRecord &
     readonly toolName: string;
     readonly inputDigest: string;
     readonly state: ToolApprovalState;
-    readonly decisionReason?: string;
     readonly decidedBySubjectId?: SubjectId;
     readonly decidedByActorId?: ActorId;
     readonly requestedAt: string;

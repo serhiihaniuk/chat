@@ -74,7 +74,7 @@ AI SDK 7 adoption was never gated; only the durable-execution substrate was. The
 
 ## How an agent executes a step
 
-1. Read this file, [`ARCHITECTURE.md`](./ARCHITECTURE.md) (normative — every file placement and dependency direction follows it), [`STATUS.md`](./STATUS.md), [`KNOWLEDGE.md`](./KNOWLEDGE.md), and the step file.
+1. Read this file, [`ARCHITECTURE.md`](./ARCHITECTURE.md) (normative service shape), [`STATUS.md`](./STATUS.md), [`KNOWLEDGE.md`](./KNOWLEDGE.md), and the step file. For any widget chat-state work (steps 13–16), also read [`WIDGET-STATE-ARCHITECTURE.md`](./WIDGET-STATE-ARCHITECTURE.md) (normative — the session aggregate owns state; the native stream is input; `Chat` is not an owner).
 2. Verify SDK/Workflow APIs against installed declarations and `.reference/ai-sdk-v7` / `.reference/workflow`. Reverify after every version bump.
 3. Update `STATUS.md` owner/state before and after work.
 4. Keep the old app untouched unless a step records an approved exception. Step 09 intentionally left it red after the user approved deleting the obsolete persistence contract; Step 20 owns final cutover/deletion.
@@ -111,7 +111,8 @@ This program leaves `plan/effect` byte-identical as historical research material
 
 ## Files
 
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md): the normative target shape — layers, ports, dependency law, physical seams, anti-patterns.
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md): the normative service shape — layers, ports, dependency law, physical seams, anti-patterns.
+- [`WIDGET-STATE-ARCHITECTURE.md`](./WIDGET-STATE-ARCHITECTURE.md): the normative widget chat-state shape — session aggregate as sole authority, reducer fold, attachment epochs, native stream as input, anti-patterns.
 - [`STATUS.md`](./STATUS.md): state, ownership, substrate verdict, evidence.
 - [`KNOWLEDGE.md`](./KNOWLEDGE.md): verified facts, gotchas, baseline, rationale.
 - `01`–`21`: executable milestone contracts (one file per step).

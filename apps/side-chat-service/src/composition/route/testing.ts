@@ -2,7 +2,8 @@ import { createCompatibilityApp } from "#adapters/http/compatibility-app";
 import { createChatRoutes } from "#adapters/http/chat/chat-routes";
 import { createCapabilityRoutes } from "#adapters/http/capabilities/capability-routes";
 import { createQueryRoutes } from "#adapters/http/conversations/query-routes";
-import { EMPTY_STRUCTURED_PART_CATALOGS } from "#application/conversations/read-conversation-history";
+import { createActivityRoutes } from "#adapters/http/conversations/activity-routes";
+import { structuredPartCatalogsForServerTools } from "#application/conversations/read-conversation-history";
 import { createHttpApp, type Readiness } from "#adapters/http/health/health-app";
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
 import {
@@ -12,6 +13,9 @@ import {
 import { registerServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
 import type { ModelProvider } from "#application/ports/model-provider";
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
+import type { TurnActivityNotificationSource } from "#application/ports/turn/activity/turn-activity-source";
+import { createTurnActivityDispatcher } from "#application/turn/activity/turn-activity-dispatcher";
+import { createPostgresTurnActivityNotificationSource } from "@side-chat/db";
 import type { RequestAuthorizer } from "#application/ports/request-authorizer";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
@@ -143,7 +147,15 @@ async function startTestingServiceWithPersistence<
   persistence: TestingPersistence<TStore>,
 ) {
   if (overrides.telemetrySink !== undefined) registerServiceTelemetry(overrides.telemetrySink);
-  const scope = await startServiceScope(settings, [persistence.registerClose, ...starters]);
+  const activityDispatcher = createTurnActivityDispatcher(persistence.activityNotificationSource);
+  const scope = await startServiceScope(settings, [
+    persistence.registerClose,
+    () => ({
+      name: "testing turn activity dispatcher",
+      close: () => activityDispatcher.shutdown(),
+    }),
+    ...starters,
+  ]);
   const readiness = overrides.readiness ?? { check: () => scope.isReady() };
   const authorizer = overrides.authorizer ?? createServiceAuthorizer(settings.auth);
   const app = createHttpApp(readiness, authorizer);
@@ -154,6 +166,7 @@ async function startTestingServiceWithPersistence<
   const serverToolNames = new Set(serverTools.map((definition) => definition.name));
   const turnReplay = resolveTurnReplay(overrides.turnReplay);
   const approvalDependencies = testingApprovalDependencies(overrides, persistence);
+  const conversationQueries = overrides.conversationQueries ?? turnState;
   app.route(
     "/",
     createChatRoutes({
@@ -172,20 +185,26 @@ async function startTestingServiceWithPersistence<
       hostContextPolicy: settings.hostContext,
       // In-memory dev has no durable workflow finalize; the route projects the
       // terminal itself. Postgres deployments leave it to the workflow step.
-      ...(persistence.durable
-        ? {}
-        : { routeFinalization: { turns: turnState, messages: turnState } }),
+      ...(persistence.durable ? {} : { routeFinalization: { turns: turnState } }),
     }),
   );
   app.route("/", createCapabilityRoutes({ hostContextPolicy: settings.hostContext }));
   app.route(
     "/",
     createQueryRoutes({
-      queries: overrides.conversationQueries ?? turnState,
+      queries: conversationQueries,
       telemetry: telemetrySink,
       modelCatalog: publishedModelCatalog(settings),
-      structuredPartCatalogs: EMPTY_STRUCTURED_PART_CATALOGS,
+      structuredPartCatalogs: structuredPartCatalogsForServerTools(serverTools),
       serverTools,
+    }),
+  );
+  app.route(
+    "/",
+    createActivityRoutes({
+      dispatcher: activityDispatcher,
+      queries: conversationQueries,
+      keepaliveIntervalMs: settings.keepalive.intervalMs,
     }),
   );
   app.route("/", createCompatibilityApp());
@@ -220,6 +239,7 @@ type TestingPersistence<TStore extends InMemoryTurnState | PostgresTurnState> = 
   clientToolDispatches: ClientToolDispatchStore;
   toolApprovals: ToolApprovalDecisionStore;
   registerClose: StartServicePart;
+  activityNotificationSource: TurnActivityNotificationSource;
   /** True when the workflow finalize step owns terminal persistence (Postgres). */
   durable: boolean;
 }>;
@@ -236,6 +256,7 @@ function createConfiguredTestingPersistence(
   const store = createPostgresTurnState(databaseUrl);
   return {
     store,
+    activityNotificationSource: createPostgresTurnActivityNotificationSource(databaseUrl),
     clientToolDispatches: store,
     toolApprovals: store,
     durable: true,
@@ -249,6 +270,7 @@ function createConfiguredTestingPersistence(
 function inMemoryPersistence(store: InMemoryTurnState): TestingPersistence<InMemoryTurnState> {
   return {
     store,
+    activityNotificationSource: store.turnActivityNotifications,
     clientToolDispatches: unavailableClientToolDispatches,
     toolApprovals: unavailableToolApprovals,
     durable: false,

@@ -20,5 +20,5 @@ export type TurnReplayResult =
 
 /** Opens a fresh durable stream reader for each replay subscriber. */
 export interface TurnReplay {
-  open(runId: string, startIndex: number): Promise<TurnReplayResult>;
+  open(runId: string, startIndex: number, assistantMessageId: string): Promise<TurnReplayResult>;
 }

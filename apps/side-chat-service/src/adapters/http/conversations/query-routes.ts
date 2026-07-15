@@ -3,6 +3,7 @@ import type { SideChatReasoningSupport } from "@side-chat/stream-profile";
 
 import {
   readConversationHistory,
+  readConversationState,
   type StructuredPartCatalogs,
 } from "#application/conversations/read-conversation-history";
 import {
@@ -77,20 +78,16 @@ export function createQueryRoutes(dependencies: QueryRouteDependencies): Hono<Au
     }
   });
 
-  app.get(QUERY_HTTP_ROUTES.ACTIVE_TURN, async (context) => {
+  app.get(QUERY_HTTP_ROUTES.STATE, async (context) => {
     try {
-      const activeTurn = await dependencies.queries.findActiveTurn(
+      const state = await readConversationState(
+        dependencies,
         context.get("authContext"),
         context.req.param("conversationId"),
       );
-      return context.json({ activeTurn: activeTurn ?? null });
+      return context.json(state);
     } catch (error) {
-      if (isHiddenConversationError(error)) return context.json({ activeTurn: null });
-      return errorResponse(
-        requestId(context),
-        HTTP_ERROR.INTERNAL_SERVER_ERROR,
-        "Active turn discovery failed.",
-      );
+      return mapHistoryError(requestId(context), error);
     }
   });
 
@@ -150,7 +147,7 @@ function mapHistoryError(requestIdValue: string, error: unknown): Response {
 // An unknown or cross-tenant conversation must read as absent, never as a 500.
 // The Postgres store reports it with `DbRepositoryError` codes; the in-memory
 // store reports it with `TurnRejectedError` codes — both are hidden here so a
-// missing history 404s and a missing active turn resolves to `null`.
+// every selected-conversation read resolves through the same hidden 404 contract.
 const HIDDEN_CONVERSATION_CODES: ReadonlySet<string> = new Set([
   "record_not_found",
   "cross_tenant_access_denied",

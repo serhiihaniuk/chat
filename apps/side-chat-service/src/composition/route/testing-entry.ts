@@ -1,8 +1,5 @@
 import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
-import {
-  envValue,
-  serviceProcessEnv,
-} from "#config/environment/process-environment";
+import { envValue, serviceProcessEnv } from "#config/environment/process-environment";
 
 import { startTestingServiceWithConfiguredPersistence } from "./testing.js";
 import { resolveServiceSettings } from "../settings/resolve-service-settings.js";
@@ -18,10 +15,7 @@ const COMPILED_CLIENT_TOOL_TIMEOUT_MS = 5_000;
 const COMPILED_PROVIDER_TIMEOUT_MS = 20_000;
 const environment = serviceProcessEnv();
 const resolvedSettings = resolveServiceSettings(environment);
-const databaseUrl = envValue(
-  environment,
-  SERVICE_ENV_KEYS.SIDECHAT_DATABASE_URL,
-);
+const databaseUrl = envValue(environment, SERVICE_ENV_KEYS.SIDECHAT_DATABASE_URL);
 const settings = {
   ...resolvedSettings,
   timeouts: {
@@ -31,15 +25,11 @@ const settings = {
   },
   persistence: { databaseUrl },
 };
-const service = await startTestingServiceWithConfiguredPersistence(
-  settings,
-  [],
-  {
-    turnExecution: createWorkflowTurnExecution(settings, startTestingChatTurn),
-    turnAdmission: PASS_THROUGH_TURN_ADMISSION,
-    turnReplay: createWorkflowTurnReplay(),
-    resumeClientTool: resumeTestingClientToolResult,
-  },
-);
+const service = await startTestingServiceWithConfiguredPersistence(settings, [], {
+  turnExecution: createWorkflowTurnExecution(settings, startTestingChatTurn),
+  turnAdmission: PASS_THROUGH_TURN_ADMISSION,
+  turnReplay: createWorkflowTurnReplay(),
+  resumeClientTool: resumeTestingClientToolResult,
+});
 
 export default service.app;

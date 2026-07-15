@@ -33,6 +33,6 @@ export function normalizeApprovalUIChunk(chunk: UIMessageChunk): UIMessageChunk 
   return chunk;
 }
 
-function isDeniedToolOutput(value: unknown): value is ToolApprovalDenialOutput {
+export function isDeniedToolOutput(value: unknown): value is ToolApprovalDenialOutput {
   return isWorkflowRecord(value) && value["type"] === TOOL_APPROVAL_DENIAL_OUTPUT_TYPE;
 }

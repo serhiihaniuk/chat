@@ -22,3 +22,9 @@ export const SIDE_CHAT_FINISH_REASONS = {
 
 export type SideChatFinishReason =
   (typeof SIDE_CHAT_FINISH_REASONS)[keyof typeof SIDE_CHAT_FINISH_REASONS];
+
+const SIDE_CHAT_FINISH_REASON_VALUES = new Set<unknown>(Object.values(SIDE_CHAT_FINISH_REASONS));
+
+export function isSideChatFinishReason(value: unknown): value is SideChatFinishReason {
+  return SIDE_CHAT_FINISH_REASON_VALUES.has(value);
+}

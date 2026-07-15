@@ -42,6 +42,17 @@ export type WorkflowClientToolDefinition = Readonly<{
   readonly inputSchema: JsonObject;
 }>;
 
+type AiSdkSendOptions = Parameters<ChatTransport<WorkflowUIMessage>["sendMessages"]>[0];
+type AiSdkReconnectOptions = Parameters<ChatTransport<WorkflowUIMessage>["reconnectToStream"]>[0];
+type WorkflowReconnectOptions = AiSdkReconnectOptions &
+  Pick<ReconnectToStreamOptions, "abortSignal">;
+
+type SideChatWorkflowTransport = Omit<ChatTransport<WorkflowUIMessage>, "reconnectToStream"> & {
+  reconnectToStream: (
+    options: WorkflowReconnectOptions,
+  ) => ReturnType<ChatTransport<WorkflowUIMessage>["reconnectToStream"]>;
+};
+
 /**
  * Bind Workflow's generic transport to Side Chat's HTTP envelope.
  *
@@ -56,7 +67,7 @@ export function createWorkflowChatTransport({
   getReconnectRunId,
   onRunFinished,
   onRunStarted,
-}: CreateWorkflowChatTransportInput): ChatTransport<WorkflowUIMessage> {
+}: CreateWorkflowChatTransportInput): SideChatWorkflowTransport {
   const client = getClient();
   const transportOptions: WorkflowChatTransportOptions<WorkflowUIMessage> = {
     api: workflowChatUrl(getClient(), "/api/chat"),
@@ -152,9 +163,6 @@ function closeBodyCalmlyOnAbort(
   });
 }
 
-type AiSdkSendOptions = Parameters<ChatTransport<WorkflowUIMessage>["sendMessages"]>[0];
-type AiSdkReconnectOptions = Parameters<ChatTransport<WorkflowUIMessage>["reconnectToStream"]>[0];
-
 /** Keep AI SDK 7's explicit undefineds out of Workflow's exact optional fields. */
 const toSendOptions = (
   options: AiSdkSendOptions,
@@ -173,11 +181,12 @@ const toSendOptions = (
 };
 
 const toReconnectOptions = (
-  options: AiSdkReconnectOptions,
+  options: WorkflowReconnectOptions,
 ): ReconnectToStreamOptions & ChatRequestOptions => {
   const result: ReconnectToStreamOptions & ChatRequestOptions = {
     chatId: options.chatId,
   };
+  if (options.abortSignal !== undefined) result.abortSignal = options.abortSignal;
   if (options.body !== undefined) result.body = options.body;
   if (options.headers !== undefined) result.headers = options.headers;
   if (options.metadata !== undefined) result.metadata = options.metadata;

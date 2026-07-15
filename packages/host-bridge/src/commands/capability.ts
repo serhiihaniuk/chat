@@ -1,7 +1,4 @@
-import type {
-  ActivityEvent,
-  ActivityHostCommandDetails,
-} from "@side-chat/chat-protocol";
+import type { ActivityEvent, ActivityHostCommandDetails } from "@side-chat/chat-protocol";
 import type { JsonObject } from "@side-chat/shared";
 
 /** A protocol activity narrowed to the host-command payload the bridge can dispatch. */
@@ -74,32 +71,23 @@ export const toClientToolDefinitions = (
 export const isHostCommandActivityEvent = (
   event: ActivityEvent,
 ): event is HostCommandActivityEvent =>
-  event.activityKind === "host_command" &&
-  event.details?.hostCommand !== undefined;
+  event.activityKind === "host_command" && event.details?.hostCommand !== undefined;
 
-export const toHostCommand = (
-  event: HostCommandActivityEvent,
-): HostCommand => ({
+export const toHostCommand = (event: HostCommandActivityEvent): HostCommand => ({
   assistantTurnId: event.assistantTurnId,
   commandId: event.details.hostCommand.commandId,
   commandName: event.details.hostCommand.commandName,
   payload: event.details.hostCommand.payload,
 });
 
-export const supportsCommand = (
-  capabilities: HostCapabilities,
-  command: HostCommand,
-): boolean =>
+export const supportsCommand = (capabilities: HostCapabilities, command: HostCommand): boolean =>
   capabilities.commands.some(
     (capability) =>
       capability.commandName === command.commandName &&
       supportsResourceType(capability, command.payload),
   );
 
-export const supportsTool = (
-  capabilities: HostCapabilities,
-  toolCall: HostToolCall,
-): boolean =>
+export const supportsTool = (capabilities: HostCapabilities, toolCall: HostToolCall): boolean =>
   capabilities.commands.some(
     (capability) =>
       capability.commandName === toolCall.toolName &&
@@ -116,9 +104,7 @@ const supportsResourceType = (
   if (!resourceTypes || resourceTypes.length === 0) return true;
 
   const resourceType = payload["resourceType"];
-  return (
-    typeof resourceType === "string" && resourceTypes.includes(resourceType)
-  );
+  return typeof resourceType === "string" && resourceTypes.includes(resourceType);
 };
 
 const supportsResourceTypeForTool = (

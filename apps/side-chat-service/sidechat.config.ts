@@ -56,7 +56,7 @@ const config: SideChatConfig = defineSideChatConfig({
   },
   timeouts: {
     queueMs: 5_000,
-    providerMs: 45_000,
+    providerMs: 180_000,
     clientToolMs: 30_000,
   },
   agent: {

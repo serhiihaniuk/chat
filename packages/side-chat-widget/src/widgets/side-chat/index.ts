@@ -9,7 +9,6 @@ export type {
   SideChatWidgetProps,
   WorkflowSideChatWidgetProps,
   SideChatWidgetQuickAction,
-  ReasoningVisibility,
   WidgetThemeId,
 } from "./model/side-chat-widget.types.js";
 export type { WorkflowChatClient, WorkflowChatRequestConfig } from "#entities/workflow-chat";

@@ -10,7 +10,6 @@ export interface ConversationTitleStore {
   readTitleEligibility(
     auth: AuthContext,
     conversationId: string,
-    initialUserMessageId: string,
   ): Promise<ConversationTitleEligibility>;
   prepareConversationTitle(
     auth: AuthContext,

@@ -2,11 +2,7 @@ import type { ReactNode } from "react";
 
 import type { RenderActivityItem } from "#entities/activity";
 import type { WidgetMessage, WidgetRunNotice } from "#entities/chat";
-import {
-  DEFAULT_TOOL_DETAIL_LEVEL,
-  type ReasoningVisibility,
-  type ToolDetailLevel,
-} from "#entities/settings";
+import { DEFAULT_TOOL_DETAIL_LEVEL, type ToolDetailLevel } from "#entities/settings";
 import { useWidgetLabels } from "#shared/lib/widget-labels";
 import {
   Conversation,
@@ -23,7 +19,6 @@ export const WidgetConversation = ({
   isLoadingHistory,
   messages,
   onRetry,
-  reasoningVisibility,
   renderActivityItem,
   toolDetail = DEFAULT_TOOL_DETAIL_LEVEL,
 }: {
@@ -32,7 +27,6 @@ export const WidgetConversation = ({
   readonly isLoadingHistory: boolean;
   readonly messages: readonly WidgetMessage[];
   readonly onRetry: () => void;
-  readonly reasoningVisibility: ReasoningVisibility;
   readonly renderActivityItem?: RenderActivityItem | undefined;
   readonly toolDetail?: ToolDetailLevel | undefined;
 }) => {
@@ -57,7 +51,6 @@ export const WidgetConversation = ({
               <WidgetMessageView
                 key={message.id}
                 message={message}
-                reasoningVisibility={reasoningVisibility}
                 renderActivityItem={renderActivityItem}
                 toolDetail={toolDetail}
               />

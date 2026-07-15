@@ -5,18 +5,11 @@ import type { WidgetHostBridge } from "@side-chat/host-bridge";
 import type { RenderActivityItem, SideChatActivityItem } from "#entities/activity";
 import type { SideChatApiClient } from "#entities/conversation";
 import type { SideChatWidgetPanelSize } from "#entities/panel";
-import type { ReasoningVisibility } from "#entities/settings";
 import type { WidgetThemeId } from "#entities/theme";
 import type { WorkflowChatClient } from "#entities/workflow-chat";
 import type { SideChatWidgetLabels } from "#shared/lib/widget-labels";
 
-export type {
-  ReasoningVisibility,
-  RenderActivityItem,
-  SideChatActivityItem,
-  SideChatWidgetLabels,
-  WidgetThemeId,
-};
+export type { RenderActivityItem, SideChatActivityItem, SideChatWidgetLabels, WidgetThemeId };
 
 /** Optional host-owned actions exposed through the widget panel chrome. */
 export type SideChatWidgetPanelActions = {
@@ -108,12 +101,6 @@ type ProtocolSideChatWidgetOptions = {
   /** Starter prompts shown only before the selected conversation has messages. */
   readonly quickActions?: readonly SideChatWidgetQuickAction[] | undefined;
   /**
-   * Host/server-controlled reasoning presentation, not a user preference.
-   * Defaults to `minimal`; `detailed` expands completed reasoning while live
-   * reasoning still opens only after the stream emits an activity trace.
-   */
-  readonly reasoningVisibility?: ReasoningVisibility | undefined;
-  /**
    * Replace the built-in agent mark (the greeting + header glyph) with custom
    * branding. Returns a node rendered in place of the default `AgentMark`; omit to
    * keep it.
@@ -146,11 +133,6 @@ export type WorkflowSideChatWidgetProps = SideChatWidgetShellProps & {
   readonly hostBridge?: WidgetHostBridge | undefined;
   /** Starter prompts shown only before the conversation has messages. */
   readonly quickActions?: readonly SideChatWidgetQuickAction[] | undefined;
-  /**
-   * Host/server-controlled reasoning presentation, not a user preference.
-   * Defaults to `minimal`; `detailed` keeps a completed activity trace open.
-   */
-  readonly reasoningVisibility?: ReasoningVisibility | undefined;
   /**
    * Replace the built-in agent mark (the greeting + header glyph) with custom
    * branding. Returns a node rendered in place of the default `AgentMark`.

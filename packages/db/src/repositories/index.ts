@@ -12,6 +12,7 @@ export {
 export {
   createPostgresDrizzleSidechatRepositories,
   createPostgresHostCommandResultNotificationSource,
+  createPostgresTurnActivityNotificationSource,
   uniqueViolationConstraint,
   type PostgresDrizzleRepositoryOptions,
   type PostgresDrizzleSidechatRepositories,
@@ -23,3 +24,9 @@ export {
   type HostCommandResultNotification,
   type HostCommandResultNotificationSource,
 } from "./notifications/host-command-result-notifications.js";
+export {
+  NOOP_TURN_ACTIVITY_NOTIFICATION_SOURCE,
+  parseTurnActivityNotification,
+  type TurnActivityNotification,
+  type TurnActivityNotificationSource,
+} from "./notifications/turn-activity-notifications.js";

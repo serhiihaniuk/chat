@@ -21,6 +21,7 @@ import {
   type OpenAIModelSettings,
 } from "#config/providers/openai-provider-config";
 import type { Settings } from "#config/settings/resolve-settings";
+import { selectRegisteredServerTools } from "#application/turn/tools/server-tools/registered-server-tools";
 
 const PRODUCTION_MODEL_ERRORS = {
   UNSUPPORTED_PROVIDER: "Unsupported production model provider",
@@ -218,6 +219,9 @@ function configuredModelIds(settings: Settings): readonly string[] {
   return [
     ...settings.models.availableModels.map((model) => model.id),
     settings.conversationTitle.modelId,
+    ...selectRegisteredServerTools(settings.serverTools).flatMap(
+      (definition) => definition.internalModelIds ?? [],
+    ),
   ];
 }
 

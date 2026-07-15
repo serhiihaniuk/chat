@@ -26,35 +26,57 @@ Not source of truth for: backend workflow or protocol definitions.
 `workflowChat` configuration with `baseUrl` and an optional request-time
 `getRequestConfig` callback. The branch starts in a client-only New chat draft
 unless `initialConversationId` names a server-known conversation for that mount.
-It validates history, seeds one `useChat` instance, and uses
-`WorkflowChatTransport` for POST, replay, and cancel requests. Request
+It validates history and keeps one widget-owned conversation session per persisted
+conversation. That session may replace its immutable, abortable stream reader
+while preserving one visible timeline and lifecycle. The reader folds
+`readUIMessageStream` projections into the session reducer; it holds no visible
+state. `WorkflowChatTransport` owns POST, replay, and cancel requests. Request
 configuration is resolved for every request so a refreshed auth token is not
 captured at mount time.
 
 Workflow conversation selection is deliberately independent of routing and idle
 browser persistence. `workflowActiveTurnStorageKey` opts one widget instance into
-a tab-scoped `sessionStorage` cursor containing only the accepted conversation
-and run ids. The cursor is written at service acceptance, survives reconnect and
-approval pauses, and is cleared at a true terminal or cancel. On refresh the
-service's active-turn discovery must confirm the cursor before reattachment;
-missing or mismatched discovery returns the widget to New chat.
+a tab-scoped `sessionStorage` cursor containing only the foreground active
+conversation and run ids. The cursor is written at service acceptance, survives
+reconnect and approval pauses, and is cleared when foreground selection leaves
+that run or after the terminal snapshot handoff. On refresh the service's
+coherent conversation state must confirm the cursor before reattachment. A stale
+cursor is cleared without discarding the selected persisted conversation or its
+terminal history.
 
 The authenticated workflow conversation catalog is `{ conversations,
-runningConversationIds }`. Running ids are display/busy state only: they are
+runningConversationIds }`. Running ids are display/activity state only: they are
 filtered to validated catalog rows and do not choose a conversation. The
 protocol and workflow transports share one `SideChatPanelView` for settings,
-sidebar, header, switcher, refresh, and busy-safe navigation while retaining
+sidebar, header, switcher, refresh, and non-blocking navigation while retaining
 their own feed/session content.
 
-Workflow catalog, history, active-turn, model, tool, and capability reads use one exported
-TanStack Query prefix. Refresh invalidates that prefix; a persisted conversation
-remounts after refetch for replay, while a local draft remains New chat. The
-currently mounted chat retains ownership of a run it accepted so persistence
-loading cannot erase live or just-finished messages.
+Workflow catalog, coherent conversation state, model, tool, and capability reads
+use one exported TanStack Query prefix. Refresh invalidates that prefix without
+remounting an active chat; an idle persisted conversation reconciles after
+refetch, while a local draft remains New chat. A widget-lifetime session registry
+owns each visible conversation aggregate independently of panel visibility and
+selection, so closing, reopening, switching conversations, or persistence loading
+cannot erase a stream. The session reducer is the only visible-state authority;
+native stream readers are disposable input. Recovered sessions move through
+reattaching and settling phases. A newer state observation retires the obsolete
+reader, folds the durable snapshot, and opens one fresh reader only if the run is
+still active.
+
+`GET /api/activity` provides the subject-scoped snapshot-and-live lifecycle feed
+used by already-open tabs. Its running/terminal transitions refresh the catalog
+and the selected affected history without persisting or changing selection.
 
 The native branch renders the validated AI SDK `UIMessage` part timeline with
 source-ordered text, reasoning, tool lifecycle, source, file, approval, and
-terminal presentations. An optional `hostBridge` keeps page context separate
+terminal presentations. Thinking stays visible for live and completed messages,
+auto-expands only while reasoning is the active output, and collapses when answer
+text begins. Its text uses the same Markdown wrapper as assistant answers. History metadata
+is also the reload-safe terminal projection: completed messages retain finish
+semantics, while failed, timed-out, and cancelled messages retain any
+already-visible text/reasoning plus a public error or cancellation state. Raw
+provider errors and content-filtered output are never admitted to this metadata.
+An optional `hostBridge` keeps page context separate
 from native client tools. **Include page context** appears only when authenticated
 service capabilities enable it and `hostBridge.getContext` is registered; it
 defaults off and collects one fresh snapshot only for an opted-in send or
@@ -135,8 +157,9 @@ for harness tests. It is not a host application API.
 ## Main Flows
 
 ```txt
-workflowChat -> validated UIMessage history -> useChat
-  -> WorkflowChatTransport POST /api/chat -> native UI message stream
+workflowChat -> coherent messages + active-turn snapshot -> widget session authority
+  -> disposable WorkflowChatTransport/readUIMessageStream epoch
+  -> native UI message projections -> session reducer
   -> POST /api/chat/:runId/cancel on stop
 
 protocol client:

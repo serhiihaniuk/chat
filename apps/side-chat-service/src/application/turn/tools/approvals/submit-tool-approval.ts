@@ -14,8 +14,7 @@ export type SubmitToolApprovalInput = Readonly<{
   approvalId: string;
   requestId: string;
   readDecision: () => Promise<
-    | Readonly<{ valid: true; approved: boolean; reason?: string | undefined }>
-    | Readonly<{ valid: false }>
+    Readonly<{ valid: true; approved: boolean }> | Readonly<{ valid: false }>
   >;
 }>;
 
@@ -47,7 +46,6 @@ export async function submitToolApproval(
   const result = await store.decideApproval(approval, {
     approved: decision.approved,
     requestId: input.requestId,
-    ...(decision.reason === undefined ? {} : { reason: decision.reason }),
   });
   if (
     result.disposition === TOOL_APPROVAL_DECISION_DISPOSITIONS.CONFLICT ||

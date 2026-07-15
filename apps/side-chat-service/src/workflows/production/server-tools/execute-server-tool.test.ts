@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   SERVER_TOOL_APPROVAL_POLICIES,
   defineServerTool,
+  type ServerToolTextGenerator,
 } from "#application/turn/tools/server-tools/server-tool-catalog";
 import { TOOL_APPROVAL_DENIAL_REASONS } from "../../tool-approvals/approval-output.js";
 import { isWorkflowRecord } from "../../tool-approvals/workflow-value-guards.js";
@@ -10,7 +11,17 @@ import { executeApprovedServerTool } from "./execute-server-tool.js";
 
 type TestServerToolExecute = (
   input: { title: string },
-  context: { executionKey: string },
+  context: {
+    executionKey: string;
+    generateText?:
+      | ((request: {
+          modelId: string;
+          system: string;
+          prompt: string;
+          maxOutputTokens: number;
+        }) => Promise<string>)
+      | undefined;
+  },
 ) => Promise<unknown>;
 
 const COMMAND = {
@@ -41,11 +52,38 @@ describe("approved server-tool execution step", () => {
   });
 
   it("executes the current gated definition with the durable execution key", async () => {
-    const execute = vi.fn<TestServerToolExecute>(async () => ({ created: true }));
+    const execute = vi.fn<TestServerToolExecute>(async () => ({
+      created: true,
+    }));
     await expect(executeApprovedServerTool(tool({ execute }), COMMAND)).resolves.toEqual({
       created: true,
     });
-    expect(execute).toHaveBeenCalledWith(COMMAND.input, { executionKey: COMMAND.executionKey });
+    expect(execute).toHaveBeenCalledWith(COMMAND.input, {
+      executionKey: COMMAND.executionKey,
+    });
+  });
+
+  it("makes the nested model runner available only after current approval policy passes", async () => {
+    const generateText = vi.fn<ServerToolTextGenerator>(() => Promise.resolve("model output"));
+    const execute = vi.fn<TestServerToolExecute>(async (_input, context) =>
+      context.generateText?.({
+        modelId: "gpt-5.4-mini",
+        system: "system",
+        prompt: "query",
+        maxOutputTokens: 256,
+      }),
+    );
+
+    await expect(
+      executeApprovedServerTool(tool({ execute }), COMMAND, { generateText }),
+    ).resolves.toBe("model output");
+    expect(generateText).toHaveBeenCalledOnce();
+
+    await executeApprovedServerTool(tool({ policy: "ungated", execute }), COMMAND, {
+      generateText,
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(generateText).toHaveBeenCalledTimes(1);
   });
 });
 

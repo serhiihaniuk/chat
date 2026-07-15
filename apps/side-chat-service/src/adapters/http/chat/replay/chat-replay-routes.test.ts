@@ -48,7 +48,13 @@ describe("chat replay route", () => {
         const response = await harness.request(`${streamRoute(TEST_RUN_ID)}${query}`);
         expect(response.status).toBe(SUCCESS_HTTP_STATUS);
         expect(response.headers.get(HTTP_HEADERS.WORKFLOW_STREAM_TAIL_INDEX)).toBe("4");
-        expect(replay.opened).toEqual([{ runId: TEST_RUN_ID, startIndex: expected }]);
+        expect(replay.opened).toEqual([
+          {
+            runId: TEST_RUN_ID,
+            startIndex: expected,
+            assistantMessageId: "turn-1-assistant",
+          },
+        ]);
         expect((await responseChunks(response)).map((part) => part["type"])).toEqual([
           "start",
           "finish",
@@ -89,7 +95,13 @@ describe("chat replay route", () => {
       expect((await harness.request(streamRoute(TEST_RUN_ID))).status).toBe(
         HTTP_ERROR.NOT_FOUND.STATUS,
       );
-      expect(replay.opened).toEqual([{ runId: TEST_RUN_ID, startIndex: 0 }]);
+      expect(replay.opened).toEqual([
+        {
+          runId: TEST_RUN_ID,
+          startIndex: 0,
+          assistantMessageId: "turn-1-assistant",
+        },
+      ]);
     } finally {
       await harness.close();
     }
@@ -141,10 +153,14 @@ describe("chat replay route", () => {
 });
 
 class ControlledTurnReplay implements TurnReplay {
-  readonly opened: Array<{ runId: string; startIndex: number }> = [];
+  readonly opened: Array<{
+    runId: string;
+    startIndex: number;
+    assistantMessageId: string;
+  }> = [];
   constructor(private readonly result: TurnReplayResult) {}
-  open(runId: string, startIndex: number): Promise<TurnReplayResult> {
-    this.opened.push({ runId, startIndex });
+  open(runId: string, startIndex: number, assistantMessageId: string): Promise<TurnReplayResult> {
+    this.opened.push({ runId, startIndex, assistantMessageId });
     return Promise.resolve(this.result);
   }
 }

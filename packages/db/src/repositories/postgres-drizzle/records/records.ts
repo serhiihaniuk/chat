@@ -71,6 +71,8 @@ export const toAssistantTurnRecord = (
   userMessageId: row.userMessageId,
   ...omitNullishField("assistantMessageId", row.assistantMessageId),
   ...omitNullishField("runId", row.runId),
+  ...omitNullishField("runBoundAt", optionalIsoTimestamp(row.runBoundAt)),
+  ...omitNullishField("cancelRequestedAt", optionalIsoTimestamp(row.cancelRequestedAt)),
   modelProvider: row.modelProvider,
   modelId: row.modelId,
   instructionsVersion: row.instructionsVersion,
@@ -171,7 +173,6 @@ export const toToolApprovalRecord = (
   toolName: row.toolName,
   inputDigest: row.inputDigest,
   state: row.state,
-  ...omitNullishField("decisionReason", row.decisionReason),
   ...omitNullishField("decidedBySubjectId", row.decidedBySubjectId),
   ...omitNullishField("decidedByActorId", row.decidedByActorId),
   requestedAt: isoTimestamp(row.requestedAt),
@@ -214,7 +215,7 @@ export const toAuditEventRecord = (row: typeof auditEvents.$inferSelect): AuditE
 });
 
 const requireConversation = async (
-  db: NodePgDatabase<typeof sidechatTables>,
+  db: Pick<NodePgDatabase<typeof sidechatTables>, "select">,
   workspaceId: string,
   conversationId: string,
 ): Promise<ConversationRecord> =>
@@ -236,7 +237,7 @@ const requireConversation = async (
   );
 
 export const requireSubjectConversation = async (
-  db: NodePgDatabase<typeof sidechatTables>,
+  db: Pick<NodePgDatabase<typeof sidechatTables>, "select">,
   workspaceId: string,
   subjectId: string,
   conversationId: string,

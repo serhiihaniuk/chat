@@ -54,7 +54,7 @@ describe("postgres row record mappers", () => {
       runtimeStepIndex: 0,
       toolCallId: "tool_1",
       toolName: "lookup",
-      status: "running",
+      status: "open",
       inputHash: "input_hash",
       outputHash: null,
       inputRedactedJson: {},

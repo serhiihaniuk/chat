@@ -1,16 +1,14 @@
 import {
   createModelCallToUIChunkTransform,
   type ModelCallStreamPart,
-  type ProviderOptions,
-  WorkflowAgent,
-  type WorkflowAgentOptions,
+  type WorkflowAgent,
   type WorkflowAgentStreamResult,
 } from "@ai-sdk/workflow";
-import { isStepCount, type ModelMessage, type ToolSet, type UIMessageChunk } from "ai";
+import type { UIMessageChunk } from "ai";
 import { createHook, getWorkflowMetadata, getWritable } from "workflow";
 
 import { assertDurableModelHandle, type ModelProvider } from "#application/ports/model-provider";
-import { PRIVATE_TELEMETRY_OPTIONS } from "#application/ports/telemetry-sink";
+import { TURN_CLAIM_DISPOSITIONS } from "#application/ports/turn/turn-store";
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
 import {
   selectServerToolDefinitions,
@@ -23,19 +21,20 @@ import {
   CHAT_TURN_OUTCOMES,
   chatTurnFinalization,
   failedChatTurnOutcome,
-  isChatTurnAbortError,
-  toCompletedChatTurnOutcome,
+  shouldDeferChatTurnStreamFailure,
+  withVisibleAssistantMessage,
   type ChatTurnTerminalOutcome,
-} from "./chat-turn-outcome.js";
+} from "./outcome/chat-turn-outcome.js";
+import { toCompletedChatTurnOutcome } from "./outcome/completed-chat-turn-outcome.js";
 import { createClientTools, preserveDynamicClientToolIdentity } from "./client-tools/index.js";
 import { runChatTurnFinalizeStep } from "./production/chat-turn-finalize.js";
+import { claimChatTurnExecution, resolveRejectedChatTurnClaim } from "./execution-claim.js";
+import { readVisibleAssistantMessageStep } from "./production/stream/chat-turn-visible-message.js";
 import { createSuspendableTurnTimeout } from "./timeout/turn-timeout.js";
 import { createServerTools, type ApprovalWorkflowStreamPart } from "./server-tools/index.js";
-import {
-  type ChatTurnWorkflowInput,
-  type SerializableChatMessage,
-} from "./input/chat-turn-input.js";
+import type { ChatTurnWorkflowInput } from "./input/chat-turn-input.js";
 import { normalizeApprovalUIChunk } from "./tool-approvals/approval-output.js";
+import { createChatTurnAgent, toChatTurnModelMessages } from "./chat-turn-agent.js";
 
 export type { ChatTurnWorkflowInput, SerializableChatMessage } from "./input/chat-turn-input.js";
 
@@ -84,9 +83,18 @@ export async function executeChatTurn(
   patchWorkflowRealmAbortSignal(controller.signal);
   const { workflowRunId } = getWorkflowMetadata();
 
+  const initialClaim = await claimChatTurnExecution(databaseUrl, input, workflowRunId);
+  if (initialClaim !== TURN_CLAIM_DISPOSITIONS.EXECUTE) {
+    return await resolveRejectedChatTurnClaim(initialClaim, databaseUrl, input, finalizeChatTurn);
+  }
+
   const cancellation = createHook<TurnCancellation>({
     token: chatTurnCancellationHookToken(workflowRunId),
   });
+  const providerClaim = await claimChatTurnExecution(databaseUrl, input, workflowRunId);
+  if (providerClaim !== TURN_CLAIM_DISPOSITIONS.EXECUTE) {
+    return await resolveRejectedChatTurnClaim(providerClaim, databaseUrl, input, finalizeChatTurn);
+  }
   const resolvedModel = modelProvider.modelFor({
     modelId: input.modelId,
     requestId: input.requestId,
@@ -116,20 +124,18 @@ export async function executeChatTurn(
     abortSignal: controller.signal,
   });
 
-  const agent = new WorkflowAgent(
-    createAgentOptions({
-      id: CHAT_TURN_WORKFLOW.AGENT_ID,
-      model: resolvedModel.model,
-      instructions: input.instructions,
-      stopWhen: isStepCount(input.maxSteps),
-      maxRetries: CHAT_TURN_WORKFLOW.MAX_RETRIES,
-      telemetry: PRIVATE_TELEMETRY_OPTIONS,
-      providerOptions: resolvedModel.providerOptions,
-      tools: mergeToolSets(clientTools, serverTools),
-    }),
-  );
+  const agent = createChatTurnAgent({
+    id: CHAT_TURN_WORKFLOW.AGENT_ID,
+    model: resolvedModel.model,
+    instructions: input.instructions,
+    maxSteps: input.maxSteps,
+    maxRetries: CHAT_TURN_WORKFLOW.MAX_RETRIES,
+    providerOptions: resolvedModel.providerOptions,
+    clientTools,
+    serverTools,
+  });
 
-  const outcome = await raceChatTurnOutcome(
+  const terminalOutcome = await raceChatTurnOutcome(
     agent,
     controller,
     cancellation,
@@ -137,10 +143,30 @@ export async function executeChatTurn(
     writable,
     input,
   );
+  const outcome = await foldVisibleAssistantMessage(
+    workflowRunId,
+    input.turnId,
+    input.clientTools,
+    terminalOutcome,
+  );
   if (databaseUrl !== undefined) {
     await finalizeChatTurn(databaseUrl, input, outcome);
   }
   return outcome;
+}
+
+/**
+ * Make the closed workflow journal the visible-message authority at terminal.
+ * The final provider result still supplies status, finish reason, and usage.
+ */
+async function foldVisibleAssistantMessage(
+  runId: string,
+  turnId: string,
+  clientTools: readonly ClientToolDefinition[],
+  outcome: ChatTurnTerminalOutcome,
+): Promise<ChatTurnTerminalOutcome> {
+  const visibleMessage = await readVisibleAssistantMessageStep(runId, turnId, clientTools);
+  return withVisibleAssistantMessage(outcome, visibleMessage);
 }
 
 /**
@@ -160,7 +186,7 @@ async function raceChatTurnOutcome(
   const activityStartedAt = Date.now();
   const streamSettled = agent
     .stream({
-      messages: toModelMessages(input.messages),
+      messages: toChatTurnModelMessages(input.messages),
       writable,
       abortSignal: controller.signal,
     })
@@ -170,7 +196,12 @@ async function raceChatTurnOutcome(
     );
 
   const streamOutcome = streamSettled.then((settled) =>
-    resolveSettledStream(settled, input, Math.max(0, Date.now() - activityStartedAt)),
+    resolveSettledStream(
+      settled,
+      input,
+      Math.max(0, Date.now() - activityStartedAt),
+      controller.signal.aborted,
+    ),
   );
 
   const cancelOutcome = async (): Promise<ChatTurnTerminalOutcome> => {
@@ -199,6 +230,7 @@ function resolveSettledStream(
   settled: SettledStream,
   input: ChatTurnWorkflowInput,
   activityDurationMs: number,
+  controllerAbortRequested: boolean,
 ): ChatTurnTerminalOutcome | Promise<never> {
   if (settled.kind === "completed") {
     return toCompletedChatTurnOutcome(
@@ -208,7 +240,9 @@ function resolveSettledStream(
       settled.result,
     );
   }
-  if (isChatTurnAbortError(settled.error)) return DEFERRED_OUTCOME;
+  if (shouldDeferChatTurnStreamFailure(settled.error, controllerAbortRequested)) {
+    return DEFERRED_OUTCOME;
+  }
   return failedChatTurnOutcome();
 }
 
@@ -233,9 +267,11 @@ function finalizeChatTurn(
 export function toChatTurnUIStream(
   stream: ReadableStream<ModelCallStreamPart>,
   clientTools: readonly ClientToolDefinition[],
+  assistantMessageId: string,
 ): ReadableStream<UIMessageChunk> {
   return stream
     .pipeThrough(createModelCallToUIChunkTransform())
+    .pipeThrough(stampAssistantMessageId(assistantMessageId))
     .pipeThrough(
       new TransformStream<UIMessageChunk, UIMessageChunk>({
         transform: (chunk, controller) => controller.enqueue(normalizeApprovalUIChunk(chunk)),
@@ -244,40 +280,15 @@ export function toChatTurnUIStream(
     .pipeThrough(preserveDynamicClientToolIdentity(clientTools));
 }
 
-function mergeToolSets(clientTools: ToolSet, serverTools: ToolSet): ToolSet {
-  const duplicate = Object.keys(clientTools).find((name) => name in serverTools);
-  if (duplicate !== undefined) throw new Error(`Duplicate client/server tool name: ${duplicate}`);
-  return { ...clientTools, ...serverTools };
-}
-
-function toModelMessages(messages: readonly SerializableChatMessage[]): ModelMessage[] {
-  return messages.map((message) => ({
-    role: message.role,
-    content: message.content,
-  }));
-}
-
-function createAgentOptions(options: {
-  readonly id: string;
-  readonly model: WorkflowAgentOptions["model"];
-  readonly instructions: string;
-  readonly stopWhen: NonNullable<WorkflowAgentOptions["stopWhen"]>;
-  readonly maxRetries: number;
-  readonly telemetry: typeof PRIVATE_TELEMETRY_OPTIONS;
-  readonly providerOptions: ProviderOptions | undefined;
-  readonly tools: ToolSet;
-}): WorkflowAgentOptions {
-  const agentOptions: WorkflowAgentOptions = {
-    id: options.id,
-    model: options.model,
-    instructions: options.instructions,
-    stopWhen: options.stopWhen,
-    maxRetries: options.maxRetries,
-    telemetry: options.telemetry,
-    tools: options.tools,
-  };
-  if (options.providerOptions !== undefined) {
-    agentOptions.providerOptions = options.providerOptions;
-  }
-  return agentOptions;
+/** Give every attachment epoch the same durable assistant identity. */
+export function stampAssistantMessageId(
+  assistantMessageId: string,
+): TransformStream<UIMessageChunk, UIMessageChunk> {
+  return new TransformStream({
+    transform(chunk, controller) {
+      controller.enqueue(
+        chunk.type === "start" ? { ...chunk, messageId: assistantMessageId } : chunk,
+      );
+    },
+  });
 }

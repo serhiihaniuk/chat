@@ -33,8 +33,7 @@ export async function runClientToolDispatchStep(
 
   const store = createClientToolWorkflowStore(command.databaseUrl);
   try {
-    if (command.operation === "create")
-      return await store.create(command.dispatch);
+    if (command.operation === "create") return await store.create(command.dispatch);
     if (command.operation === "read") return await store.read(command.dispatch);
     if (command.operation === "timeout") {
       return await store.claimTimeout(command.dispatch, command.output);

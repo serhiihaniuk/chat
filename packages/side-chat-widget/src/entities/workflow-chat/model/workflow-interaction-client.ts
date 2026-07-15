@@ -43,15 +43,11 @@ export async function postWorkflowApprovalDecision(
   runId: string,
   approvalId: string,
   approved: boolean,
-  reason?: string,
 ): Promise<WorkflowApprovalDecisionAcknowledgement> {
-  const body: { approved: boolean; reason?: string } = { approved };
-  const trimmedReason = reason?.trim();
-  if (trimmedReason) body.reason = trimmedReason;
   const payload = await postWorkflowJson(
     client,
     `/api/chat/${encodeURIComponent(runId)}/approvals/${encodeURIComponent(approvalId)}`,
-    body,
+    { approved },
     false,
   );
   if (!isRecord(payload) || typeof payload["state"] !== "string") {

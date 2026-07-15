@@ -45,7 +45,6 @@ export type ToolApprovalLookup =
 
 export type ToolApprovalDecision = Readonly<{
   approved: boolean;
-  reason?: string | undefined;
   requestId: string;
 }>;
 
@@ -89,7 +88,6 @@ export type ToolApprovalSnapshot = ToolApprovalRequest &
   Readonly<{
     state: ToolApprovalState;
     approved?: boolean | undefined;
-    reason?: string | undefined;
   }>;
 
 /** Durable workflow-step operations; hook payloads are never decision authority. */

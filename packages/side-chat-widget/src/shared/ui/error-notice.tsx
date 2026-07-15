@@ -27,12 +27,12 @@ function ErrorNotice({
       role="alert"
       className="flex items-start gap-3 rounded-lg border border-border bg-muted p-3"
     >
-      <TriangleAlert className="sc-error-glyph mt-0.5 size-4 shrink-0" />
+      <TriangleAlert className="sc-error-glyph mt-0.5 size-icon-sm shrink-0" />
       <div className="min-w-0">
         <p className="text-sm text-foreground">{message ?? labels.noticeError}</p>
         {onRetry ? (
           <Button type="button" variant="secondary" size="sm" onClick={onRetry} className="mt-2">
-            <RotateCcw className="size-3.5" />
+            <RotateCcw className="size-icon-sm" />
             {labels.noticeRetry}
           </Button>
         ) : null}
@@ -55,7 +55,7 @@ function BlockedNotice({ message }: { message: string }): ReactElement {
       role="status"
       className="flex items-start gap-3 rounded-lg border border-border bg-muted p-3"
     >
-      <ShieldAlert className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <ShieldAlert className="mt-0.5 size-icon-sm shrink-0 text-muted-foreground" />
       <p className="min-w-0 text-sm text-foreground">{message}</p>
     </div>
   );
@@ -68,7 +68,7 @@ function CancelledNotice({ message }: { message: string }): ReactElement {
       role="status"
       className="flex items-start gap-3 rounded-lg border border-border bg-muted p-3"
     >
-      <Ban className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <Ban className="mt-0.5 size-icon-sm shrink-0 text-muted-foreground" />
       <p className="min-w-0 text-sm text-foreground">{message}</p>
     </div>
   );
@@ -81,7 +81,7 @@ function TruncatedNotice({ message }: { message: string }): ReactElement {
       role="status"
       className="flex items-start gap-3 rounded-lg border border-border bg-muted p-3"
     >
-      <ShieldAlert className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <ShieldAlert className="mt-0.5 size-icon-sm shrink-0 text-muted-foreground" />
       <p className="min-w-0 text-sm text-foreground">{message}</p>
     </div>
   );

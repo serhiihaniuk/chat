@@ -14,6 +14,27 @@ import { createServiceTestHarness } from "#composition/route/testing-harness/ser
 import { SCRIPTED_PROVIDER } from "#config/providers/scripted-provider-config";
 
 describe("conversation query routes", () => {
+  it("serves the authenticated activity snapshot as SSE", async () => {
+    const harness = await createServiceTestHarness({ conversationQueries: queryStore() });
+    const controller = new AbortController();
+    try {
+      const response = await harness.request("/api/activity", { signal: controller.signal });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toContain("text/event-stream");
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("activity response body missing");
+      const first = await reader.read();
+      const text = new TextDecoder().decode(first.value);
+      expect(text).toContain("event: sidechat.turn-activity");
+      expect(text).toContain('"conversationId":"conversation-1"');
+      controller.abort();
+      await reader.cancel().catch(() => undefined);
+    } finally {
+      controller.abort();
+      await harness.close();
+    }
+  });
+
   it("serves route-owned conversation and model DTOs behind authentication", async () => {
     const harness = await createServiceTestHarness({
       conversationQueries: queryStore(),
@@ -186,6 +207,34 @@ describe("conversation query routes", () => {
     }
   });
 
+  it("serves transcript and resumable run from one coherent state read", async () => {
+    let stateReads = 0;
+    const store = queryStore();
+    store.readState = () => {
+      stateReads += 1;
+      return Promise.resolve({
+        history: {
+          messages: [storedText("assistant-1")],
+          hasMoreBefore: false,
+        },
+        activeTurn: { turnId: "turn-1", runId: "run-1", status: "running" },
+      });
+    };
+    const harness = await createServiceTestHarness({ conversationQueries: store });
+    try {
+      const response = await harness.request("/api/conversations/conversation-1/state");
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        messages: [uiText("assistant-1")],
+        activeTurn: { turnId: "turn-1", runId: "run-1", status: "running" },
+      });
+      expect(stateReads).toBe(1);
+    } finally {
+      await harness.close();
+    }
+  });
+
   it("rejects a malformed paging cursor", async () => {
     const harness = await createServiceTestHarness({
       conversationQueries: queryStore(),
@@ -208,33 +257,8 @@ describe("conversation query routes", () => {
       const history = await harness.request("/api/conversations/conversation-unknown/messages");
       expect(history.status).toBe(404);
 
-      const active = await harness.request("/api/conversations/conversation-unknown/active-turn");
-      expect(active.status).toBe(200);
-      expect(await active.json()).toEqual({ activeTurn: null });
-    } finally {
-      await harness.close();
-    }
-  });
-
-  it("returns the bound running turn and becomes empty after terminal", async () => {
-    let running = true;
-    const store = queryStore();
-    store.findActiveTurn = () =>
-      Promise.resolve(
-        running ? { turnId: "turn-1", runId: "run-1", status: "running" } : undefined,
-      );
-    const harness = await createServiceTestHarness({
-      conversationQueries: store,
-    });
-    try {
-      const active = await harness.request("/api/conversations/conversation-1/active-turn");
-      expect(await active.json()).toEqual({
-        activeTurn: { turnId: "turn-1", runId: "run-1", status: "running" },
-      });
-
-      running = false;
-      const terminal = await harness.request("/api/conversations/conversation-1/active-turn");
-      expect(await terminal.json()).toEqual({ activeTurn: null });
+      const state = await harness.request("/api/conversations/conversation-unknown/state");
+      expect(state.status).toBe(404);
     } finally {
       await harness.close();
     }
@@ -282,8 +306,8 @@ describe("conversation query routes", () => {
       const otherHistory = await requestAs("a", "/api/conversations/conversation-b/messages");
       expect(otherHistory.status).toBe(404);
 
-      const otherDiscovery = await requestAs("a", "/api/conversations/conversation-b/active-turn");
-      expect(await otherDiscovery.json()).toEqual({ activeTurn: null });
+      const otherState = await requestAs("a", "/api/conversations/conversation-b/state");
+      expect(otherState.status).toBe(404);
     } finally {
       await harness.close();
     }
@@ -329,7 +353,7 @@ function queryStore(history: { readonly parts: readonly JsonObject[] } = { parts
     readHistory: ConversationQueryStore["readHistory"];
     listConversations: ConversationQueryStore["listConversations"];
     listActiveTurns: ConversationQueryStore["listActiveTurns"];
-    findActiveTurn: ConversationQueryStore["findActiveTurn"];
+    readState: ConversationQueryStore["readState"];
   } = {
     readHistory: () =>
       Promise.resolve({
@@ -361,7 +385,10 @@ function queryStore(history: { readonly parts: readonly JsonObject[] } = { parts
           status: "running",
         },
       ]),
-    findActiveTurn: () => Promise.resolve(undefined),
+    readState: () =>
+      Promise.resolve({
+        history: { messages: [], hasMoreBefore: false },
+      }),
   };
   return store;
 }
@@ -403,15 +430,13 @@ function tenantQueryStore(): ConversationQueryStore {
         hasMoreBefore: false,
       });
     },
-    findActiveTurn: (auth, conversationId) =>
-      Promise.resolve(
-        owns(auth.workspaceId, conversationId)
-          ? {
-              turnId: `turn-${auth.workspaceId}`,
-              runId: `run-${auth.workspaceId}`,
-              status: "running",
-            }
-          : undefined,
-      ),
+    readState: (auth, conversationId) => {
+      if (!owns(auth.workspaceId, conversationId)) {
+        return Promise.reject(new DbRepositoryError("cross_tenant_access_denied", "hidden"));
+      }
+      return Promise.resolve({
+        history: { messages: [], hasMoreBefore: false },
+      });
+    },
   };
 }

@@ -21,13 +21,10 @@ export type SideChatPanelGuards = Readonly<{
 }>;
 
 /** Keep shell-level navigation policy identical across both transports. */
-export function resolveSideChatPanelGuards(
-  isBusy: boolean,
-  hasPersistedSelection: boolean,
-): SideChatPanelGuards {
+export function resolveSideChatPanelGuards(): SideChatPanelGuards {
   return {
-    conversationSelectionDisabled: isBusy,
-    newConversationDisabled: isBusy && !hasPersistedSelection,
+    conversationSelectionDisabled: false,
+    newConversationDisabled: false,
   };
 }
 
@@ -36,8 +33,6 @@ export function SideChatPanelView({
   appearance,
   content,
   conversations,
-  hasPersistedSelection,
-  isBusy,
   labels,
   onClose,
   onNewConversation,
@@ -53,8 +48,6 @@ export function SideChatPanelView({
   appearance: ReturnType<typeof useWidgetAppearance>;
   content: ReactNode;
   conversations: readonly ConversationSummaryView[];
-  hasPersistedSelection: boolean;
-  isBusy: boolean;
   labels: WidgetLabels;
   onClose: () => void;
   onNewConversation: () => void;
@@ -68,7 +61,7 @@ export function SideChatPanelView({
   toolDetailPreference: ReturnType<typeof useToolDetailPreference>;
 }>): ReactNode {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const guards = resolveSideChatPanelGuards(isBusy, hasPersistedSelection);
+  const guards = resolveSideChatPanelGuards();
   const selectConversation = (conversationId: string | undefined): void => {
     if (!guards.conversationSelectionDisabled && conversationId) {
       onSelectConversation(conversationId);

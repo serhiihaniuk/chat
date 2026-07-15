@@ -2,12 +2,8 @@ import { useEffect, useState, type ReactElement } from "react";
 import { FileText } from "lucide-react";
 
 import type { RenderActivityItem } from "#entities/activity";
-import {
-  DEFAULT_REASONING_VISIBILITY,
-  DEFAULT_TOOL_DETAIL_LEVEL,
-  type ReasoningVisibility,
-  type ToolDetailLevel,
-} from "#entities/settings";
+import { DEFAULT_TOOL_DETAIL_LEVEL, type ToolDetailLevel } from "#entities/settings";
+import { MarkdownContent } from "#shared/ai/markdown-content";
 import { useWidgetLabels, type WidgetLabels } from "#shared/lib/widget-labels";
 import { ActivityImages } from "#shared/ui/activity/activity-images";
 import { SourcesFold } from "#shared/ui/activity/citations";
@@ -33,6 +29,7 @@ import type {
 } from "../model/use-workflow-widget-chat.js";
 import { WorkflowToolPresentation } from "./workflow-tool-presentation.js";
 import { groupTimelineItems, type FileItem } from "./workflow-timeline-grouping.js";
+import { WorkflowPendingTimeline } from "./workflow-pending-timeline.js";
 
 export function WorkflowMessageTimeline({
   approvalDecisions,
@@ -40,7 +37,6 @@ export function WorkflowMessageTimeline({
   message,
   onApprovalDecision,
   onRetry,
-  reasoningVisibility = DEFAULT_REASONING_VISIBILITY,
   renderActivityItem,
   terminal,
   toolDetail = DEFAULT_TOOL_DETAIL_LEVEL,
@@ -50,7 +46,6 @@ export function WorkflowMessageTimeline({
   readonly onRetry?: (() => void) | undefined;
   readonly approvalDecisions?: WorkflowApprovalDecisions | undefined;
   readonly onApprovalDecision?: WorkflowApprovalDecisionHandler | undefined;
-  readonly reasoningVisibility?: ReasoningVisibility | undefined;
   readonly renderActivityItem?: RenderActivityItem | undefined;
   readonly terminal?: WorkflowChatTerminal | undefined;
   readonly toolDetail?: ToolDetailLevel | undefined;
@@ -77,7 +72,6 @@ export function WorkflowMessageTimeline({
         labels={labels}
         messageIsBlocked={messageTerminal?.kind === "blocked" && role === "assistant"}
         onApprovalDecision={onApprovalDecision}
-        reasoningVisibility={reasoningVisibility}
         renderActivityItem={renderActivityItem}
         role={role}
         toolDetail={toolDetail}
@@ -94,7 +88,9 @@ function readActivityDuration(message: WorkflowTimelineMessage): number | undefi
 function WorkflowMessageContent({
   messageIsBlocked,
   ...body
-}: Parameters<typeof MessageBody>[0] & { readonly messageIsBlocked: boolean }): ReactElement {
+}: Parameters<typeof MessageBody>[0] & {
+  readonly messageIsBlocked: boolean;
+}): ReactElement {
   return messageIsBlocked ? (
     <BlockedNotice message={body.labels.noticeBlocked} />
   ) : (
@@ -115,7 +111,6 @@ function MessageBody({
   items,
   labels,
   onApprovalDecision,
-  reasoningVisibility,
   renderActivityItem,
   role,
   toolDetail,
@@ -126,7 +121,6 @@ function MessageBody({
   readonly items: readonly WorkflowTimelineItem[];
   readonly labels: WidgetLabels;
   readonly onApprovalDecision: WorkflowApprovalDecisionHandler | undefined;
-  readonly reasoningVisibility: ReasoningVisibility;
   readonly renderActivityItem: RenderActivityItem | undefined;
   readonly role: "user" | "assistant";
   readonly toolDetail: ToolDetailLevel;
@@ -152,17 +146,17 @@ function MessageBody({
     answers.length === 0 &&
     sources.length === 0 &&
     files.length === 0;
+  const isThinking = isStreaming && !answers.some((answer) => answer.text.trim().length > 0);
 
   return (
     <>
       {trace.length > 0 && (
         <ActivityTrace
           activityDurationMs={activityDurationMs}
-          hasAnswer={answers.length > 0}
           isStreaming={isStreaming}
           items={trace}
           labels={labels}
-          reasoningVisibility={reasoningVisibility}
+          thinking={isThinking}
         />
       )}
       {approvals.map((item) => (
@@ -187,11 +181,23 @@ function MessageBody({
         <FilePresentation item={item} key={item.id} />
       ))}
       <CompletedAnswerCopy answers={answers} isStreaming={isStreaming} role={role} />
-      {isEmpty && role === "assistant" ? (
-        <Message mode={isStreaming ? "streaming" : "static"} role="assistant" text="" />
-      ) : null}
+      <EmptyAssistant isEmpty={isEmpty} isStreaming={isStreaming} role={role} />
     </>
   );
+}
+
+function EmptyAssistant({
+  isEmpty,
+  isStreaming,
+  role,
+}: {
+  readonly isEmpty: boolean;
+  readonly isStreaming: boolean;
+  readonly role: "user" | "assistant";
+}): ReactElement | null {
+  if (!isEmpty || role !== "assistant") return null;
+  if (isStreaming) return <WorkflowPendingTimeline />;
+  return <Message mode="static" role="assistant" text="" />;
 }
 
 function CompletedAnswerCopy({
@@ -207,47 +213,47 @@ function CompletedAnswerCopy({
   return <MessageActions copyText={answers.map((item) => item.text).join("")} />;
 }
 
-// One "Thought process" fold for the whole trace: open while thinking, collapsed
-// once the answer lands, matching the legacy view's activity timeline. Reasoning
-// visibility "detailed" keeps a completed trace open instead of collapsing it.
+// The trace opens only while reasoning is the active output. The first answer
+// text collapses it; completed history stays closed unless the user opens it.
 function ActivityTrace({
   activityDurationMs,
-  hasAnswer,
   isStreaming,
   items,
   labels,
-  reasoningVisibility,
+  thinking,
 }: {
   readonly activityDurationMs: number | undefined;
-  readonly hasAnswer: boolean;
   readonly isStreaming: boolean;
   readonly items: readonly ReasoningItem[];
   readonly labels: WidgetLabels;
-  readonly reasoningVisibility: ReasoningVisibility;
+  readonly thinking: boolean;
 }): ReactElement {
-  const openByDefault = isStreaming || reasoningVisibility === "detailed";
-  const [open, setOpen] = useState(openByDefault);
+  const [open, setOpen] = useState(thinking);
   useEffect(() => {
-    if (openByDefault) setOpen(true);
-    else if (hasAnswer) setOpen(false);
-  }, [hasAnswer, openByDefault]);
+    setOpen(thinking);
+  }, [thinking]);
   return (
     <Reasoning
       items={items}
-      label={activityLabel(activityDurationMs, isStreaming, labels)}
+      label={activityLabel(activityDurationMs, thinking, labels)}
       onOpenChange={setOpen}
       open={open}
-      thinking={isStreaming}
+      renderThought={(text) => (
+        <div className="text-sm text-muted-foreground">
+          <MarkdownContent mode={isStreaming ? "streaming" : "static"}>{text}</MarkdownContent>
+        </div>
+      )}
+      thinking={thinking}
     />
   );
 }
 
 function activityLabel(
   activityDurationMs: number | undefined,
-  isStreaming: boolean,
+  thinking: boolean,
   labels: WidgetLabels,
 ): string {
-  if (isStreaming) return labels.activityThinking;
+  if (thinking) return labels.activityThinking;
   if (activityDurationMs === undefined) return labels.activityThoughtProcess;
   return labels.activityThoughtForSeconds(Math.max(1, Math.ceil(activityDurationMs / 1_000)));
 }
@@ -256,7 +262,13 @@ function FilePresentation({ item }: { readonly item: FileItem }): ReactElement {
   if (item.mediaType.startsWith("image/") && item.url.startsWith("data:")) {
     return (
       <ActivityImages
-        images={[{ alt: item.filename ?? "Image", data: item.url, mediaType: item.mediaType }]}
+        images={[
+          {
+            alt: item.filename ?? "Image",
+            data: item.url,
+            mediaType: item.mediaType,
+          },
+        ]}
       />
     );
   }

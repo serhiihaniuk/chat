@@ -33,7 +33,7 @@ describe("db schema contract", () => {
   it("captures lifecycles before migrations exist", () => {
     expect(CONVERSATION_STATUSES).toEqual(["active", "archived", "reset"]);
     expect(ASSISTANT_TURN_STATUSES).toEqual([
-      "running",
+      "open",
       "completed",
       "failed",
       "cancelled",

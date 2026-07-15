@@ -1,6 +1,6 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 
-import type { ReasoningVisibility, ToolDetailLevel } from "#entities/settings";
+import type { ToolDetailLevel } from "#entities/settings";
 import type {
   WorkflowActiveTurn,
   WorkflowConversationClient,
@@ -16,10 +16,13 @@ import {
   projectLatestAssistantUsage,
   useWorkflowWidgetChat,
   type WorkflowModelSelection,
+  type WorkflowWidgetChatSessionRegistry,
+  WORKFLOW_WIDGET_CHAT_PHASE,
   WORKFLOW_WIDGET_CHAT_STATUS,
-  type WorkflowWidgetChatStatus,
   type WorkflowChatTerminal,
+  type WorkflowWidgetChatPhase,
   WorkflowMessageTimeline,
+  WorkflowPendingTimeline,
 } from "#features/workflow-chat";
 import type { WorkflowHostContextSelection } from "../../model/selection/side-chat-host-context-selection.js";
 import type { WidgetToolSelection } from "../../model/selection/side-chat-tool-selection.js";
@@ -42,16 +45,17 @@ export function WorkflowChatSession({
   hostContextSelection,
   activeTurn,
   onRunAccepted,
+  onRunReconciled,
   onRunTerminal,
-  onStatusChange,
   quickActions,
-  reasoningVisibility,
   renderActivityItem,
   renderAgentMark,
   sendOnEnter,
   toolDetail,
   workflowChat,
   modelSelection,
+  sessionRegistry,
+  stateObservationId,
   toolSelection,
 }: {
   readonly initialMessages: readonly WorkflowUIMessage[];
@@ -61,15 +65,16 @@ export function WorkflowChatSession({
   readonly hostContextSelection: WorkflowHostContextSelection;
   readonly activeTurn: WorkflowActiveTurn | undefined;
   readonly onRunAccepted: (runId: string) => void;
+  readonly onRunReconciled: (runId: string) => void;
   readonly onRunTerminal: (runId: string) => void;
-  readonly onStatusChange: (status: WorkflowWidgetChatStatus) => void;
   readonly quickActions: NonNullable<WorkflowSideChatWidgetProps["quickActions"]>;
-  readonly reasoningVisibility: ReasoningVisibility;
   readonly renderActivityItem: WorkflowSideChatWidgetProps["renderActivityItem"];
   readonly renderAgentMark: WorkflowSideChatWidgetProps["renderAgentMark"];
   readonly toolDetail: ToolDetailLevel;
   readonly workflowChat: WorkflowConversationClient;
   readonly modelSelection: WorkflowModelSelection;
+  readonly sessionRegistry: WorkflowWidgetChatSessionRegistry;
+  readonly stateObservationId: string | undefined;
   readonly toolSelection: WidgetToolSelection;
 }) {
   const sessionClient = useMemo(
@@ -86,23 +91,28 @@ export function WorkflowChatSession({
       toolSelection.enabledToolNames,
     ],
   );
-  const chat = useWorkflowWidgetChat(
-    sessionClient,
-    initialMessages,
-    hostBridge,
+  const chat = useWorkflowWidgetChat({
     activeTurn,
-    {
+    client: sessionClient,
+    hostBridge,
+    includeHostContext: hostContextSelection.enabled,
+    initialMessages,
+    lifecycle: {
       onRunAccepted,
+      onRunReconciled,
       onRunTerminal,
     },
-    hostContextSelection.enabled,
-  );
-  useEffect(() => onStatusChange(chat.status), [chat.status, onStatusChange]);
+    sessionRegistry,
+    stateObservationId,
+  });
   const lastAssistantIndex = findLastAssistantIndex(chat.messages);
   const contextUsedTokens = projectLatestAssistantUsage(chat.messages);
   const terminalMessageIsRendered = hasTerminalMessage(chat.terminal, chat.messages);
   const suggestions = useMemo(() => toEmptyStateSuggestions(quickActions), [quickActions]);
-  const isEmpty = chat.messages.length === 0 && chat.terminal.kind === "none" && !chat.error;
+  const busy = isBusyPhase(chat.phase);
+  const showDetachedPending =
+    busy && (chat.messages.length === 0 || lastAssistantIndex !== chat.messages.length - 1);
+  const isEmpty = isEmptyChat(chat.messages, chat.terminal, chat.error, busy);
   return (
     <>
       <Conversation aria-label={labels.headerConversationFeed}>
@@ -122,16 +132,15 @@ export function WorkflowChatSession({
                 <WorkflowMessageTimeline
                   key={message.id}
                   isStreaming={isStreamingAssistant(
-                    chat.status,
+                    chat.phase,
                     message,
                     index,
-                    lastAssistantIndex,
+                    chat.messages.length,
                   )}
                   message={message}
                   onRetry={() => void chat.retry()}
                   approvalDecisions={chat.approvalDecisions}
                   onApprovalDecision={chat.decideApproval}
-                  reasoningVisibility={reasoningVisibility}
                   renderActivityItem={renderActivityItem}
                   terminal={terminalForMessage(
                     chat.terminal,
@@ -142,6 +151,7 @@ export function WorkflowChatSession({
                   toolDetail={toolDetail}
                 />
               ))}
+              {showDetachedPending ? <WorkflowPendingTimeline /> : null}
               {chat.terminal.kind !== "none" && !terminalMessageIsRendered ? (
                 <WorkflowMessageTimeline
                   message={{
@@ -152,7 +162,6 @@ export function WorkflowChatSession({
                   onRetry={() => void chat.retry()}
                   approvalDecisions={chat.approvalDecisions}
                   onApprovalDecision={chat.decideApproval}
-                  reasoningVisibility={reasoningVisibility}
                   renderActivityItem={renderActivityItem}
                   terminal={chat.terminal}
                   toolDetail={toolDetail}
@@ -184,7 +193,7 @@ export function WorkflowChatSession({
         selectedModelKey={modelSelection.selectedModelKey}
         selectedReasoningEffort={modelSelection.selectedReasoningEffort}
         sendOnEnter={sendOnEnter}
-        status={chat.status}
+        status={toComposerStatus(chat.phase)}
         stop={chat.stop}
         tools={toolSelection.tools}
       />
@@ -192,17 +201,52 @@ export function WorkflowChatSession({
   );
 }
 
+function isEmptyChat(
+  messages: readonly WorkflowUIMessage[],
+  terminal: WorkflowChatTerminal,
+  error: unknown,
+  busy: boolean,
+): boolean {
+  return messages.length === 0 && terminal.kind === "none" && !error && !busy;
+}
+
 function isStreamingAssistant(
-  status: (typeof WORKFLOW_WIDGET_CHAT_STATUS)[keyof typeof WORKFLOW_WIDGET_CHAT_STATUS],
+  phase: WorkflowWidgetChatPhase,
   message: WorkflowUIMessage,
   index: number,
-  lastAssistantIndex: number,
+  messageCount: number,
 ): boolean {
+  // During submit there can be a user message without its assistant placeholder.
+  // Only the final message can own the active stream; otherwise the previous
+  // assistant's completed thinking fold would reopen for the new turn.
   return (
-    status === WORKFLOW_WIDGET_CHAT_STATUS.STREAMING &&
+    isGeneratingPhase(phase) &&
     message.role === UI_MESSAGE_ROLE.ASSISTANT &&
-    index === lastAssistantIndex
+    index === messageCount - 1
   );
+}
+
+function isGeneratingPhase(phase: WorkflowWidgetChatPhase): boolean {
+  return (
+    phase === WORKFLOW_WIDGET_CHAT_PHASE.REATTACHING ||
+    phase === WORKFLOW_WIDGET_CHAT_PHASE.SUBMITTED ||
+    phase === WORKFLOW_WIDGET_CHAT_PHASE.STREAMING
+  );
+}
+
+function isBusyPhase(phase: WorkflowWidgetChatPhase): boolean {
+  return isGeneratingPhase(phase) || phase === WORKFLOW_WIDGET_CHAT_PHASE.SETTLING;
+}
+
+function toComposerStatus(
+  phase: WorkflowWidgetChatPhase,
+): (typeof WORKFLOW_WIDGET_CHAT_STATUS)[keyof typeof WORKFLOW_WIDGET_CHAT_STATUS] {
+  if (phase === WORKFLOW_WIDGET_CHAT_PHASE.ERROR) return WORKFLOW_WIDGET_CHAT_STATUS.ERROR;
+  if (phase === WORKFLOW_WIDGET_CHAT_PHASE.IDLE) return WORKFLOW_WIDGET_CHAT_STATUS.IDLE;
+  if (phase === WORKFLOW_WIDGET_CHAT_PHASE.STREAMING) {
+    return WORKFLOW_WIDGET_CHAT_STATUS.STREAMING;
+  }
+  return WORKFLOW_WIDGET_CHAT_STATUS.SUBMITTED;
 }
 
 function WorkflowErrorNotice({

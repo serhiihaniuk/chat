@@ -1,17 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { LATE_CONTENT_MARKER, PROVIDER_OBSERVATION_EVENT } from "#testing/scripted-language-model";
 import {
-  LATE_CONTENT_MARKER,
-  PROVIDER_OBSERVATION_EVENT,
-  PROVIDER_OBSERVATION_PREFIX,
-} from "#testing/scripted-language-model";
-import { BUNDLED_CONFIG_NAMES } from "#config/declaration/bundled-config-catalog";
-import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
-import { serviceProcessEnv } from "#config/environment/process-environment";
-import {
-  startCompiledService,
-  type CompiledService,
-} from "#adapters/http/testing/compiled-service-process";
+  CompiledCompatibilityFixture,
+  isRecord,
+} from "./testing-harness/compiled-compatibility-fixture.js";
 
 /**
  * Permanent compatibility gate for the WorkflowAgent substrate. It runs against
@@ -29,30 +22,20 @@ import {
  * 5. the Side Chat wrapper suspends before its mutating step and executes that
  *    step exactly once only after the approval hook resumes.
  */
-let service: CompiledService | undefined;
-let serviceBaseUrl = "";
+let fixture: CompiledCompatibilityFixture | undefined;
 
 describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
   beforeAll(async () => {
-    service = await startCompiledService({
-      environment: serviceProcessEnv(),
-      configName: BUNDLED_CONFIG_NAMES.FAKE,
-      configNameEnvKey: SERVICE_ENV_KEYS.CONFIG_NAME,
-      localBaseUrlEnvKey: SERVICE_ENV_KEYS.WORKFLOW_LOCAL_BASE_URL,
-      localDataDirectoryEnvKey: SERVICE_ENV_KEYS.WORKFLOW_LOCAL_DATA_DIR,
-      providerObservationPrefix: PROVIDER_OBSERVATION_PREFIX,
-      targetWorldEnvKey: SERVICE_ENV_KEYS.WORKFLOW_TARGET_WORLD,
-    });
-    serviceBaseUrl = service.baseUrl;
+    fixture = await CompiledCompatibilityFixture.start(fetch);
   }, 300_000);
 
   afterAll(async () => {
-    await service?.close();
+    await fixture?.close();
   }, 300_000);
 
   it("boots and completes a native WorkflowAgent UI message stream", async () => {
     const requestId = "completed-turn";
-    const response = await startTurn(requestId, "complete");
+    const response = await requireFixture().startCompatibilityTurn(requestId, "complete");
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/event-stream");
     expect(response.headers.get("x-vercel-ai-ui-message-stream")).toBe("v1");
@@ -68,13 +51,13 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
 
   it("delivers hook cancellation to the in-flight provider call", async () => {
     const requestId = "cancelled-turn";
-    const response = await startTurn(requestId, "block");
+    const response = await requireFixture().startCompatibilityTurn(requestId, "block");
     expect(response.status).toBe(200);
 
-    await waitForObservation(requestId, "provider-streaming");
-    await cancelTurn(requestId);
+    await requireFixture().waitForObservation(requestId, "provider-streaming");
+    await requireFixture().cancelCompatibilityTurn(requestId);
 
-    const observation = await waitForObservation(requestId, "provider-aborted");
+    const observation = await requireFixture().waitForObservation(requestId, "provider-aborted");
     expect(observation["abortObserved"]).toBe(true);
     expect(observation["lateContentAccepted"]).toBe(false);
 
@@ -84,12 +67,12 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
     expect(stream).toContain("[DONE]");
 
     // The abort must end the turn, not trigger engine-level step retries.
-    expect(countObservations(requestId, "provider-streaming")).toBe(1);
+    expect(requireFixture().countObservations(requestId, "provider-streaming")).toBe(1);
   });
 
   it("runs the production chat route through the compiled WorkflowAgent", async () => {
     const requestId = "api-happy-turn";
-    const response = await startApiTurn(requestId, "happy");
+    const response = await requireFixture().startApiTurn(requestId, "happy");
     expect(response.status).toBe(200);
     expect(response.headers.get("x-vercel-ai-ui-message-stream")).toBe("v1");
     expect(response.headers.get("x-workflow-run-id")).toBeTruthy();
@@ -97,17 +80,17 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
     expect(stream).toContain(`Scripted reply: ${requestId}`);
     expect(countStreamParts(stream, "finish")).toBe(1);
     const runId = requireRunId(response);
-    const shape = await readJournalShape(runId);
+    const shape = await requireFixture().readJournalShape(runId);
     expect(shape).toEqual({ dataRows: 6, totalRows: 7, postgresSqlRoundTrips: 14 });
   });
 
   it("replays a terminal turn with pinned zero, negative, and past-end cursor semantics", async () => {
     const requestId = "api-terminal-replay";
-    const started = await startApiTurn(requestId, "happy");
+    const started = await requireFixture().startApiTurn(requestId, "happy");
     const runId = requireRunId(started);
     await started.text();
 
-    const full = await replayApiTurn(runId, 0);
+    const full = await requireFixture().replayApiTurn(runId, 0);
     expect(full.status).toBe(200);
     const tailIndex = Number(full.headers.get("x-workflow-stream-tail-index"));
     expect(Number.isSafeInteger(tailIndex)).toBe(true);
@@ -115,36 +98,44 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
     expect(fullBody).toContain(`Scripted reply: ${requestId}`);
     expect(countStreamParts(fullBody, "finish")).toBe(1);
 
-    const negative = await replayApiTurn(runId, -2);
+    const negative = await requireFixture().replayApiTurn(runId, -2);
     expect(negative.status).toBe(200);
     expect(negative.headers.get("x-workflow-stream-tail-index")).toBe(String(tailIndex));
     expect(countStreamParts(await negative.text(), "finish")).toBe(1);
 
-    const atEnd = await replayApiTurn(runId, tailIndex + 1);
+    const atEnd = await requireFixture().replayApiTurn(runId, tailIndex + 1);
     expect(atEnd.status).toBe(200);
     expect(dataLines(await atEnd.text())).toEqual([]);
 
-    const pastEnd = await replayApiTurn(runId, tailIndex + 2);
+    const pastEnd = await requireFixture().replayApiTurn(runId, tailIndex + 2);
     expect(pastEnd.status).toBe(416);
     expect(pastEnd.headers.get("x-workflow-stream-tail-index")).toBe(String(tailIndex));
   });
 
   it("gives simultaneous subscribers the same replay prefix and live tail", async () => {
     const requestId = "api-live-replay";
-    const started = await startApiTurn(requestId, "cancel-mid");
+    const started = await requireFixture().startApiTurn(requestId, "cancel-mid");
     const runId = requireRunId(started);
-    await waitForObservation(requestId, "provider-streaming");
+    await requireFixture().waitForObservation(requestId, "provider-streaming");
 
-    const [first, second] = await Promise.all([replayApiTurn(runId, 0), replayApiTurn(runId, 0)]);
-    await cancelApiTurn(runId);
-    const [postBody, firstBody, secondBody] = await Promise.all([
-      started.text(),
-      first.text(),
-      second.text(),
+    const [first, second] = await Promise.all([
+      requireFixture().replayApiTurn(runId, 0),
+      requireFixture().replayApiTurn(runId, 0),
     ]);
-
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
+    if (!first.body) throw new Error("Expected the first replay response body");
+    const firstReader = first.body.getReader();
+    const firstDecoder = new TextDecoder();
+    let firstBody = await readUntilText(firstReader, firstDecoder, "partial reply", 5_000);
+    await requireFixture().cancelApiTurn(runId);
+    const [postBody, firstRemainder, secondBody] = await Promise.all([
+      started.text(),
+      readReaderToEnd(firstReader, firstDecoder),
+      second.text(),
+    ]);
+    firstBody += firstRemainder;
+
     expect(dataLines(firstBody)).toEqual(dataLines(secondBody));
     expect(firstBody.match(/partial reply/g)).toHaveLength(1);
     expect(secondBody.match(/partial reply/g)).toHaveLength(1);
@@ -153,12 +144,12 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
 
   it("durably times out and aborts a blocked provider call", async () => {
     const requestId = "api-provider-timeout";
-    const response = await startApiTurn(requestId, "cancel-before-first");
-    const observation = await waitForObservation(requestId, "provider-aborted");
+    const response = await requireFixture().startApiTurn(requestId, "cancel-before-first");
+    const observation = await requireFixture().waitForObservation(requestId, "provider-aborted");
     expect(observation["abortObserved"]).toBe(true);
     expect(observation["lateContentAccepted"]).toBe(false);
     await response.text();
-    expect(countObservations(requestId, "provider-attempt")).toBe(1);
+    expect(requireFixture().countObservations(requestId, "provider-attempt")).toBe(1);
   });
 
   it.each([
@@ -168,20 +159,20 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
     "aborts the provider exactly once on %s cancellation",
     async (_label, mode, readyEvent, expectsPartial) => {
       const requestId = `api-${mode}`;
-      const response = await startApiTurn(requestId, mode);
+      const response = await requireFixture().startApiTurn(requestId, mode);
       const runId = response.headers.get("x-workflow-run-id");
       expect(runId).toBeTruthy();
-      await waitForObservation(requestId, readyEvent);
+      await requireFixture().waitForObservation(requestId, readyEvent);
       if (!runId) throw new Error("Expected the chat route to return a run id");
-      await cancelApiTurn(runId);
-      const observation = await waitForObservation(requestId, "provider-aborted");
+      await requireFixture().cancelApiTurn(runId);
+      const observation = await requireFixture().waitForObservation(requestId, "provider-aborted");
       expect(observation["attemptCount"]).toBe(1);
       expect(observation["abortObserved"]).toBe(true);
       expect(observation["lateContentAccepted"]).toBe(false);
       const stream = await response.text();
       expect(stream.includes("partial reply")).toBe(expectsPartial);
       expect(stream).not.toContain(LATE_CONTENT_MARKER);
-      expect(countObservations(requestId, "provider-attempt")).toBe(1);
+      expect(requireFixture().countObservations(requestId, "provider-attempt")).toBe(1);
     },
   );
 
@@ -192,19 +183,20 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
     "keeps a provider error %s inside the opened SSE stream",
     async (_label, mode, partial) => {
       const requestId = `api-${mode}`;
-      const response = await startApiTurn(requestId, mode);
+      const response = await requireFixture().startApiTurn(requestId, mode);
       expect(response.status).toBe(200);
       const stream = await response.text();
       expect(stream.includes("partial reply")).toBe(partial);
       expect(countStreamParts(stream, "error")).toBe(1);
-      expect(countObservations(requestId, "provider-attempt")).toBe(1);
+      expect(requireFixture().countObservations(requestId, "provider-attempt")).toBe(1);
     },
   );
 
   it("proves the realm patch is load-bearing (unpatched abortSignal throws)", async () => {
-    const response = await fetch(`${serviceBaseUrl}/compatibility/probes/unpatched-abort-signal`, {
-      method: "POST",
-    });
+    const response = await fetch(
+      `${requireFixture().baseUrl}/compatibility/probes/unpatched-abort-signal`,
+      { method: "POST" },
+    );
     expect(response.status).toBe(200);
 
     const outcome: unknown = await response.json();
@@ -218,7 +210,7 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
   it("characterizes compiled native needsApproval as blocking execution", async () => {
     const requestId = "native-approval-gap";
     const response = await fetch(
-      `${serviceBaseUrl}/compatibility/probes/native-needs-approval-gap`,
+      `${requireFixture().baseUrl}/compatibility/probes/native-needs-approval-gap`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -232,17 +224,23 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
       toolResultsCount: 0,
     });
     expect(
-      countObservations(requestId, PROVIDER_OBSERVATION_EVENT.NATIVE_APPROVAL_TOOL_EXECUTED),
+      requireFixture().countObservations(
+        requestId,
+        PROVIDER_OBSERVATION_EVENT.NATIVE_APPROVAL_TOOL_EXECUTED,
+      ),
     ).toBe(0);
   });
 
   it("keeps the compiled wrapper side effect behind the approval hook", async () => {
     const requestId = "wrapper-approval-gate";
-    const started = await fetch(`${serviceBaseUrl}/compatibility/probes/wrapper-approval-gate`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ requestId }),
-    });
+    const started = await fetch(
+      `${requireFixture().baseUrl}/compatibility/probes/wrapper-approval-gate`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ requestId }),
+      },
+    );
     expect(started.status).toBe(200);
     const body: unknown = await started.json();
     if (!isRecord(body)) throw new Error("Expected wrapper approval probe identifiers");
@@ -252,69 +250,13 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
       throw new Error("Expected wrapper approval probe run and approval identifiers");
     }
 
-    await waitForObservation(requestId, "wrapper-approval-requested");
-    expect(countObservations(requestId, "wrapper-side-effect-executed")).toBe(0);
-    await approveWrapperProbe(runId, approvalId);
-    await waitForObservation(requestId, "wrapper-side-effect-executed");
-    expect(countObservations(requestId, "wrapper-side-effect-executed")).toBe(1);
+    await requireFixture().waitForObservation(requestId, "wrapper-approval-requested");
+    expect(requireFixture().countObservations(requestId, "wrapper-side-effect-executed")).toBe(0);
+    await requireFixture().approveWrapperProbe(runId, approvalId);
+    await requireFixture().waitForObservation(requestId, "wrapper-side-effect-executed");
+    expect(requireFixture().countObservations(requestId, "wrapper-side-effect-executed")).toBe(1);
   });
 });
-
-function startTurn(requestId: string, mode: "complete" | "block"): Promise<Response> {
-  return fetch(`${serviceBaseUrl}/compatibility/turns`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      requestId,
-      mode,
-      messages: [
-        {
-          id: `user-${requestId}`,
-          role: "user",
-          parts: [{ type: "text", text: "hello" }],
-        },
-      ],
-    }),
-  });
-}
-
-type ApiScriptMode = "happy" | "cancel-before-first" | "cancel-mid" | "error-before" | "error-mid";
-
-function startApiTurn(requestId: string, mode: ApiScriptMode): Promise<Response> {
-  return fetch(`${serviceBaseUrl}/api/chat`, {
-    method: "POST",
-    headers: {
-      authorization: "Bearer local-test-token",
-      "content-type": "application/json",
-      "x-request-id": requestId,
-    },
-    body: JSON.stringify({
-      requestId,
-      conversationId: "conversation-1",
-      modelPreference: mode,
-      messages: [
-        {
-          id: `user-${requestId}`,
-          role: "user",
-          parts: [{ type: "text", text: "hello" }],
-        },
-      ],
-    }),
-  });
-}
-
-function replayApiTurn(runId: string, startIndex: number): Promise<Response> {
-  return fetch(`${serviceBaseUrl}/api/chat/${runId}/stream?startIndex=${startIndex}`, {
-    headers: { authorization: "Bearer local-test-token" },
-  });
-}
-
-async function readJournalShape(runId: string): Promise<Record<string, unknown>> {
-  const response = await fetch(`${serviceBaseUrl}/compatibility/chat-turns/${runId}/journal-shape`);
-  const shape: unknown = await response.json();
-  if (!isRecord(shape)) throw new Error("Expected journal shape JSON");
-  return shape;
-}
 
 function requireRunId(response: Response): string {
   const runId = response.headers.get("x-workflow-run-id");
@@ -326,109 +268,62 @@ function dataLines(stream: string): string[] {
   return stream.split("\n").filter((line) => line.startsWith("data: ") && line !== "data: [DONE]");
 }
 
-/** The durable run-id hook may not exist until the workflow first suspends. */
-async function cancelApiTurn(runId: string): Promise<void> {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    const response = await fetch(`${serviceBaseUrl}/api/chat/${runId}/cancel`, {
-      method: "POST",
-      headers: {
-        authorization: "Bearer local-test-token",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ conversationId: "conversation-1" }),
-    });
-    if (response.ok) return;
-    await delay(100);
+async function readUntilText(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  decoder: TextDecoder,
+  expected: string,
+  timeoutMs: number,
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  let text = "";
+  while (!text.includes(expected)) {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) throw new Error("Live replay prefix did not arrive before cancellation");
+    const result = await readWithTimeout(reader, remainingMs);
+    if (result.done) break;
+    text += decoder.decode(result.value, { stream: true });
   }
-  throw new Error(`Chat cancel hook never became resumable:\n${currentServiceOutput()}`);
+  expect(text).toContain(expected);
+  return text;
+}
+
+async function readWithTimeout(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  timeoutMs: number,
+): Promise<ReadableStreamReadResult<Uint8Array>> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      reader.read(),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Live replay prefix did not arrive before cancellation")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+async function readReaderToEnd(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  decoder: TextDecoder,
+): Promise<string> {
+  let text = "";
+  while (true) {
+    const result = await reader.read();
+    if (result.done) return text + decoder.decode();
+    text += decoder.decode(result.value, { stream: true });
+  }
 }
 
 function countStreamParts(stream: string, type: string): number {
   return stream.split(`"type":"${type}"`).length - 1;
 }
 
-/** The durable cancel hook registers when the workflow first suspends; retry until it exists. */
-async function cancelTurn(requestId: string): Promise<void> {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    const response = await fetch(`${serviceBaseUrl}/compatibility/turns/${requestId}/cancel`, {
-      method: "POST",
-    });
-    const body: unknown = await response.json();
-    if (isRecord(body) && body["cancelled"] === true) return;
-    await delay(100);
-  }
-  throw new Error(`Cancel hook never became resumable:\n${currentServiceOutput()}`);
-}
-
-async function approveWrapperProbe(runId: string, approvalId: string): Promise<void> {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    const response = await fetch(
-      `${serviceBaseUrl}/compatibility/probes/wrapper-approval-gate/${runId}/${approvalId}`,
-      { method: "POST" },
-    );
-    if (response.ok) return;
-    await delay(100);
-  }
-  throw new Error(`Approval hook never became resumable:\n${currentServiceOutput()}`);
-}
-
-async function waitForObservation(
-  requestId: string,
-  event: string,
-): Promise<Record<string, unknown>> {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    const observation = readObservation(requestId, event);
-    if (observation) return observation;
-    await delay(50);
-  }
-  throw new Error(
-    `Provider never reported "${event}" for ${requestId}:\n${currentServiceOutput()}`,
-  );
-}
-
-/** Scans captured service stdout for the scripted provider's observation lines. */
-function readObservation(requestId: string, event: string): Record<string, unknown> | undefined {
-  return readObservations(requestId, event)[0];
-}
-
-function countObservations(requestId: string, event: string): number {
-  return readObservations(requestId, event).length;
-}
-
-function readObservations(requestId: string, event: string): Array<Record<string, unknown>> {
-  const observations: Array<Record<string, unknown>> = [];
-  for (const line of currentServiceOutput().split("\n")) {
-    const markerIndex = line.indexOf(PROVIDER_OBSERVATION_PREFIX);
-    if (markerIndex < 0) continue;
-    const parsed = tryParseJson(line.slice(markerIndex + PROVIDER_OBSERVATION_PREFIX.length));
-    if (isRecord(parsed) && parsed["requestId"] === requestId && parsed["event"] === event) {
-      observations.push(parsed);
-    }
-  }
-  return observations;
-}
-
-function tryParseJson(source: string): unknown {
-  try {
-    const parsed: unknown = JSON.parse(source);
-    return parsed;
-  } catch {
-    return undefined;
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
-}
-
-function currentServiceOutput(): string {
-  return service?.output() ?? "Service output is unavailable";
+function requireFixture(): CompiledCompatibilityFixture {
+  if (!fixture) throw new Error("Compiled compatibility fixture is unavailable");
+  return fixture;
 }

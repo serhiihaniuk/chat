@@ -4,11 +4,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { assertProductionBundleExcludesTestingCode } from "./production-bundle-guard.js";
 import {
-  availableLocalPort,
-  localPortAcceptsConnections,
-} from "./local-port.js";
+  assertProductionBundleExcludesTestingCode,
+  assertProductionBundleUsesPostgresWorld,
+} from "./production-bundle-guard.js";
+import { availableLocalPort, localPortAcceptsConnections } from "./local-port.js";
 
 const repoRoot = resolve(import.meta.dirname, "../../../../../..");
 const serviceRoot = resolve(repoRoot, "apps/side-chat-service");
@@ -67,14 +67,10 @@ export async function prepareCompiledService(
   };
 }
 
-async function startPreparedService(
-  options: CompiledServiceOptions,
-): Promise<CompiledService> {
+async function startPreparedService(options: CompiledServiceOptions): Promise<CompiledService> {
   const port = await availableLocalPort();
   const baseUrl = `http://127.0.0.1:${port}`;
-  const workflowDataDir = mkdtempSync(
-    join(tmpdir(), "side-chat-workflow-data-"),
-  );
+  const workflowDataDir = mkdtempSync(join(tmpdir(), "side-chat-workflow-data-"));
   let serviceOutput = "";
   const service = startService(options, port, workflowDataDir, (chunk) => {
     serviceOutput += chunk;
@@ -156,19 +152,13 @@ async function stopService(child: ChildProcess): Promise<void> {
   }
 }
 
-async function restoreProductionBuild(
-  options: CompiledServiceOptions,
-): Promise<void> {
-  await runCommand(options, "npm", [
-    "run",
-    "build",
-    "--workspace",
-    "@side-chat/side-chat-service",
-  ]);
+async function restoreProductionBuild(options: CompiledServiceOptions): Promise<void> {
+  await runCommand(options, "npm", ["run", "build", "--workspace", "@side-chat/side-chat-service"]);
   assertProductionBundleExcludesTestingCode(
     resolve(serviceRoot, ".output"),
     options.providerObservationPrefix,
   );
+  assertProductionBundleUsesPostgresWorld(resolve(serviceRoot, ".output"));
 }
 
 async function runCommand(
@@ -199,15 +189,10 @@ async function runCommand(
 }
 
 function resolveCommand(command: string): string {
-  return process.platform === "win32" && command === "npm"
-    ? "cmd.exe"
-    : command;
+  return process.platform === "win32" && command === "npm" ? "cmd.exe" : command;
 }
 
-function resolveArgs(
-  command: string,
-  args: ReadonlyArray<string>,
-): ReadonlyArray<string> {
+function resolveArgs(command: string, args: ReadonlyArray<string>): ReadonlyArray<string> {
   return process.platform === "win32" && command === "npm"
     ? ["/d", "/s", "/c", "npm", ...args]
     : args;

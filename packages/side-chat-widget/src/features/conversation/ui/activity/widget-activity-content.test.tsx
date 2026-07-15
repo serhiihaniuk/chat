@@ -32,9 +32,7 @@ describe("activity content rendering", () => {
       ],
     });
 
-    const html = renderToStaticMarkup(
-      <WidgetMessageView message={message} reasoningVisibility="detailed" toolDetail="full" />,
-    );
+    const html = renderToStaticMarkup(<WidgetMessageView message={message} toolDetail="full" />);
 
     // Both running rows spin; the one behind the active item must not read as done.
     expect((html.match(/data-state="running"/gu) ?? []).length).toBe(2);
@@ -71,7 +69,6 @@ describe("activity content rendering", () => {
     const html = renderToStaticMarkup(
       <WidgetMessageView
         message={message}
-        reasoningVisibility="detailed"
         toolDetail="full"
         renderActivityItem={(item) =>
           item.kind === "tool" && item.tool.toolName === "mock_web_search" ? (
@@ -90,6 +87,7 @@ describe("activity content rendering", () => {
 
   it("keeps hidden and name tool disclosure ahead of custom rendering", () => {
     const message = createAssistantMessage({
+      isStreaming: true,
       activityEvents: [
         createActivity({
           activityId: "tool_call_001",
@@ -110,7 +108,6 @@ describe("activity content rendering", () => {
     const hidden = renderToStaticMarkup(
       <WidgetMessageView
         message={message}
-        reasoningVisibility="detailed"
         renderActivityItem={renderActivityItem}
         toolDetail="hidden"
       />,
@@ -118,7 +115,6 @@ describe("activity content rendering", () => {
     const name = renderToStaticMarkup(
       <WidgetMessageView
         message={message}
-        reasoningVisibility="detailed"
         renderActivityItem={renderActivityItem}
         toolDetail="name"
       />,
@@ -141,14 +137,26 @@ describe("activity content rendering", () => {
           status: "completed",
           title: "Run mock_web_search",
           details: {
-            images: [{ alt: "Search preview", mediaType: "image/svg+xml", data: "Zm9v" }],
+            images: [
+              {
+                alt: "Search preview",
+                mediaType: "image/svg+xml",
+                data: "Zm9v",
+              },
+            ],
             tool: {
               toolCallId: "tool_call_001",
               toolName: "mock_web_search",
               sources: [
-                { label: "Mock Search Result", url: "https://example.test/search-result" },
+                {
+                  label: "Mock Search Result",
+                  url: "https://example.test/search-result",
+                },
                 // Duplicate identity collapses to one numbered row.
-                { label: "Mock Search Result", url: "https://example.test/search-result" },
+                {
+                  label: "Mock Search Result",
+                  url: "https://example.test/search-result",
+                },
               ],
             },
           },
@@ -156,9 +164,7 @@ describe("activity content rendering", () => {
       ],
     });
 
-    const html = renderToStaticMarkup(
-      <WidgetMessageView message={message} reasoningVisibility="minimal" toolDetail="full" />,
-    );
+    const html = renderToStaticMarkup(<WidgetMessageView message={message} toolDetail="full" />);
 
     expect(html).toContain('data-slot="sources-fold"');
     expect(html).toContain("1 source");
@@ -168,6 +174,7 @@ describe("activity content rendering", () => {
 
   it('pins the compact row at level "name" — the payloads stay undisclosed', () => {
     const message = createAssistantMessage({
+      isStreaming: true,
       activityEvents: [
         createActivity({
           activityId: "tool_call_001",
@@ -187,9 +194,7 @@ describe("activity content rendering", () => {
       ],
     });
 
-    const html = renderToStaticMarkup(
-      <WidgetMessageView message={message} reasoningVisibility="detailed" toolDetail="name" />,
-    );
+    const html = renderToStaticMarkup(<WidgetMessageView message={message} toolDetail="name" />);
 
     expect(html).toContain("Mock web search");
     // No expandable detail row, no payload text.
@@ -214,9 +219,7 @@ describe("activity content rendering", () => {
       ],
     });
 
-    const html = renderToStaticMarkup(
-      <WidgetMessageView message={message} reasoningVisibility="detailed" toolDetail="hidden" />,
-    );
+    const html = renderToStaticMarkup(<WidgetMessageView message={message} toolDetail="hidden" />);
 
     // The only item was a tool: no fold at all, just the answer text.
     expect(html).not.toContain("Mock web search");
@@ -226,6 +229,7 @@ describe("activity content rendering", () => {
 
   it('keeps reasoning thoughts visible at level "hidden"', () => {
     const message = createAssistantMessage({
+      isStreaming: true,
       activityEvents: [
         createActivity({
           activityId: "tool_call_001",
@@ -233,7 +237,9 @@ describe("activity content rendering", () => {
           sequence: 1,
           status: "completed",
           title: "Run mock_web_search",
-          details: { tool: { toolCallId: "tool_call_001", toolName: "mock_web_search" } },
+          details: {
+            tool: { toolCallId: "tool_call_001", toolName: "mock_web_search" },
+          },
         }),
         createActivity({
           activityId: "reasoning_001",
@@ -244,9 +250,7 @@ describe("activity content rendering", () => {
       ],
     });
 
-    const html = renderToStaticMarkup(
-      <WidgetMessageView message={message} reasoningVisibility="detailed" toolDetail="hidden" />,
-    );
+    const html = renderToStaticMarkup(<WidgetMessageView message={message} toolDetail="hidden" />);
 
     expect(html).not.toContain("Mock web search");
     expect(html).toContain("Prepared final answer");
@@ -257,9 +261,7 @@ describe("activity content rendering", () => {
       content:
         "Sky [^1] and sunsets [^2].\n\n[^1]: Rayleigh. https://a.test\n[^2]: OpenStax. https://b.test",
     });
-    const html = renderToStaticMarkup(
-      <WidgetMessageView message={message} reasoningVisibility="minimal" />,
-    );
+    const html = renderToStaticMarkup(<WidgetMessageView message={message} />);
     // The fold is a sibling of the answer (spaced by --message-stack-gap), not inside
     // MarkdownContent; the answer's markdown still renders the two inline chips.
     expect((html.match(/data-slot="sources-fold"/gu) ?? []).length).toBe(1);
@@ -290,9 +292,7 @@ describe("activity content rendering", () => {
         }),
       ],
     });
-    const html = renderToStaticMarkup(
-      <WidgetMessageView message={message} reasoningVisibility="minimal" />,
-    );
+    const html = renderToStaticMarkup(<WidgetMessageView message={message} />);
     // The count proves which set fed the (collapsed) fold: the single footnote.
     expect(html).toContain("1 source");
     expect(html).not.toContain("2 sources");

@@ -6,14 +6,15 @@ Not source of truth for: how `SIDECHAT_DATABASE_URL` is declared or resolved —
 
 Side Chat persists chats in a Postgres schema named `sidechat`. Drizzle generates the table DDL offline; it never touches a live database. You apply that DDL with one command, `db:reset`, which drops and rebuilds the schema from scratch. There is no incremental migration chain and no `drizzle-kit migrate`/`push` path — the schema is always regenerated whole from `packages/db/src/drizzle/schema.ts`.
 
-## Two commands
+## Database commands
 
 Run both from the repo root. Edit `packages/db/src/drizzle/schema.ts`, then:
 
-| Command               | Does                                                                                                                     | Entry point                                                      |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| `npm run db:generate` | Wipes `packages/db/migrations`, then emits exactly one migration named `day_one` from `schema.ts`.                       | [`scripts/db-generate.mjs`](../../scripts/db-generate.mjs)       |
-| `npm run db:reset`    | Resolves the connection, then drops the `sidechat` schema, recreates it, applies the migration, and applies role grants. | [`scripts/reset-database.mjs`](../../scripts/reset-database.mjs) |
+| Command                     | Does                                                                                                                             | Entry point                                                                        |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `npm run db:generate`       | Wipes `packages/db/migrations`, then emits exactly one migration named `day_one` from `schema.ts`.                               | [`scripts/db-generate.mjs`](../../scripts/db-generate.mjs)                         |
+| `npm run db:reset`          | Resolves the connection, then drops the `sidechat` schema, recreates it, applies the migration, and applies role grants.         | [`scripts/reset-database.mjs`](../../scripts/reset-database.mjs)                   |
+| `npm run db:workflow:setup` | Idempotently bootstraps the pinned Workflow schema, then grants the runtime role access to only `workflow_runs.id` and `status`. | [`scripts/setup-workflow-postgres.mjs`](../../scripts/setup-workflow-postgres.mjs) |
 
 `db:generate` produces DDL files; it does not connect to Postgres. `db:reset` is the only path that touches a database.
 
@@ -73,9 +74,9 @@ In-memory persistence loses all chats on restart. Use it for local development o
 
 ## Tool-approval coordination
 
-`sidechat.tool_approvals` is the durable authority for gated server-tool execution. One row is unique on `(assistant_turn_id, tool_call_id)` and records the approval id, tool name, canonical input digest, request and expiry timestamps, terminal decision, optional reason, and approver identity. Raw tool input is deliberately absent: the digest binds the approval to the journaled call without duplicating private payloads.
+`sidechat.tool_approvals` is the durable authority for gated server-tool execution. One row is unique on `(assistant_turn_id, tool_call_id)` and records the approval id, tool name, canonical input digest, request and expiry timestamps, terminal binary decision, and approver identity. Free-text reasons are unsupported. Raw tool input is deliberately absent: the digest binds the approval to the journaled call without duplicating private payloads.
 
-The state machine is `requested -> approved | denied | expired`. Request replay must preserve approval id, tool identity, digest, and expiry. An exact repeated decision is idempotent; a changed reason, opposite decision, late decision, identity mismatch, or decision after the turn becomes terminal is rejected. State transitions and their `audit_events` row commit in one transaction, and concurrent conflicting decisions serialize on the approval row.
+The state machine is `requested -> approved | denied | expired`. Request replay must preserve approval id, tool identity, digest, and expiry. An exact repeated decision is idempotent; an opposite decision, late decision, identity mismatch, or decision after the turn becomes terminal is rejected. State transitions and their `audit_events` row commit in one transaction, and concurrent conflicting decisions serialize on the approval row.
 
 The authenticated decision route resolves `assistant_turns.run_id` under workspace and subject ownership before reading its body. The workflow persists the request before emitting `tool-approval-request`, then reloads the durable row after its deterministic hook wakes. Only an approved row can enter the idempotent execution step, which reloads the current tool catalog and revalidates schema and policy.
 
@@ -83,11 +84,33 @@ The authenticated decision route resolves `assistant_turns.run_id` under workspa
 
 Production uses two schemas in one physical database: `sidechat` is the durable business record and `workflow` is the Postgres World execution journal. `SIDECHAT_DATABASE_URL` and `WORKFLOW_POSTGRES_URL` may use different least-privilege users, but their host, port, and database must match so one maintenance transaction can enforce Side Chat legal holds.
 
+The production service build statically selects `@workflow/world-postgres`.
+This happens while Nitro compiles `.output/`; setting `WORKFLOW_POSTGRES_URL`
+when starting an artifact that was built against the local world does not
+retarget it. Always create a production artifact with
+`npm run build --workspace @side-chat/side-chat-service` before a real-provider
+or restart/replay verification.
+
 `journalPruneAfterDays`, `journalSweepIntervalMs`, and `journalClass` are declared in the service's `workflow` config block. The service validates the exact six-table World schema at boot, performs an immediate catch-up sweep, and repeats on the configured interval. A transaction-scoped advisory lock prevents overlapping instances; transient sweep failures are recorded and the next interval retries.
 
 Only Workflow-terminal runs older than the cutoff and bound to terminal Side Chat turns are eligible. Conversations under legal hold are excluded. The default `operational` class deletes eligible hot-journal rows; the `record` class requires an injected archive callback and archives a complete six-table snapshot before deletion. Archive storage must make `runId` idempotent because a later database rollback can cause a retry.
 
-`npm run test:db:container` applies the Side Chat migration, runs the installed `@workflow/world-postgres` bootstrap, and proves the adapter against that real pinned schema. The maintenance principal needs DML on the six `workflow` tables plus `SELECT` on the Side Chat turn and conversation eligibility columns; the `sidechat_maintenance` role in [`runtime-role-grants.sql`](../../packages/db/sql/runtime-role-grants.sql) grants that `SELECT` on `sidechat.assistant_turns` and `sidechat.conversations`. Schema bootstrap remains a migrator/owner action.
+[ADR 0018](../adr/0018-terminal-projection-reconciliation.md) replaces the
+ambiguous product `running` projection with product `open` plus joined Workflow
+activity. Reads show only Workflow `pending` or `running` as active; admission
+and cancel repair terminal or expired-missing mismatches under the product-row
+lock. No short-interval polling job is required for correctness; see
+[turn-terminal-reconciliation.md](../architecture/turn-terminal-reconciliation.md).
+
+`npm run test:db:container` applies the Side Chat migration, runs the installed
+`@workflow/world-postgres` bootstrap, then applies
+[`workflow-integration-grants.sql`](../../packages/db/sql/workflow-integration-grants.sql).
+The suite proves joined activity, crash fencing, durable cancel intent, and the
+runtime role's column-scoped Workflow access against the real pinned schema.
+Schema bootstrap remains a migrator/owner action.
+Run `npm run db:workflow:setup` once for each database before starting the
+production service, and again after a Workflow schema upgrade so the scoped
+integration grant is reasserted.
 
 ## Least-privilege roles
 

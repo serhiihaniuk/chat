@@ -16,6 +16,29 @@ export function createPostgresConversationQueries(
   return {
     readHistory: (auth, conversationId, query) =>
       readHistoryPage(repositories, auth, conversationId, query),
+    readState: async (auth, conversationId) => {
+      const limit = DEFAULT_HISTORY_PAGE_LIMIT;
+      const snapshot = await repositories.readConversationSnapshot({
+        workspaceId: auth.workspaceId,
+        subjectId: auth.subjectId,
+        conversationId,
+        limit: limit + 1,
+      });
+      const history = toHistoryPage(snapshot.messages, limit);
+      const activeTurn = snapshot.activeTurn;
+      return {
+        history,
+        ...(activeTurn?.runId
+          ? {
+              activeTurn: {
+                turnId: activeTurn.assistantTurnId,
+                runId: activeTurn.runId,
+                status: "running" as const,
+              },
+            }
+          : {}),
+      };
+    },
     listConversations: async (auth) => {
       const records = await repositories.listConversations({
         workspaceId: auth.workspaceId,
@@ -47,19 +70,6 @@ export function createPostgresConversationQueries(
           : [],
       );
     },
-    findActiveTurn: async (auth, conversationId) => {
-      const record = await repositories.findActiveAssistantTurn({
-        workspaceId: auth.workspaceId,
-        subjectId: auth.subjectId,
-        conversationId,
-      });
-      if (!record?.runId) return undefined;
-      return {
-        turnId: record.assistantTurnId,
-        runId: record.runId,
-        status: "running",
-      };
-    },
   };
 }
 
@@ -86,6 +96,10 @@ async function readHistoryPage(
       ? {}
       : { beforeSequenceIndex: query.beforeSequenceIndex }),
   });
+  return toHistoryPage(records, limit);
+}
+
+function toHistoryPage(records: readonly MessageRecord[], limit: number): ConversationHistoryPage {
   const hasMoreBefore = records.length > limit;
   const pageRecords = hasMoreBefore ? records.slice(1) : records;
   const nextBeforeSequenceIndex = hasMoreBefore ? pageRecords[0]?.sequenceIndex : undefined;

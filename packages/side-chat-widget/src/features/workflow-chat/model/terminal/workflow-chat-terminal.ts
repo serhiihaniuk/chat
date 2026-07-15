@@ -4,6 +4,7 @@ import {
   SIDE_CHAT_ERROR_CODES,
   SIDE_CHAT_ERROR_VOCABULARY,
   SIDE_CHAT_FINISH_REASONS,
+  SIDE_CHAT_MESSAGE_TERMINAL_STATUSES,
   type SideChatFinishReason,
 } from "@side-chat/stream-profile";
 
@@ -61,17 +62,54 @@ export function createWorkflowChatFinishHandler(
   ) => void,
 ): ChatOnFinishCallback<WorkflowUIMessage> {
   return ({ isAbort, isError, message, finishReason }) => {
-    const terminal = terminalForFinish({
-      error: latestErrorRef.current,
-      finishReason,
-      isAbort,
-      isError,
-      message,
-    });
+    const terminal =
+      workflowChatTerminalFromMessage(message) ??
+      terminalForFinish({
+        error: latestErrorRef.current,
+        finishReason,
+        isAbort,
+        isError,
+        message,
+      });
     setTerminal(terminal);
     onFinish?.(terminal, message, latestErrorRef.current);
     latestErrorRef.current = undefined;
   };
+}
+
+/** Rebuild the terminal presentation from validated durable message metadata. */
+export function workflowChatTerminalFromMessage(
+  message: WorkflowUIMessage,
+): Exclude<WorkflowChatTerminal, { kind: "none" }> | undefined {
+  const terminal = message.metadata?.terminal;
+  if (terminal === undefined) return undefined;
+  const base = { messageId: message.id, partCount: message.parts.length };
+  if (terminal.status === SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.COMPLETED) {
+    return { kind: "completed", finishReason: terminal.finishReason, ...base };
+  }
+  if (terminal.status === SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.CANCELLED) {
+    return { kind: "cancelled", ...base };
+  }
+  const profile = SIDE_CHAT_ERROR_VOCABULARY[terminal.errorCode];
+  return {
+    kind: "error",
+    code: terminal.errorCode,
+    message: profile.safeMessage,
+    retryable: profile.retryable,
+    ...base,
+  };
+}
+
+export function workflowChatTerminalFromHistory(
+  messages: readonly WorkflowUIMessage[],
+): WorkflowChatTerminal {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role !== "assistant") continue;
+    const terminal = workflowChatTerminalFromMessage(message);
+    if (terminal !== undefined) return terminal;
+  }
+  return { kind: "none" };
 }
 
 function terminalForFinish({

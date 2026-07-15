@@ -24,9 +24,11 @@ A user can refresh, lose network, or open a second tab at any moment and the wid
 
 1. An ordinary mount or idle refresh starts in a client-only **New chat** draft. It does not request history or active-turn discovery for a fabricated id, and it never selects an existing conversation as a fallback.
 2. Selecting a server-known conversation seeds history, then discovers and reconnects to its active turn when one exists. Replay reconciles with seeded history by message id, so no bubbles duplicate.
-3. The service-accepted start of a draft turn promotes that draft to a persisted selection immediately. The browser retains only the narrow, tab-scoped recovery cursor needed to survive a refresh while that turn is active; terminal completion clears it. This cursor is not selected-chat persistence and never changes the URL.
+3. The service-accepted start of a draft turn promotes that draft to a persisted selection immediately. A widget-lifetime session registry owns that conversation's visible timeline and lifecycle through one reducer. Each immutable attachment epoch consumes `WorkflowChatTransport` with `readUIMessageStream` and dispatches projections into that reducer, so selection changes and panel unmounts do not own or cancel generation, and a newer durable observation can replace a stale epoch atomically. The browser retains only the narrow, tab-scoped recovery cursor needed to survive a hard refresh while the focused turn is active; terminal completion or leaving that focused run clears it. This cursor is not selected-chat persistence and never changes the URL.
 4. A refresh with an active recovery cursor reattaches to that conversation. A refresh after the turn settles returns to New chat.
-5. A second tab starts at New chat. The conversation catalog exposes real running state so the user can see and select a running conversation; selection then follows the same history + discovery path.
+5. A second tab starts at New chat. A subject-scoped `/api/activity` stream registers before reading its active-turn snapshot, then publishes live running and terminal transitions. An already-open second tab therefore sees and can select a newly running conversation without manual refresh; selection then follows the same history + discovery path.
+6. New chat, conversation selection, settings, and close/reopen remain available while any conversation runs. These actions change only the foreground view. Duplicate-send protection is scoped to the selected running conversation.
+7. Every terminal outcome folds the closed Workflow journal into one durable visible assistant projection before atomic finalization. On success the journal is complete; on failure, timeout, or cancellation it is safely partial. Provider status, finish reason, and usage remain authoritative metadata, while history preserves the exact text/reasoning already shown. Provider-blocked content is never recovered.
 
 The earlier statement that the native path needed no browser recovery state was too broad. Per-conversation discovery cannot identify which of several conversations a refreshed tab owned. The replacement is one bounded active-turn cursor, not the legacy watchdog/backoff/polling ladder.
 
@@ -36,7 +38,7 @@ The earlier statement that the native path needed no browser recovery state was 
 
 ### Multi-tab
 
-Each tab: own `useChat`, own reconnect; both receive the full stream. Sender tab and watcher tab render identically after replay. Cross-tab send conflict resolves via the server busy policy; the loser renders the busy error calmly.
+Each tab owns its own stable per-conversation session aggregates and replaceable attachment engines, while the service activity stream supplies cross-conversation lifecycle state. Sender tab and watcher tab render identically after replay. The production activity source crosses service instances through database notifications; the in-memory source publishes the same contract. Cross-tab send conflict resolves via the server busy policy; the loser renders the busy error calmly.
 
 ## Edge cases (each a test)
 
@@ -45,10 +47,13 @@ Each tab: own `useChat`, own reconnect; both receive the full stream. Sender tab
 3. refresh mid-client-tool → Step 15's dedupe holds after reload;
 4. transport drops N<max times then recovers → reconnecting shown, stream continues, no user-visible loss;
 5. transport exhausts retries → calm connection-lost + manual retry works;
-6. second tab opened mid-turn → opens at New chat, shows the running conversation, and catches up after selecting it; both tabs then converge to identical final state;
+6. second tab already open when a turn starts → receives the running transition, catches up after selecting it, and converges to identical final state;
 7. two tabs send simultaneously → one succeeds, one renders busy calmly;
 8. network loss during idle (no active turn) → no reconnect storm; next send works;
-9. discovery returns terminal (turn finished while offline) → history refetch shows the final message; no ghost pending bubble.
+9. discovery returns terminal (turn finished while offline) → history refetch shows the final message; no ghost pending bubble;
+10. switch A → New chat → B → A while A streams → A keeps streaming and returns with one complete transcript;
+11. close/reopen and header Refresh during generation → the same live session remains attached and no half-busy shell remains.
+12. provider timeout or model failure after deltas → refresh shows the partial assistant text/reasoning and the safe terminal notice, with no empty assistant row when no deltas existed;
 
 ## Verification
 
@@ -61,15 +66,15 @@ rg -n "widget-run-marker|widget-transport-recovery" packages/side-chat-widget/sr
 
 Browser evidence via the preview workflow: refresh mid-turn and a two-tab session, screenshots. Import-graph proof that the old recovery/reconnect modules have no consumer on the new path.
 
-### Landed correction slice — 2026-07-14
+### Superseded correction slice — 2026-07-14
 
 - Workflow selection now distinguishes a client-only `draft` from a server-known `persisted` conversation. Idle mounts do not issue fabricated history/discovery reads, missing recovery never falls back to the newest catalog row, service acceptance promotes the draft, and only the active-run cursor uses tab-scoped storage. Selection does not read or write `conversationId` URL state.
 - `GET /api/conversations` now returns tenant-scoped `runningConversationIds` beside the summaries. The in-memory adapter projects only owned running turns; the PostgreSQL adapter maps one existing `listActiveAssistantTurns` query rather than polling each conversation. The widget accepts only running ids that also name a validated catalog row.
-- Both transports now compose one `SideChatPanelView` for settings, sidebar, header, narrow switcher, labels, refresh, and navigation guards. The workflow branch supplies real session status and catalog running state; switching is blocked while busy, while New chat remains available from a persisted busy conversation.
-- Workflow Refresh invalidates the single exported workflow query prefix, so catalog, selected history, active-turn discovery, models, and tools refetch together. A persisted selection remounts for replay after refetch; a New chat draft remains New chat. A locally accepted session stays mounted while its persistence reads catch up, preventing streamed content from disappearing.
-- The deterministic two-tab service proof starts tab B at New chat with no URL/cursor state, exposes tab A's running dot, replays after explicit selection, proves every workflow read advances on Refresh, and finishes both tabs with the same answer and no running marker.
+- Both transports compose one `SideChatPanelView`, but the slice incorrectly made navigation depend on the selected session's busy state. The approved behavior keeps navigation available and scopes duplicate-send protection to the running conversation.
+- Workflow Refresh invalidates the exported workflow query prefix, but the slice incorrectly remounted the selected `useChat`. The replacement keeps live session ownership outside the selected React subtree. Every newer coherent snapshot disposes the current epoch, folds `SnapshotLoaded`, and opens one fresh epoch when the snapshot still reports an active run.
+- The two-tab fixture opened its watcher after running state already existed and read a catalog snapshot. It did not prove that an already-open tab receives new lifecycle activity, so that evidence is invalid for multi-tab parity.
 
-Fresh verification for this slice: the widget suite passes 56 files / 322 tests, the focused service suite passes 4 files / 27 tests, direct service/widget/E2E TypeScript checks pass, custom governance and scoped Oxlint pass, and the isolated Workflow browser suite passes 11/11 cases.
+Those historical test counts prove only the superseded implementation. New completion evidence must cover stable session ownership, already-open-tab activity, non-blocking navigation, and refresh/close recovery.
 
 Still open in Step 16: retry exhaustion/manual reconnect presentation, simultaneous-send busy conflict, idle network loss, terminal-while-offline discovery, and the remaining dedicated refresh/drop cases. This slice does not close the step.
 
@@ -77,16 +82,17 @@ Still open in Step 16: retry exhaustion/manual reconnect presentation, simultane
 
 - [x] Idle mount and idle refresh render New chat without a history 404 or implicit existing-chat selection.
 - [x] An accepted draft turn records a tab-scoped recovery cursor before stream completion; mid-turn refresh reattaches, and terminal completion clears the cursor.
+- [ ] Failed, timed-out, and cancelled turns persist already-visible text/reasoning plus browser-safe terminal metadata; blocked output remains absent.
 - [x] Conversation selection is independent of the URL; no widget or harness callback mutates `conversationId` query state.
 - [ ] Transport-drop presentation keeps the typed 4xx/retry boundary and manual reconnect behavior.
-- [x] The conversation catalog exposes real running ids; New chat and conversation switching are disabled while the selected session is busy where the legacy shell disabled them.
-- [ ] Dedicated browser cases prove empty-store refresh, idle refresh with existing chats, mid-turn refresh, and a real two-tab running-conversation flow.
+- [ ] The conversation catalog plus subject-scoped activity stream expose real running ids without disabling New chat or conversation switching.
+- [ ] Dedicated browser cases prove empty-store refresh, idle refresh with existing chats, mid-turn refresh, switch/close/reopen continuity, and an already-open two-tab running-conversation flow.
 - [ ] Old recovery ladder remains consumer-free on the native path and the replacement cursor has focused lifecycle tests.
 
 ## Handoff record
 
-Recovery/discovery wiring: the 2026-07-14 selection/cursor correction and real two-tab catalog/replay slice have landed. Transport-drop and the remaining edge-case matrix above are still open.
+Recovery/discovery wiring: the selection/cursor correction remains useful, but selected-component stream ownership and the catalog-only two-tab proof are rejected. Restore the approved session-store and activity-stream semantics before closing this step.
 
 Classification table (retryable vs fatal): retain the current typed HTTP versus status-less transport boundary and reverify it after the selection rewrite.
 
-Multi-tab evidence: a stateful two-tab browser case now proves independent tab state, visible cross-tab running status, explicit watcher selection, replay, Refresh refetches, and terminal convergence. Simultaneous-send conflict remains open.
+Multi-tab evidence: the replacement case must keep both tabs open before the turn starts, observe a live activity transition, then prove explicit watcher selection, replay, Refresh, and terminal convergence. Simultaneous-send conflict remains open.

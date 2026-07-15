@@ -59,12 +59,7 @@ A non-Vite host (nginx, Express, Caddy, etc.) applies the same two rules. The re
 Add a toggle button and the same-origin frame to your page. The widget reads its query params in [`test-harness/widget-harness/src/config/modes.ts:29-41`](../../test-harness/widget-harness/src/config/modes.ts):
 
 ```html
-<button
-  id="side-chat-toggle"
-  type="button"
-  aria-controls="side-chat-frame"
-  aria-expanded="false"
->
+<button id="side-chat-toggle" type="button" aria-controls="side-chat-frame" aria-expanded="false">
   Open assistant
 </button>
 <iframe
@@ -146,9 +141,7 @@ Your app owns the visible state and drives the iframe with three `postMessage` t
 Send `setOpen` on button click, on frame `load`, and on `ready`; listen for `openChange` to follow a close from inside the widget:
 
 ```ts
-const frame = document.querySelector<HTMLIFrameElement>(
-  'iframe[title="Workspace Assistant"]',
-);
+const frame = document.querySelector<HTMLIFrameElement>('iframe[title="Workspace Assistant"]');
 const button = document.querySelector<HTMLButtonElement>("#side-chat-toggle");
 let open = false;
 

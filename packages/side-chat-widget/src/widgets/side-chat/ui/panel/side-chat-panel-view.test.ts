@@ -4,22 +4,22 @@ import { resolveSideChatPanelGuards } from "./side-chat-panel-view.js";
 
 describe("resolveSideChatPanelGuards", () => {
   it("keeps idle navigation available", () => {
-    expect(resolveSideChatPanelGuards(false, false)).toEqual({
+    expect(resolveSideChatPanelGuards()).toEqual({
       conversationSelectionDisabled: false,
       newConversationDisabled: false,
     });
   });
 
-  it("protects a busy draft from every selection change", () => {
-    expect(resolveSideChatPanelGuards(true, false)).toEqual({
-      conversationSelectionDisabled: true,
-      newConversationDisabled: true,
+  it("keeps a busy draft navigable while its session continues in the background", () => {
+    expect(resolveSideChatPanelGuards()).toEqual({
+      conversationSelectionDisabled: false,
+      newConversationDisabled: false,
     });
   });
 
-  it("keeps New chat available for a cataloged busy conversation", () => {
-    expect(resolveSideChatPanelGuards(true, true)).toEqual({
-      conversationSelectionDisabled: true,
+  it("keeps conversation switching available for a cataloged busy conversation", () => {
+    expect(resolveSideChatPanelGuards()).toEqual({
+      conversationSelectionDisabled: false,
       newConversationDisabled: false,
     });
   });

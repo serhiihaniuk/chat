@@ -18,9 +18,10 @@ export type WorkflowConversationSelectionState =
 
 export type WorkflowConversationSelection = Readonly<{
   activeConversationId: string;
-  acceptedRun: (runId: string) => void;
+  acceptedRun: (conversationId: string, runId: string) => void;
   clearTerminalRun: (runId: string) => void;
   discardInvalidRecovery: (cursor: WorkflowActiveTurnCursor) => void;
+  focusActiveRun: (conversationId: string, runId: string) => void;
   isLocalDraft: boolean;
   recoveryCursor: WorkflowActiveTurnCursor | undefined;
   recoveryNeedsValidation: boolean;
@@ -32,11 +33,10 @@ export function useWorkflowConversationSelection(
   initialConversationId: string | undefined,
   activeTurnStorageKey: string | undefined,
 ): WorkflowConversationSelection {
-  const [recoveryCursor, setRecoveryCursor] = useState(() =>
-    readWorkflowActiveTurnCursor(activeTurnStorageKey),
-  );
-  const [selection, setSelection] = useState(() =>
-    createInitialWorkflowConversationSelection(initialConversationId, recoveryCursor),
+  const initialRecoveryCursor = readWorkflowActiveTurnCursor(activeTurnStorageKey);
+  const [recoveryCursor, setRecoveryCursor] = useState(initialRecoveryCursor);
+  const [selection, setSelection] = useState(
+    createInitialWorkflowConversationSelection(initialConversationId, initialRecoveryCursor),
   );
   const [recoveryNeedsValidation, setRecoveryNeedsValidation] = useState(
     recoveryCursor !== undefined,
@@ -50,26 +50,45 @@ export function useWorkflowConversationSelection(
     selectionRef.current = next;
     setSelection(next);
   }, []);
+  const clearFocusedRun = useCallback((): void => {
+    const cursor = recoveryCursorRef.current;
+    if (!cursor) return;
+    clearWorkflowActiveTurnCursor(activeTurnStorageKey, cursor.runId);
+    recoveryCursorRef.current = undefined;
+    setRecoveryCursor(undefined);
+    setRecoveryNeedsValidation(false);
+  }, [activeTurnStorageKey]);
   const startNewConversation = useCallback((): void => {
+    clearFocusedRun();
     updateSelection(createWorkflowDraftSelection());
-  }, [updateSelection]);
+  }, [clearFocusedRun, updateSelection]);
   const selectConversation = useCallback(
     (conversationId: string): void => {
+      if (selectionRef.current.conversationId === conversationId) return;
+      clearFocusedRun();
       updateSelection(createPersistedWorkflowSelection(conversationId));
     },
-    [updateSelection],
+    [clearFocusedRun, updateSelection],
   );
-  const acceptedRun = useCallback(
-    (runId: string): void => {
-      const next = promoteWorkflowSelection(selectionRef.current);
-      const cursor = { conversationId: next.conversationId, runId };
-      updateSelection(next);
+  const focusActiveRun = useCallback(
+    (conversationId: string, runId: string): void => {
+      if (selectionRef.current.conversationId !== conversationId) return;
+      const cursor = { conversationId, runId };
       writeWorkflowActiveTurnCursor(activeTurnStorageKey, cursor);
       recoveryCursorRef.current = cursor;
       setRecoveryCursor(cursor);
       setRecoveryNeedsValidation(false);
     },
-    [activeTurnStorageKey, updateSelection],
+    [activeTurnStorageKey],
+  );
+  const acceptedRun = useCallback(
+    (conversationId: string, runId: string): void => {
+      if (selectionRef.current.conversationId !== conversationId) return;
+      const next = promoteWorkflowSelection(selectionRef.current);
+      updateSelection(next);
+      focusActiveRun(next.conversationId, runId);
+    },
+    [focusActiveRun, updateSelection],
   );
   const clearTerminalRun = useCallback(
     (runId: string): void => {
@@ -89,17 +108,15 @@ export function useWorkflowConversationSelection(
       recoveryCursorRef.current = undefined;
       setRecoveryCursor(undefined);
       setRecoveryNeedsValidation(false);
-      if (selectionRef.current.conversationId === cursor.conversationId) {
-        updateSelection(createWorkflowDraftSelection());
-      }
     },
-    [activeTurnStorageKey, updateSelection],
+    [activeTurnStorageKey],
   );
   return {
     activeConversationId: selection.conversationId,
     acceptedRun,
     clearTerminalRun,
     discardInvalidRecovery,
+    focusActiveRun,
     isLocalDraft: selection.kind === WORKFLOW_CONVERSATION_SELECTION_KIND.DRAFT,
     recoveryCursor,
     recoveryNeedsValidation,

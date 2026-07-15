@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { toServerToolCatalog } from "../server-tool-catalog.js";
-import { MOCK_WEB_SEARCH_TOOL_NAME } from "./mock-web-search-tool.js";
+import {
+  DEFAULT_MOCK_WEB_SEARCH_MODEL_ID,
+  MOCK_WEB_SEARCH_TOOL_DESCRIPTION,
+  MOCK_WEB_SEARCH_TOOL_NAME,
+} from "./mock-web-search-tool.js";
 import { REGISTERED_SERVER_TOOLS, selectRegisteredServerTools } from "./registered-server-tools.js";
 
 describe("registered server tools", () => {
@@ -13,10 +17,11 @@ describe("registered server tools", () => {
       {
         name: MOCK_WEB_SEARCH_TOOL_NAME,
         label: "Mock web search",
-        description: "Search deterministic fixture data for recent or external information.",
+        description: MOCK_WEB_SEARCH_TOOL_DESCRIPTION,
         defaultEnabled: true,
       },
     ]);
+    expect(selected[0]?.internalModelIds).toEqual([DEFAULT_MOCK_WEB_SEARCH_MODEL_ID]);
   });
 
   it("fails closed for an unregistered deployment selection", () => {

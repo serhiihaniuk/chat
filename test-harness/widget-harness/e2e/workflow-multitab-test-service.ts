@@ -1,6 +1,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
-const PORT = 8788;
+import {
+  TURN_ACTIVITY_EVENT_TYPE,
+  TURN_ACTIVITY_SYNC_EVENT_TYPE,
+  type TurnActivityEvent,
+} from "@side-chat/chat-protocol";
+
+const PORT = readPort("SIDECHAT_WORKFLOW_FIXTURE_PORT", 8788);
 const RUN_ID = "run-multitab";
 const TURN_ID = "turn-multitab";
 const ASSISTANT_MESSAGE_ID = "assistant-multitab";
@@ -10,14 +16,14 @@ const COMPLETE_ANSWER = `${PARTIAL_ANSWER} workflow answer.`;
 
 type StreamChunk = Readonly<Record<string, unknown>>;
 type FixtureCounters = {
-  activeTurn: number;
   conversations: number;
-  messages: number;
   models: number;
   replayConnections: number;
+  state: number;
   tools: number;
 };
 type FixtureState = {
+  activitySubscribers: Set<ServerResponse>;
   completed: boolean;
   conversationId: string | undefined;
   prompt: string;
@@ -50,6 +56,10 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
   if (handleTestControl(request, response, url)) return;
   if (handleCatalogRead(request, response, url)) return;
   if (handleConversationRead(request, response, url)) return;
+  if (request.method === "GET" && url.pathname === "/api/activity") {
+    openActivityStream(response);
+    return;
+  }
   if (request.method === "POST" && url.pathname === "/api/chat") {
     await startChat(request, response);
     return;
@@ -70,17 +80,17 @@ process.on("SIGTERM", () => server.close(() => process.exit(0)));
 
 function createState(): FixtureState {
   return {
+    activitySubscribers: new Set(),
     completed: false,
     conversationId: undefined,
     prompt: "",
     running: false,
     subscribers: new Set(),
     counters: {
-      activeTurn: 0,
       conversations: 0,
-      messages: 0,
       models: 0,
       replayConnections: 0,
+      state: 0,
       tools: 0,
     },
   };
@@ -97,6 +107,7 @@ function handleTestControl(request: IncomingMessage, response: ServerResponse, u
   }
   if (request.method === "POST" && url.pathname === "/__test/reset") {
     closeSubscribers();
+    closeActivitySubscribers();
     state = createState();
     json(response, 200, { reset: true });
     return true;
@@ -156,8 +167,8 @@ function handleConversationRead(
 ): boolean {
   if (request.method !== "GET" || !state.conversationId) return false;
   const conversationRoot = `/api/conversations/${encodeURIComponent(state.conversationId)}`;
-  if (url.pathname === `${conversationRoot}/messages`) {
-    state.counters.messages += 1;
+  if (url.pathname === `${conversationRoot}/state`) {
+    state.counters.state += 1;
     const messages: unknown[] = [
       { id: "user-multitab", role: "user", parts: [{ type: "text", text: state.prompt }] },
     ];
@@ -168,12 +179,8 @@ function handleConversationRead(
         parts: [{ type: "text", text: COMPLETE_ANSWER }],
       });
     }
-    json(response, 200, { messages });
-    return true;
-  }
-  if (url.pathname === `${conversationRoot}/active-turn`) {
-    state.counters.activeTurn += 1;
     json(response, 200, {
+      messages,
       activeTurn: state.running ? { turnId: TURN_ID, runId: RUN_ID, status: "running" } : null,
     });
     return true;
@@ -187,7 +194,26 @@ async function startChat(request: IncomingMessage, response: ServerResponse): Pr
   state.conversationId = typeof conversationId === "string" ? conversationId : undefined;
   state.prompt = readPrompt(body["messages"]);
   state.running = true;
+  publishActivity("running");
   openStream(response, true);
+}
+
+function openActivityStream(response: ServerResponse): void {
+  response.writeHead(200, {
+    "cache-control": "no-cache",
+    "content-type": "text/event-stream",
+  });
+  response.write(
+    `data: ${JSON.stringify({
+      type: TURN_ACTIVITY_SYNC_EVENT_TYPE,
+      activeTurns:
+        state.running && state.conversationId
+          ? [{ conversationId: state.conversationId, assistantTurnId: TURN_ID }]
+          : [],
+    })}\n\n`,
+  );
+  state.activitySubscribers.add(response);
+  response.on("close", () => state.activitySubscribers.delete(response));
 }
 
 function openStream(response: ServerResponse, includeRunHeader: boolean): void {
@@ -210,6 +236,7 @@ function openStream(response: ServerResponse, includeRunHeader: boolean): void {
 function completeRun(): void {
   state.completed = true;
   state.running = false;
+  publishActivity("completed");
   for (const response of state.subscribers) {
     for (const chunk of terminalChunks) writeChunk(response, chunk);
     response.end("data: [DONE]\n\n");
@@ -220,6 +247,25 @@ function completeRun(): void {
 function closeSubscribers(): void {
   for (const response of state.subscribers) response.end("data: [DONE]\n\n");
   state.subscribers.clear();
+}
+
+function closeActivitySubscribers(): void {
+  for (const response of state.activitySubscribers) response.end();
+  state.activitySubscribers.clear();
+}
+
+function publishActivity(status: TurnActivityEvent["status"]): void {
+  for (const response of state.activitySubscribers) publishActivityTo(response, status);
+}
+
+function publishActivityTo(response: ServerResponse, status: TurnActivityEvent["status"]): void {
+  if (!state.conversationId) return;
+  writeChunk(response, {
+    type: TURN_ACTIVITY_EVENT_TYPE,
+    assistantTurnId: TURN_ID,
+    conversationId: state.conversationId,
+    status,
+  });
 }
 
 function publicState(): Readonly<Record<string, unknown>> {
@@ -274,4 +320,9 @@ function writeChunk(response: ServerResponse, chunk: StreamChunk): void {
 function json(response: ServerResponse, status: number, body: unknown): void {
   response.writeHead(status, { "content-type": "application/json" });
   response.end(JSON.stringify(body));
+}
+
+function readPort(name: string, fallback: number): number {
+  const value = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
 }

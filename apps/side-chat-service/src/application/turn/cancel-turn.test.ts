@@ -3,25 +3,24 @@ import { describe, expect, it } from "vitest";
 import { DeterministicTurnExecution } from "#testing/turn/deterministic-turn-execution";
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
 import type { TurnExecution } from "#application/ports/turn/turn-execution";
-import type { TurnStore } from "#application/ports/turn/turn-store";
+import {
+  CANCEL_REQUEST_DISPOSITIONS,
+  type TurnCancellationStore,
+} from "#application/ports/turn/turn-store";
 import { TURN_MESSAGE_ROLES } from "#domain/turn/turn";
 
 import { cancelTurn } from "./cancel-turn.js";
 
 describe("cancelTurn", () => {
-  it("proves ownership before cancelling execution", async () => {
+  it("persists cancellation intent before cancelling execution", async () => {
     const calls: string[] = [];
     const execution = new DeterministicTurnExecution();
     const state = await stateWithBoundRun();
-    const turns: TurnStore = {
-      assertCanBegin: (auth, conversationId) => state.assertCanBegin(auth, conversationId),
-      beginTurn: (beginInput) => state.beginTurn(beginInput),
-      bindRun: (turn, runId) => state.bindRun(turn, runId),
-      assertRunOwned: async (...parameters: Parameters<typeof state.assertRunOwned>) => {
-        calls.push("ownership");
-        return state.assertRunOwned(...parameters);
+    const turns: TurnCancellationStore = {
+      requestCancellation: async (...parameters) => {
+        calls.push("intent");
+        return state.requestCancellation(...parameters);
       },
-      claimTerminal: (turn, terminal) => state.claimTerminal(turn, terminal),
     };
     const tracedExecution: TurnExecution = {
       start: (turnInput) => execution.start(turnInput),
@@ -32,7 +31,18 @@ describe("cancelTurn", () => {
     };
 
     await cancelTurn(turns, tracedExecution, input());
-    expect(calls).toEqual(["ownership", "cancel"]);
+    expect(calls).toEqual(["intent", "cancel"]);
+  });
+
+  it("acknowledges an already-resolved cancellation without Workflow delivery", async () => {
+    const execution = new DeterministicTurnExecution();
+    const turns: TurnCancellationStore = {
+      requestCancellation: () => Promise.resolve(CANCEL_REQUEST_DISPOSITIONS.ACKNOWLEDGED),
+    };
+
+    await cancelTurn(turns, execution, input());
+
+    expect(execution.cancelled).toEqual([]);
   });
 
   it("rejects a run that is not bound to the owned conversation", async () => {

@@ -8,7 +8,7 @@ export function createPostgresConversationTitleStore(
   repositories: SidechatRepositories,
 ): ConversationTitleStore {
   return {
-    readTitleEligibility: async (auth, conversationId, initialUserMessageId) => {
+    readTitleEligibility: async (auth, conversationId) => {
       const conversation = await repositories.findConversation({
         workspaceId: auth.workspaceId,
         subjectId: auth.subjectId,
@@ -17,17 +17,8 @@ export function createPostgresConversationTitleStore(
       if (!conversation) {
         throw new TurnRejectedError(TURN_REJECTION_CODES.NOT_FOUND, "Conversation not found");
       }
-      const firstMessages = await repositories.readConversationHistory({
-        workspaceId: auth.workspaceId,
-        subjectId: auth.subjectId,
-        conversationId,
-        limit: 1,
-        beforeSequenceIndex: 1,
-      });
       return {
-        eligible:
-          conversation.titleText === undefined &&
-          firstMessages[0]?.messageId === initialUserMessageId,
+        eligible: conversation.titleText === undefined,
         ...(conversation.titleText === undefined ? {} : { existingTitle: conversation.titleText }),
       };
     },

@@ -12,6 +12,7 @@ import { createPostgresDrizzleTurnRepository } from "./records/turns.js";
 import { createRandomIdGenerator } from "../repository-utils.js";
 
 export { createPostgresHostCommandResultNotificationSource } from "./notifications/host-command-result-notification-source.js";
+export { createPostgresTurnActivityNotificationSource } from "./notifications/turn-activity-notification-source.js";
 export { uniqueViolationConstraint } from "./pg-errors.js";
 
 /** Tunables for the shared query pool; absent fields keep node-postgres defaults. */

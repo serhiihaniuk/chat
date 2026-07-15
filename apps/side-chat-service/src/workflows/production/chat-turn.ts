@@ -1,19 +1,21 @@
 import type { ModelCallStreamPart } from "@ai-sdk/workflow";
-import { resumeHook, start } from "workflow/api";
+import { start } from "workflow/api";
 
 import { initializeProductionWorkflowServices } from "#composition/workflow/production";
 import {
   chatTurnCancellationHookToken,
   executeChatTurn,
+  stampAssistantMessageId,
   toChatTurnUIStream,
   type ChatTurnWorkflowInput,
   type StartedChatTurn,
 } from "../chat-turn.js";
-import type { ChatTurnTerminalOutcome } from "../chat-turn-outcome.js";
+import type { ChatTurnTerminalOutcome } from "../outcome/chat-turn-outcome.js";
 
 export {
   chatTurnCancellationHookToken,
   executeChatTurn,
+  stampAssistantMessageId,
   toChatTurnUIStream,
   type ChatTurnWorkflowInput,
   type SerializableChatMessage,
@@ -24,33 +26,29 @@ export {
   CHAT_TURN_OUTCOMES,
   chatTurnUsage,
   classifyChatTurnOutcome,
-  toCompletedChatTurnOutcome,
+  toPublicTurnErrorCode,
   type ChatTurnTerminalOutcome,
-} from "../chat-turn-outcome.js";
+} from "../outcome/chat-turn-outcome.js";
+export { toCompletedChatTurnOutcome } from "../outcome/completed-chat-turn-outcome.js";
 export {
   clientToolResultHookToken,
   preserveDynamicClientToolIdentity,
   resumeClientToolResult,
 } from "../client-tools/index.js";
-export { replayChatTurn, type ReplayedChatTurn } from "./chat-turn-replay.js";
+export { replayChatTurn, type ReplayedChatTurn } from "./stream/chat-turn-replay.js";
 
 /** Route-side facade. Workflow handles and engine result objects remain private. */
 export async function startChatTurn(input: ChatTurnWorkflowInput): Promise<StartedChatTurn> {
   const run = await start(chatTurnWorkflow, [input]);
   return {
     runId: run.runId,
-    stream: toChatTurnUIStream(run.getReadable<ModelCallStreamPart>(), input.clientTools),
+    stream: toChatTurnUIStream(
+      run.getReadable<ModelCallStreamPart>(),
+      input.clientTools,
+      `${input.turnId}-assistant`,
+    ),
     terminal: run.returnValue,
   };
-}
-
-export async function cancelChatTurn(runId: string, reason: string): Promise<boolean> {
-  try {
-    await resumeHook(chatTurnCancellationHookToken(runId), { reason });
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /** Production entry initializes only production dependencies around neutral mechanics. */

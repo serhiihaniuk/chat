@@ -26,9 +26,7 @@ type SchemaBudget = { nodes: number };
  * reconstruction. This boundary rejects expensive or malformed schemas rather
  * than relying on durable execution to discover them.
  */
-export function isSupportedClientToolSchema(
-  schema: Readonly<Record<string, unknown>>,
-): boolean {
+export function isSupportedClientToolSchema(schema: Readonly<Record<string, unknown>>): boolean {
   let serialized: string;
   try {
     serialized = JSON.stringify(schema);
@@ -36,19 +34,14 @@ export function isSupportedClientToolSchema(
     return false;
   }
   if (
-    new TextEncoder().encode(serialized).byteLength >
-    CLIENT_TOOL_CATALOG_LIMITS.MAX_SCHEMA_BYTES
+    new TextEncoder().encode(serialized).byteLength > CLIENT_TOOL_CATALOG_LIMITS.MAX_SCHEMA_BYTES
   ) {
     return false;
   }
   return isSupportedSchemaNode(schema, 1, { nodes: 0 });
 }
 
-function isSupportedSchemaNode(
-  value: unknown,
-  depth: number,
-  budget: SchemaBudget,
-): boolean {
+function isSupportedSchemaNode(value: unknown, depth: number, budget: SchemaBudget): boolean {
   budget.nodes += 1;
   if (budget.nodes > CLIENT_TOOL_CATALOG_LIMITS.MAX_SCHEMA_NODES) return false;
   if (depth > CLIENT_TOOL_CATALOG_LIMITS.MAX_SCHEMA_DEPTH) return false;
@@ -91,8 +84,7 @@ function isSupportedSchemaMap(
   const entries = Object.entries(entry);
   if (entries.length > MAX_SCHEMA_COLLECTION_ENTRIES) return false;
   return entries.every(([name, value]) => {
-    if (name.length === 0 || name.length > MAX_SCHEMA_PROPERTY_NAME_LENGTH)
-      return false;
+    if (name.length === 0 || name.length > MAX_SCHEMA_PROPERTY_NAME_LENGTH) return false;
     if (keyword === "patternProperties" && !isSafePattern(name)) return false;
     if (keyword !== "dependencies" || !Array.isArray(value)) {
       return isSupportedSchemaNode(value, depth + 1, budget);
@@ -101,11 +93,7 @@ function isSupportedSchemaMap(
   });
 }
 
-function isSupportedSchemaArray(
-  value: unknown,
-  depth: number,
-  budget: SchemaBudget,
-): boolean {
+function isSupportedSchemaArray(value: unknown, depth: number, budget: SchemaBudget): boolean {
   return (
     Array.isArray(value) &&
     value.length > 0 &&
@@ -116,9 +104,7 @@ function isSupportedSchemaArray(
 
 function isValidAtomicKeyword(keyword: string, value: unknown): boolean {
   if (STRING_KEYWORDS.has(keyword)) {
-    return (
-      typeof value === "string" && value.length <= MAX_SCHEMA_STRING_LENGTH
-    );
+    return typeof value === "string" && value.length <= MAX_SCHEMA_STRING_LENGTH;
   }
   if (BOOLEAN_KEYWORDS.has(keyword)) return typeof value === "boolean";
   if (FINITE_NUMBER_KEYWORDS.has(keyword)) {
@@ -126,9 +112,7 @@ function isValidAtomicKeyword(keyword: string, value: unknown): boolean {
   }
   if (COUNT_KEYWORDS.has(keyword)) return isValidSchemaCount(value);
   if (keyword === "examples") {
-    return (
-      Array.isArray(value) && value.length <= MAX_SCHEMA_COLLECTION_ENTRIES
-    );
+    return Array.isArray(value) && value.length <= MAX_SCHEMA_COLLECTION_ENTRIES;
   }
   if (keyword === "multipleOf") {
     return typeof value === "number" && Number.isFinite(value) && value > 0;
@@ -167,9 +151,7 @@ function isValidSchemaType(value: unknown): boolean {
     Array.isArray(value) &&
     value.length > 0 &&
     value.length <= JSON_SCHEMA_TYPES.size &&
-    value.every(
-      (type) => typeof type === "string" && JSON_SCHEMA_TYPES.has(type),
-    ) &&
+    value.every((type) => typeof type === "string" && JSON_SCHEMA_TYPES.has(type)) &&
     new Set(value).size === value.length
   );
 }
@@ -189,10 +171,7 @@ function isUniqueStringList(value: unknown, maximumLength: number): boolean {
     value.length > 0 &&
     value.length <= MAX_SCHEMA_COLLECTION_ENTRIES &&
     value.every(
-      (entry) =>
-        typeof entry === "string" &&
-        entry.length > 0 &&
-        entry.length <= maximumLength,
+      (entry) => typeof entry === "string" && entry.length > 0 && entry.length <= maximumLength,
     ) &&
     new Set(value).size === value.length
   );
@@ -208,8 +187,7 @@ function isValidSchemaCount(value: unknown): boolean {
 }
 
 function isSafePattern(value: string): boolean {
-  if (value.length > MAX_SAFE_PATTERN_LENGTH || !SAFE_PATTERN.test(value))
-    return false;
+  if (value.length > MAX_SAFE_PATTERN_LENGTH || !SAFE_PATTERN.test(value)) return false;
   for (const match of value.matchAll(/\{(\d+)(?:,(\d+))?\}/gu)) {
     const minimum = Number(match[1]);
     const maximum = Number(match[2] ?? match[1]);

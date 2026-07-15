@@ -16,7 +16,7 @@ import { assertDurableModelHandle, type ModelProvider } from "#application/ports
 import { PRIVATE_TELEMETRY_OPTIONS } from "#application/ports/telemetry-sink";
 import { initializeProductionWorkflowServices } from "#composition/workflow/production";
 
-import { ABORT_ERROR_NAME } from "../../chat-turn-outcome.js";
+import { ABORT_ERROR_NAME } from "../../outcome/chat-turn-outcome.js";
 import { patchWorkflowRealmAbortSignal } from "../../realm/abort-signal-patch.js";
 import { createSuspendableTurnTimeout } from "../../timeout/turn-timeout.js";
 import { persistConversationTitle } from "./persist-conversation-title.js";

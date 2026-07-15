@@ -165,18 +165,6 @@ When a doc and code disagree, verify the code and report or fix the stale source
 - Validate untrusted input at the owning boundary. Preserve idempotency, ownership checks, timeout, cancellation, size, rate, and resource limits.
 - Do not use real credentials, real provider calls, or persistent production data for local verification unless explicitly requested and safely scoped.
 
-## Pi operating model and delegation
-
-The main Pi chat is the Sol/high parent configured by [`.pi/settings.json`](.pi/settings.json) and [`.pi/APPEND_SYSTEM.md`](.pi/APPEND_SYSTEM.md). Project agents in [`.pi/agents/`](.pi/agents) are narrow Luna roles — semantic workers, not alternate leaders. `.pi/APPEND_SYSTEM.md` owns parent routing, briefs, budgets, and recovery; [`docs/pi/KNOWLEDGE.md`](docs/pi/KNOWLEDGE.md) owns the durable rationale and execution flow; [`docs/pi/SETUP-GUIDE.md`](docs/pi/SETUP-GUIDE.md) owns setup and operator checks. Do not duplicate that guidance here.
-
-These invariants hold regardless of orchestration:
-
-- The parent owns interpretation, architecture, scope, integration, final review, and completion claims. Architectural decisions, destructive actions, shared-file conflicts, and unresolved uncertainty return to the parent.
-- Delegated children receive fresh context and compact task briefs or artifact paths, not the parent transcript.
-- Never run concurrent writers in the same checkout or against overlapping paths.
-- Built-in roles remain disabled; use `agentScope: "project"`. Do not add generic chains, competing delegation packages, or broader model/tool scope.
-- Pi remains orchestration infrastructure: production application and package source must not import or depend on `.pi` code.
-
 ## Verification
 
 Run the narrowest relevant check first. Expand verification to match the risk:

@@ -7,6 +7,8 @@ import { ReasoningDemo } from '@/components/demos/reasoning';
 
 Reasoning is a foldable thinking trace built on Base UI `Collapsible`. Its panel interleaves thought lines and `ToolRow` entries as siblings, in stream order — never a separate tool block below the answer. The header label shimmers with a subtle `animate-pulse` while the model is still thinking, and the `ChevronDown` rotates to follow the controlled open state. Open state is controlled, so a parent can expand live thinking, collapse completed minimal traces, or keep detailed traces open while leaving the trigger user-toggleable. The panel height animates from Base UI's exposed `--collapsible-panel-height` through the `sc-collapsible-panel` hook class.
 
+Thought text still supports Markdown structure, but provider-authored emphasis stays at the trace's normal reading weight instead of making every planning summary look like a heading.
+
 <DesignControls />
 
 <Preview>

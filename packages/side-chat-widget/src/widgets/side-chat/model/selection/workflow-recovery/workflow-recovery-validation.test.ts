@@ -19,19 +19,32 @@ describe("workflow recovery cursor validation", () => {
     ).toEqual({ activeTurn: ACTIVE_TURN, invalidCursor: undefined, isPending: false });
   });
 
-  it("rejects absent and mismatched active runs instead of choosing another conversation", () => {
-    for (const activeTurn of [null, { turnId: "turn-2", runId: "run-2" }]) {
-      expect(
-        resolveWorkflowRecoveryValidation({
-          activeConversationId: "conversation-1",
-          activeTurn,
-          cursor: CURSOR,
-          discoveryFailed: false,
-          discoverySettled: true,
-          needsValidation: true,
-        }),
-      ).toEqual({ activeTurn: undefined, invalidCursor: CURSOR, isPending: true });
-    }
+  it("settles an absent run as an invalid cursor without leaving recovery pending", () => {
+    expect(
+      resolveWorkflowRecoveryValidation({
+        activeConversationId: "conversation-1",
+        activeTurn: null,
+        cursor: CURSOR,
+        discoveryFailed: false,
+        discoverySettled: true,
+        needsValidation: true,
+      }),
+    ).toEqual({ activeTurn: undefined, invalidCursor: CURSOR, isPending: false });
+  });
+
+  it("prefers the selected conversation's authoritative active run over a stale cursor", () => {
+    const activeTurn = { turnId: "turn-2", runId: "run-2" };
+
+    expect(
+      resolveWorkflowRecoveryValidation({
+        activeConversationId: "conversation-1",
+        activeTurn,
+        cursor: CURSOR,
+        discoveryFailed: false,
+        discoverySettled: true,
+        needsValidation: true,
+      }),
+    ).toEqual({ activeTurn, invalidCursor: CURSOR, isPending: false });
   });
 
   it("retains the cursor when discovery itself fails", () => {

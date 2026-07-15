@@ -51,11 +51,7 @@ export const HTTP_ERROR = {
  * @param error - The outcome, naming both the HTTP status and the public code.
  * @param message - Safe, human-readable detail; never raw provider or internal text.
  */
-export function errorResponse(
-  requestId: string,
-  error: HttpError,
-  message: string,
-): Response {
+export function errorResponse(requestId: string, error: HttpError, message: string): Response {
   const { retryable } = SIDE_CHAT_ERROR_VOCABULARY[error.CODE];
   return Response.json(
     { code: error.CODE, message, retryable, requestId },
@@ -85,20 +81,10 @@ const TURN_REJECTION_HTTP = {
  * internal domain code; the specific detail rides in `message`. A `Retry-After`
  * header is added when the rejection carries a retry delay (capacity exhaustion).
  */
-export function turnRejectionResponse(
-  requestId: string,
-  error: TurnRejectedError,
-): Response {
-  const response = errorResponse(
-    requestId,
-    TURN_REJECTION_HTTP[error.code],
-    error.message,
-  );
+export function turnRejectionResponse(requestId: string, error: TurnRejectedError): Response {
+  const response = errorResponse(requestId, TURN_REJECTION_HTTP[error.code], error.message);
   if (error.retryAfterSeconds !== undefined) {
-    response.headers.set(
-      HTTP_HEADERS.RETRY_AFTER,
-      String(error.retryAfterSeconds),
-    );
+    response.headers.set(HTTP_HEADERS.RETRY_AFTER, String(error.retryAfterSeconds));
   }
   return response;
 }

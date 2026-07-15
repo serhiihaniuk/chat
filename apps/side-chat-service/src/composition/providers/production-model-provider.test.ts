@@ -3,6 +3,10 @@ import { WORKFLOW_DESERIALIZE, WORKFLOW_SERIALIZE } from "@workflow/serde";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { DurableLanguageModel, ProviderOptions } from "#application/ports/model-provider";
+import {
+  DEFAULT_MOCK_WEB_SEARCH_MODEL_ID,
+  MOCK_WEB_SEARCH_TOOL_NAME,
+} from "#application/turn/tools/server-tools/registry/mock-web-search-tool";
 import type { SideChatConfig } from "#config/declaration/side-chat-config";
 import { AZURE_PROVIDER } from "#config/providers/azure-provider-config";
 import { OPENAI_PROVIDER } from "#config/providers/openai-provider-config";
@@ -98,6 +102,32 @@ describe("production Workflow model serialization", () => {
         openai: { reasoningEffort },
       });
     }
+  });
+
+  it("resolves a selected tool's hidden model without publishing it as a chat model", () => {
+    const result = validateSettings(
+      createDefaultConfig({
+        models: {
+          provider: OPENAI_PROVIDER.KIND,
+          connection: { apiKey: CREDENTIAL_SENTINEL },
+          defaultModelId: "gpt-5.6-luna",
+          availableModels: [openAiModel()],
+        },
+        serverTools: [MOCK_WEB_SEARCH_TOOL_NAME],
+      }),
+      { registeredServerToolNames: [MOCK_WEB_SEARCH_TOOL_NAME] },
+    );
+    if (!result.ok) throw new Error("Test settings must be valid");
+
+    const hiddenModel = createProductionModelProvider(result.settings).modelFor({
+      modelId: DEFAULT_MOCK_WEB_SEARCH_MODEL_ID,
+      requestId: "request-mock-search",
+    });
+
+    expect(hiddenModel.model.modelId).toBe(DEFAULT_MOCK_WEB_SEARCH_MODEL_ID);
+    expect(result.settings.models.availableModels.map((model) => model.id)).not.toContain(
+      DEFAULT_MOCK_WEB_SEARCH_MODEL_ID,
+    );
   });
 
   it("rehydrates a callable Azure model from non-secret deployment routing", async () => {

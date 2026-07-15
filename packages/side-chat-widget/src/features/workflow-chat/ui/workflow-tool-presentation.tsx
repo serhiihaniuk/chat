@@ -6,7 +6,6 @@ import { asRecord } from "@side-chat/shared";
 import { DEFAULT_TOOL_DETAIL_LEVEL, type ToolDetailLevel } from "#entities/settings";
 import { Button } from "#shared/ui/button";
 import { ToolDetailRow, hasToolDetail, type ToolDetail } from "#shared/ui/activity/tool-detail";
-import { Textarea } from "#shared/ui/textarea";
 import { ToolRow, type ToolState } from "#shared/ui/tool-row";
 import type { WidgetLabels } from "#shared/lib/widget-labels";
 
@@ -73,6 +72,7 @@ function approvalCardDecision(
   const decision = approval
     ? (approvalDecisions?.[approval.id] ?? approval.state)
     : approvalDecisionForToolState(item.state);
+  if (decision === "approved") return undefined;
   if (
     decision &&
     (item.state === "approval-requested" ||
@@ -103,14 +103,13 @@ function ApprovalPresentation({
   readonly labels: WidgetLabels;
   readonly onApprovalDecision: WorkflowApprovalDecisionHandler | undefined;
 }): ReactElement {
-  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const approvalId = item.approval?.id;
   const canDecide = Boolean(decision === "requested" && approvalId && onApprovalDecision);
   const runDecision = (approved: boolean): void => {
     if (!canDecide || !approvalId || !onApprovalDecision) return;
     setBusy(true);
-    void onApprovalDecision(approvalId, approved, reason).finally(() => setBusy(false));
+    void onApprovalDecision(approvalId, approved).finally(() => setBusy(false));
   };
 
   return (
@@ -126,23 +125,6 @@ function ApprovalPresentation({
         <span className="text-xs text-muted-foreground">{approvalCopy(decision, labels)}</span>
         {approvalId ? (
           <>
-            {decision === "requested" ? (
-              <>
-                <label
-                  className="text-xs text-muted-foreground"
-                  htmlFor={`approval-reason-${approvalId}`}
-                >
-                  {labels.approvalReason}
-                </label>
-                <Textarea
-                  aria-label={labels.approvalReason}
-                  disabled={!canDecide || busy}
-                  id={`approval-reason-${approvalId}`}
-                  onChange={(event) => setReason(event.target.value)}
-                  value={reason}
-                />
-              </>
-            ) : null}
             <div className="flex flex-wrap gap-(--tool-detail-gap)">
               <Button disabled={!canDecide || busy} onClick={() => runDecision(true)} size="sm">
                 {labels.approvalApprove}

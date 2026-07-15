@@ -96,10 +96,12 @@ async function startExecution(
   try {
     return await dependencies.execution.start(input);
   } catch (error) {
-    await dependencies.turns.claimTerminal(turn, {
-      status: TURN_TERMINAL_STATUSES.FAILED,
-      usage: ZERO_TURN_USAGE,
-      safeErrorCode: TURN_EXECUTION_ERROR_CODES.WORKFLOW_FAILED,
+    await dependencies.turns.finalize(turn, {
+      terminal: {
+        status: TURN_TERMINAL_STATUSES.FAILED,
+        usage: ZERO_TURN_USAGE,
+        safeErrorCode: TURN_EXECUTION_ERROR_CODES.WORKFLOW_FAILED,
+      },
     });
     throw error;
   }

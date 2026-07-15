@@ -50,18 +50,11 @@ export const toolApprovalRepositoryContract = (
         const turn = await startTurn(repositories, scope);
         const request = approvalRequest(scope, turn.assistantTurnId);
         await repositories.createOrGetToolApproval(request);
-        const decision = {
-          ...approvalDecision(scope, turn.assistantTurnId, request, "approved"),
-          reason: "reviewed",
-        } as const;
+        const decision = approvalDecision(scope, turn.assistantTurnId, request, "approved");
 
         const accepted = await repositories.decideToolApproval(decision);
         const duplicate = await repositories.decideToolApproval(decision);
         const conflict = await repositories.decideToolApproval({ ...decision, decision: "denied" });
-        const changedReason = await repositories.decideToolApproval({
-          ...decision,
-          reason: "different",
-        });
 
         expect(accepted).toMatchObject({ disposition: "accepted", record: { state: "approved" } });
         expect(duplicate).toMatchObject({
@@ -72,11 +65,6 @@ export const toolApprovalRepositoryContract = (
           disposition: "rejected",
           rejection: "conflicting_decision",
           record: { state: "approved" },
-        });
-        expect(changedReason).toMatchObject({
-          disposition: "rejected",
-          rejection: "conflicting_decision",
-          record: { state: "approved", decisionReason: "reviewed" },
         });
       } finally {
         await closeIfNeeded(repositories);
@@ -128,7 +116,7 @@ export const toolApprovalRepositoryContract = (
         const turn = await startTurn(repositories, scope);
         const request = approvalRequest(scope, turn.assistantTurnId);
         await repositories.createOrGetToolApproval(request);
-        await repositories.claimAssistantTurnTerminal({
+        await repositories.finalizeAssistantTurn({
           workspaceId: workspaceId(scope),
           assistantTurnId: turn.assistantTurnId,
           status: "cancelled",

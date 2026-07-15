@@ -28,7 +28,9 @@ replaces it with `{ status: "settled" }`; dynamic `tool-output-error` text is
 collapsed to the safe `provider_failed` code. The pinned Workflow decoder can
 drop dynamic identity and repeat a completed tool step on full replay, so the
 replay edge restores that identity and removes only a repeated step with the
-same tool-call id before the common scrub transform runs.
+same tool-call id before the common scrub transform runs. That normalizer holds
+at most the step opener while it identifies a repeated tool call; ordinary text
+and reasoning continue before `finish-step` instead of being buffered to terminal.
 
 ### Finish semantics
 
@@ -84,16 +86,20 @@ pinned SDK's model-part-to-UI transform is not one-to-one. This preserves an
 exact client contract at O(history) reconnect cost without inventing a second
 durable stream or modifying WorkflowAgent internals.
 
+Both the initial stream and every replay emit `start.messageId` as the stable
+turn-scoped assistant id used by durable history. Reconnect therefore extends
+one assistant projection; it never creates a second transient message identity.
+
 ## Terminal discipline
 
 Exactly one terminal-class part (`finish`, `error`, or `abort`) reaches the client. The scrub filter drops and counts any second terminal chunk as defense in depth; the SDK should already guarantee this. Unknown chunk types are forwarded untouched and counted, never dropped, so a future native part is forward-compatible.
 
 ## Transport envelope
 
-| Concern         | Contract                                                                                                                                                                                  |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Start a turn    | `POST /api/chat` — streams the response; returns `x-workflow-run-id`; optional `modelPreference`, `reasoningEffort`, and `enabledToolNames` may only narrow/select advertised policy.     |
-| Cancel a turn   | `POST /api/chat/:runId/cancel` — auth/ownership first, then a durable abort.                                                                                                              |
-| Auth            | `authorization` header, verified before any run, stream, or cancel.                                                                                                                       |
-| Request tracing | `x-request-id` (echoed if provided, generated otherwise).                                                                                                                                 |
-| Keepalive       | An SSE comment frame (`: hb\n\n`) is emitted only after one idle interval, at the byte edge, transparent to chunk decoding. Core AI SDK has no heartbeat; idle-timeout proxies need this. |
+| Concern         | Contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Start a turn    | `POST /api/chat` — streams the response; returns `x-workflow-run-id`; optional `modelPreference`, `reasoningEffort`, and `enabledToolNames` may only narrow/select advertised policy.                                                                                                                                                                                                                                                                                                 |
+| Cancel a turn   | `POST /api/chat/:runId/cancel` — auth/ownership first, then the durable user-cancel hook is recorded before the active step's Postgres-backed abort stream is woken. The direct wake is required because a same-run Workflow continuation is serialized behind its active provider step in the Postgres World; replay still records the authoritative cancelled outcome. The route absorbs the bounded hook-registration race, and the stream or snapshot remains terminal authority. |
+| Auth            | `authorization` header, verified before any run, stream, or cancel.                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Request tracing | `x-request-id` (echoed if provided, generated otherwise).                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Keepalive       | An SSE comment frame (`: hb\n\n`) is emitted only after one idle interval, at the byte edge, transparent to chunk decoding. Core AI SDK has no heartbeat; idle-timeout proxies need this.                                                                                                                                                                                                                                                                                             |

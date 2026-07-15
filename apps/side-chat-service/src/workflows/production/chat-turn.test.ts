@@ -1,11 +1,16 @@
 import type { UIMessageChunk } from "ai";
-import { describe, expect, it } from "vitest";
+import type { ModelCallStreamPart } from "@ai-sdk/workflow";
+import { HookNotFoundError, WorkflowRunNotFoundError } from "workflow/internal/errors";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   clientToolResultHookToken,
   preserveDynamicClientToolIdentity,
+  stampAssistantMessageId,
+  toChatTurnUIStream,
   toCompletedChatTurnOutcome,
 } from "./chat-turn.js";
+import { cancelChatTurn, wakeChatTurnProviderStep } from "./cancellation/index.js";
 
 const ZERO_USAGE = { inputTokens: 0, outputTokens: 0, totalTokens: 0 } as const;
 const ACTIVITY_DURATION_MS = 1_501;
@@ -159,7 +164,143 @@ describe("client-tool Workflow compatibility", () => {
   });
 });
 
+describe("chat turn stream identity", () => {
+  it("stamps the turn-scoped durable assistant id onto the live start chunk", async () => {
+    const stream = chunks({ type: "start" }, { type: "start-step" }).pipeThrough(
+      stampAssistantMessageId("turn-1-assistant"),
+    );
+
+    await expect(readAll(stream)).resolves.toEqual([
+      { type: "start", messageId: "turn-1-assistant" },
+      { type: "start-step" },
+    ]);
+  });
+
+  it("converts durable model sources into native UI source chunks", async () => {
+    const stream = modelParts({
+      type: "source",
+      sourceType: "url",
+      id: "call-1:source:1",
+      url: "https://example.test/source",
+      title: "Example source",
+    });
+
+    await expect(
+      readAll(toChatTurnUIStream(stream, [], "turn-1-assistant")),
+    ).resolves.toContainEqual({
+      type: "source-url",
+      sourceId: "call-1:source:1",
+      url: "https://example.test/source",
+      title: "Example source",
+    });
+  });
+});
+
+describe("cancelChatTurn", () => {
+  it("retries only the transient hook-registration race", async () => {
+    const resume = vi
+      .fn<(token: string, payload: { reason: string }) => Promise<void>>()
+      .mockRejectedValueOnce(new HookNotFoundError("chat-turn-cancel:run-1"))
+      .mockResolvedValueOnce(undefined);
+    const waitForRetry = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    const signalInFlightAbort = vi
+      .fn<(runId: string) => Promise<boolean>>()
+      .mockResolvedValue(true);
+
+    await expect(
+      cancelChatTurn("run-1", "user_requested_cancellation", {
+        maxAttempts: 3,
+        resume,
+        signalInFlightAbort,
+        waitForRetry,
+      }),
+    ).resolves.toBe(true);
+    expect(resume).toHaveBeenCalledTimes(2);
+    expect(signalInFlightAbort).toHaveBeenCalledWith("run-1");
+    expect(waitForRetry).toHaveBeenCalledOnce();
+  });
+
+  it("records the durable cancel before waking the active provider step", async () => {
+    const order: string[] = [];
+
+    await expect(
+      cancelChatTurn("run-1", "user_requested_cancellation", {
+        maxAttempts: 1,
+        resume: async () => {
+          order.push("durable-hook");
+        },
+        signalInFlightAbort: async () => {
+          order.push("provider-abort-stream");
+          return true;
+        },
+        waitForRetry: () => Promise.resolve(),
+      }),
+    ).resolves.toBe(true);
+
+    expect(order).toEqual(["durable-hook", "provider-abort-stream"]);
+  });
+
+  it("returns not found for a missing run without hiding infrastructure failures", async () => {
+    const missing = vi
+      .fn<(token: string, payload: { reason: string }) => Promise<void>>()
+      .mockRejectedValue(new WorkflowRunNotFoundError("run-1"));
+    await expect(
+      cancelChatTurn("run-1", "user_requested_cancellation", {
+        maxAttempts: 3,
+        resume: missing,
+        signalInFlightAbort: () => Promise.resolve(false),
+        waitForRetry: () => Promise.resolve(),
+      }),
+    ).resolves.toBe(false);
+
+    const unavailable = new Error("Workflow storage unavailable");
+    await expect(
+      cancelChatTurn("run-1", "user_requested_cancellation", {
+        maxAttempts: 3,
+        resume: () => Promise.reject(unavailable),
+        signalInFlightAbort: () => Promise.resolve(false),
+        waitForRetry: () => Promise.resolve(),
+      }),
+    ).rejects.toBe(unavailable);
+  });
+});
+
+describe("wakeChatTurnProviderStep", () => {
+  it("writes only the Workflow-owned system abort stream for the target run", async () => {
+    const writeStream = vi
+      .fn<(runId: string, streamName: string, chunk: Uint8Array) => Promise<void>>()
+      .mockResolvedValue(undefined);
+
+    await expect(
+      wakeChatTurnProviderStep("run-1", {
+        listHooks: () =>
+          Promise.resolve([
+            { isSystem: false, token: "chat-turn-cancel:run-1" },
+            { isSystem: true, token: "abrt_01ABORT" },
+          ]),
+        writeStream,
+      }),
+    ).resolves.toBe(true);
+
+    expect(writeStream).toHaveBeenCalledOnce();
+    expect(writeStream).toHaveBeenCalledWith(
+      "run-1",
+      "strm_01ABORT_system_abort",
+      Uint8Array.of(0),
+    );
+  });
+});
+
 function chunks(...parts: UIMessageChunk[]): ReadableStream<UIMessageChunk> {
+  return new ReadableStream({
+    start(controller) {
+      for (const part of parts) controller.enqueue(part);
+      controller.close();
+    },
+  });
+}
+
+function modelParts(...parts: ModelCallStreamPart[]): ReadableStream<ModelCallStreamPart> {
   return new ReadableStream({
     start(controller) {
       for (const part of parts) controller.enqueue(part);

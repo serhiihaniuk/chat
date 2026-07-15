@@ -10,7 +10,7 @@ import {
   ZERO_TURN_USAGE,
   type TurnMessage,
 } from "#domain/turn/turn";
-import type { ChatTurnFinalization } from "#workflows/chat-turn-outcome";
+import type { ChatTurnFinalization } from "#workflows/outcome/chat-turn-outcome";
 import { runChatTurnFinalizeStep } from "#workflows/production/chat-turn-finalize";
 
 import { createPostgresTurnState, type PostgresTurnState } from "./postgres-turn-state.js";
@@ -49,7 +49,7 @@ describe.skipIf(!databaseUrl)("postgres turn state adapter (integration)", () =>
     text: "Hello",
   });
 
-  it("runs the full begin -> bindRun -> appendAssistant -> claimTerminal round-trip", async () => {
+  it("runs the full begin -> bindRun -> atomic finalize round-trip", async () => {
     const scope = nextScope();
     const auth = authFor(scope);
     const conversationId = `${scope}_conversation`;
@@ -72,15 +72,17 @@ describe.skipIf(!databaseUrl)("postgres turn state adapter (integration)", () =>
     await state.bindRun(turn, runId);
     await expect(state.assertRunOwned(auth, conversationId, runId)).resolves.toBeUndefined();
 
-    await state.appendAssistantMessage(turn, {
-      id: `${scope}_assistant`,
-      role: TURN_MESSAGE_ROLES.ASSISTANT,
-      parts: [{ type: "text", text: "Hi there" }],
-    });
-    const claimed = await state.claimTerminal(turn, {
-      status: TURN_TERMINAL_STATUSES.COMPLETED,
-      usage: { inputTokens: 3, outputTokens: 5, totalTokens: 8 },
-      finishReason: "stop",
+    const claimed = await state.finalize(turn, {
+      terminal: {
+        status: TURN_TERMINAL_STATUSES.COMPLETED,
+        usage: { inputTokens: 3, outputTokens: 5, totalTokens: 8 },
+        finishReason: "stop",
+      },
+      assistantMessage: {
+        id: `${scope}_assistant`,
+        role: TURN_MESSAGE_ROLES.ASSISTANT,
+        parts: [{ type: "text", text: "Hi there" }],
+      },
     });
     expect(claimed).toBe(true);
 
@@ -157,7 +159,7 @@ describe.skipIf(!databaseUrl)("postgres turn state adapter (integration)", () =>
     ).rejects.toMatchObject({ code: TURN_REJECTION_CODES.FORBIDDEN });
   });
 
-  it("replays begin, appendAssistant, and claimTerminal idempotently", async () => {
+  it("replays begin and aggregate finalization idempotently", async () => {
     const scope = nextScope();
     const auth = authFor(scope);
     const conversationId = `${scope}_conversation`;
@@ -174,17 +176,20 @@ describe.skipIf(!databaseUrl)("postgres turn state adapter (integration)", () =>
       role: TURN_MESSAGE_ROLES.ASSISTANT,
       parts: [{ type: "text", text: "once" }],
     };
-    await state.appendAssistantMessage(first, assistant);
-    await state.appendAssistantMessage(first, assistant);
-
-    const claimedFirst = await state.claimTerminal(first, {
-      status: TURN_TERMINAL_STATUSES.COMPLETED,
-      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-      finishReason: "stop",
+    const claimedFirst = await state.finalize(first, {
+      terminal: {
+        status: TURN_TERMINAL_STATUSES.COMPLETED,
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        finishReason: "stop",
+      },
+      assistantMessage: assistant,
     });
-    const claimedReplay = await state.claimTerminal(first, {
-      status: TURN_TERMINAL_STATUSES.FAILED,
-      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    const claimedReplay = await state.finalize(first, {
+      terminal: {
+        status: TURN_TERMINAL_STATUSES.FAILED,
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      },
+      assistantMessage: assistant,
     });
     expect(claimedFirst).toBe(true);
     expect(claimedReplay).toBe(false);
@@ -229,7 +234,7 @@ describe.skipIf(!databaseUrl)("postgres turn state adapter (integration)", () =>
     await expect(state.assertRunOwned(other, conversationId, runId)).rejects.toMatchObject({
       code: TURN_REJECTION_CODES.RUN_NOT_FOUND,
     });
-    await expect(state.assertAccessible(auth, runId)).resolves.toBeUndefined();
+    await expect(state.assertAccessible(auth, runId)).resolves.toEqual({ turnId: turn.turnId });
     await expect(state.assertAccessible(other, runId)).rejects.toMatchObject({
       code: TURN_REJECTION_CODES.RUN_NOT_FOUND,
     });

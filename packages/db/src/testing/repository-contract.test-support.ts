@@ -183,7 +183,7 @@ export const sidechatRepositoryContract = (
           startCommand(scope, conversation.conversationId, userMessageId, "request_1"),
         );
         expect(started.inserted).toBe(true);
-        expect(started.record.status).toBe("running");
+        expect(started.record.status).toBe("open");
 
         // Same request id: the SELECT-first path returns the running turn as an
         // idempotent replay — it must not be mistaken for a busy conversation.
@@ -215,16 +215,6 @@ export const sidechatRepositoryContract = (
           scope,
           conversation.conversationId,
         );
-        const assistantMessage = await repositories.appendMessage({
-          workspaceId: workspaceId(scope),
-          subjectId: subjectId(scope),
-          conversationId: conversation.conversationId,
-          messageId: toMessageId(`${conversation.conversationId}:assistant`),
-          role: "assistant",
-          parts: [{ type: "text", text: "hello back" }],
-          metadataJson: {},
-          now,
-        });
         const userMessageId = toUserMessageId(userMessage.record.messageId);
         const turn = await repositories.startAssistantTurn(
           startCommand(scope, conversation.conversationId, userMessageId, "request_1"),
@@ -312,11 +302,15 @@ export const sidechatRepositoryContract = (
           metadataJson: {},
           now,
         });
-        const completed = await repositories.claimAssistantTurnTerminal({
+        const completed = await repositories.finalizeAssistantTurn({
           workspaceId: workspaceId(scope),
           assistantTurnId: turn.record.assistantTurnId,
           status: "completed",
-          assistantMessageId: toAssistantMessageId(assistantMessage.record.messageId),
+          assistantMessage: {
+            messageId: toAssistantMessageId(`${conversation.conversationId}:assistant`),
+            parts: [{ type: "text", text: "hello back" }],
+            metadataJson: {},
+          },
           finishReason: "stop",
           usage: {
             inputTokens: 1,
@@ -329,7 +323,7 @@ export const sidechatRepositoryContract = (
         });
         // A second finalize is a no-op: the guarded CAS matches no running row, so
         // the folded usage stays put and `claimed` is false.
-        const replayFinalize = await repositories.claimAssistantTurnTerminal({
+        const replayFinalize = await repositories.finalizeAssistantTurn({
           workspaceId: workspaceId(scope),
           assistantTurnId: turn.record.assistantTurnId,
           status: "failed",

@@ -3,7 +3,7 @@ title: Message
 description: One turn of conversation text - a right-aligned user bubble or full-measure assistant prose.
 ---
 
-import { MessageDemo } from '@/components/demos/message';
+import { MessageDemo } from "@/components/demos/message";
 
 Message is the leaf that renders one turn of conversation text. There is no Base UI part:
 a turn is a semantic `<div data-from>` whose role drives layout and skin entirely through
@@ -43,6 +43,28 @@ renders incrementally.
 generated elements under that hook; links, code, lists, headings, quotes, and tables consume
 the message tokens below instead of raw spacing, color, or typography utilities. This keeps
 legacy and workflow messages on the same theme and density contract.
+
+Ordered lists use a wider gutter than bullets. The dedicated
+`--message-ordered-list-indent` token keeps three-digit markers such as `120.` inside the
+message measure, while `--message-list-indent` preserves the tighter bullet-list rhythm.
+
+Headings inside chat answers are intentionally compact, not document-sized. `h1` resolves to
+`--message-heading-1-font-size`, `h2` to `--message-heading-2-font-size`, and `h3` through `h6`
+to `--message-heading-3-font-size`. Streamdown component overrides own those classes so its
+default `text-3xl`/`text-2xl` utilities cannot escape the widget token contract. Their larger
+before/after gaps preserve section rhythm without making the heading type itself oversized.
+
+Fenced code is a Streamdown composite, so `.sc-markdown` owns its stable `data-streamdown`
+hooks instead of depending on Streamdown's internal utility classes. The frame, header, action
+overlay, and body use message tokens; the nested `pre` is reset so it cannot create a second
+padded card. Streamdown's fixed 200px virtualization placeholder is replaced by
+`--message-code-block-placeholder-height`, preserving off-screen rendering performance while
+letting Compact, Cozy, and Roomy density scale the reserved space.
+
+Code blocks expose Copy only. File download is intentionally disabled because the same content is
+already available through Copy, while a second adjacent action crowded the compact message header.
+The Copy glyph uses the shared compact `--size-icon-sm` tier; completed-message actions use the
+same tier, so third-party defaults cannot render a 24px icon beside 14px chat text.
 
 ## Tokens
 

@@ -68,7 +68,6 @@ export function auditRejectedApprovalDecision(
       attemptedToolName: command.toolName,
       attemptedInputDigest: command.inputDigest,
       rejection,
-      reason: command.reason ?? null,
     },
   });
 }
@@ -103,7 +102,6 @@ function approvalMetadata(turn: AssistantTurnRecord, approval: ToolApprovalRecor
     toolName: approval.toolName,
     inputDigest: approval.inputDigest,
     decision: approval.state,
-    reason: approval.decisionReason ?? null,
     requestedAt: approval.requestedAt,
     decidedAt: approval.decidedAt ?? null,
     expiresAt: approval.expiresAt,

@@ -1,51 +1,38 @@
-import type { ChatOnToolCallCallback } from "ai";
-import type { WidgetHostBridge } from "@side-chat/host-bridge";
 import { asRecord } from "@side-chat/shared";
 
-import type { WorkflowChatClient, WorkflowUIMessage } from "#entities/workflow-chat";
-import { dispatchWorkflowClientTool } from "./workflow-client-tool-dispatch.js";
+import type { WorkflowUIMessage } from "#entities/workflow-chat";
+import type { WorkflowClientToolCall } from "./workflow-client-tool-dispatch.js";
 
-export function createWorkflowClientToolCallHandler({
-  activeRunIdRef,
-  clientRef,
-  dispatchedToolCallIdsRef,
-  hostBridgeRef,
-  latestMessagesRef,
-}: {
-  readonly activeRunIdRef: { current: string | undefined };
-  readonly clientRef: { current: WorkflowChatClient };
-  readonly dispatchedToolCallIdsRef: { current: Set<string> };
-  readonly hostBridgeRef: { current: WidgetHostBridge | undefined };
-  readonly latestMessagesRef: { current: readonly WorkflowUIMessage[] };
-}): ChatOnToolCallCallback<WorkflowUIMessage> {
-  return async ({ toolCall }) => {
-    if (!toolCall.dynamic) return;
-    if (
-      dispatchedToolCallIdsRef.current.has(toolCall.toolCallId) ||
-      hasSettledToolCall(latestMessagesRef.current, toolCall.toolCallId)
-    ) {
-      return;
+/** Extract ready, browser-executed tool calls from one native message projection. */
+export function readWorkflowClientToolCalls(
+  message: WorkflowUIMessage,
+): readonly WorkflowClientToolCall[] {
+  const calls: WorkflowClientToolCall[] = [];
+  for (const part of message.parts) {
+    const record = asRecord(part);
+    const toolCallId = stringField(record, "toolCallId");
+    const state = stringField(record, "state");
+    if (!toolCallId || state !== "input-available" || record?.["providerExecuted"] === true) {
+      continue;
     }
-    dispatchedToolCallIdsRef.current.add(toolCall.toolCallId);
-    await dispatchWorkflowClientTool({
-      client: clientRef.current,
-      hostBridge: hostBridgeRef.current,
-      runId: activeRunIdRef.current,
-      toolCall,
-    });
-  };
+    const toolName = readToolName(record);
+    if (!toolName) continue;
+    calls.push({ input: record?.["input"], toolCallId, toolName });
+  }
+  return calls;
 }
 
-function hasSettledToolCall(messages: readonly WorkflowUIMessage[], toolCallId: string): boolean {
-  return messages.some((message) =>
-    message.parts.some((part) => {
-      const record = asRecord(part);
-      if (record?.["toolCallId"] !== toolCallId) return false;
-      return (
-        record["state"] === "output-available" ||
-        record["state"] === "output-error" ||
-        record["state"] === "output-denied"
-      );
-    }),
-  );
+function readToolName(record: Readonly<Record<string, unknown>> | undefined): string | undefined {
+  const dynamicName = stringField(record, "toolName");
+  if (dynamicName) return dynamicName;
+  const type = stringField(record, "type");
+  return type?.startsWith("tool-") === true ? type.slice("tool-".length) : undefined;
+}
+
+function stringField(
+  record: Readonly<Record<string, unknown>> | undefined,
+  key: string,
+): string | undefined {
+  const value = record?.[key];
+  return typeof value === "string" ? value : undefined;
 }

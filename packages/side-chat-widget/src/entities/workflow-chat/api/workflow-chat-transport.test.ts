@@ -247,6 +247,25 @@ describe("createWorkflowChatTransport", () => {
 
     expect(getHostContext).not.toHaveBeenCalled();
   });
+
+  it("forwards the reconnect abort signal to the workflow request", async () => {
+    let requestSignal: AbortSignal | null | undefined;
+    const request = vi.fn<typeof fetch>((_input, init) => {
+      requestSignal = init?.signal;
+      return Promise.resolve(finishedResponse());
+    });
+    const transport = createTransport({ fetch: request });
+    const controller = new AbortController();
+
+    const stream = await transport.reconnectToStream({
+      abortSignal: controller.signal,
+      chatId: "conversation-1",
+    });
+    if (!stream) throw new Error("Expected a workflow reconnect stream.");
+    await readAll(stream);
+
+    expect(requestSignal).toBe(controller.signal);
+  });
 });
 
 async function reconnectUrls(

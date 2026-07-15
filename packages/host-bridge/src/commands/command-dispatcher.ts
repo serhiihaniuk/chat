@@ -16,16 +16,12 @@ import {
 
 /** Host implementation that performs one already capability-checked command. */
 export type HostCommandDispatcher = {
-  readonly dispatchCommand: (
-    command: HostCommand,
-  ) => Promise<HostCommandResult>;
+  readonly dispatchCommand: (command: HostCommand) => Promise<HostCommandResult>;
 };
 
 /** Host implementation that performs one capability-checked native tool call. */
 export type HostToolDispatcher = {
-  readonly dispatchToolCall: (
-    toolCall: HostToolCall,
-  ) => Promise<HostToolResult>;
+  readonly dispatchToolCall: (toolCall: HostToolCall) => Promise<HostToolResult>;
 };
 
 export const dispatchSupportedCommand = async (
@@ -49,8 +45,7 @@ export const dispatchSupportedToolCall = async (
   capabilities: HostCapabilities,
   toolCall: HostToolCall,
 ): Promise<HostToolResult> => {
-  if (!supportsTool(capabilities, toolCall))
-    return createUnsupportedToolResult(toolCall);
+  if (!supportsTool(capabilities, toolCall)) return createUnsupportedToolResult(toolCall);
 
   try {
     return await dispatcher.dispatchToolCall(toolCall);

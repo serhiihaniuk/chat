@@ -4,7 +4,7 @@ import type {
   HistoryMessage,
   JsonObject,
   SidechatStreamEvent,
-  TurnActivityEvent,
+  TurnActivityStreamEvent,
   UsageMetadata,
 } from "@side-chat/chat-protocol";
 
@@ -97,7 +97,7 @@ export type SubscribeActivityOptions = {
  * aborts. Used to drive a live "generating" dot per conversation in the sidebar.
  */
 export type SubscribeActivityResult = {
-  readonly events: AsyncIterable<TurnActivityEvent>;
+  readonly events: AsyncIterable<TurnActivityStreamEvent>;
 };
 
 /** Resolver result mapping a lost `requestId` back to its turn. */

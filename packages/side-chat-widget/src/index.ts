@@ -9,7 +9,6 @@ export {
   type WorkflowChatRequestConfig,
   type WorkflowSideChatWidgetProps,
   type SideChatWidgetQuickAction,
-  type ReasoningVisibility,
   type WidgetThemeId,
   SIDE_CHAT_API_ERROR_CODES,
   createSideChatApiClient,

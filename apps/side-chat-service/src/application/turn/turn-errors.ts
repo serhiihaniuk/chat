@@ -12,8 +12,7 @@ export const TURN_REJECTION_CODES = {
   MODEL_NOT_ALLOWED: "model_not_allowed",
 } as const;
 
-export type TurnRejectionCode =
-  (typeof TURN_REJECTION_CODES)[keyof typeof TURN_REJECTION_CODES];
+export type TurnRejectionCode = (typeof TURN_REJECTION_CODES)[keyof typeof TURN_REJECTION_CODES];
 
 export class TurnRejectedError extends Error {
   constructor(

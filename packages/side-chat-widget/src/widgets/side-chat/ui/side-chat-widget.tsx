@@ -13,7 +13,6 @@ import { WidgetFooter } from "#features/prompt";
 import { useSendPreference, useToolDetailPreference } from "#features/settings";
 import { useWidgetAppearance, useWidgetTheme } from "#features/theme";
 import { contextTokensFromUsage } from "#entities/chat";
-import { DEFAULT_REASONING_VISIBILITY } from "#entities/settings";
 import { resolveWidgetLabels, WidgetLabelsProvider } from "#shared/lib/widget-labels";
 import { SideChatWidgetRoot } from "#shared/ui/widget-root";
 import { useWidgetModelSelection } from "../model/selection/side-chat-model-selection.js";
@@ -85,7 +84,6 @@ const SideChatWidgetContent = ({
   renderActivityItem,
   renderAgentMark,
   renderClosedLauncher = true,
-  reasoningVisibility = DEFAULT_REASONING_VISIBILITY,
   themeStorageKey,
 }: ProtocolSideChatWidgetProps) => {
   const labels = useMemo(() => resolveWidgetLabels(labelsProp), [labelsProp]);
@@ -120,7 +118,6 @@ const SideChatWidgetContent = ({
     selectedProfileId,
     enabledToolNames: toolSelection.enabledToolNames,
   });
-  const isBusy = isBusyStatus(chat.status);
   const suggestions = useMemo(() => toEmptyStateSuggestions(quickActions), [quickActions]);
 
   if (!isOpen && renderClosedLauncher) {
@@ -168,7 +165,6 @@ const SideChatWidgetContent = ({
                 isLoadingHistory={chat.isLoadingHistory}
                 messages={chat.messages}
                 onRetry={chat.retryLastMessage}
-                reasoningVisibility={reasoningVisibility}
                 renderActivityItem={renderActivityItem}
                 toolDetail={toolDetailPreference.toolDetail}
               />
@@ -191,8 +187,6 @@ const SideChatWidgetContent = ({
               />
             </>
           }
-          hasPersistedSelection={chat.conversationId !== undefined}
-          isBusy={isBusy}
           labels={labels}
           onClose={() => {
             panelActions?.onClose?.();
@@ -217,5 +211,3 @@ const resolveInitialProfileId = (
   defaultTurnProfileId: string | undefined,
   turnProfiles: readonly { readonly id: string }[],
 ): string | undefined => defaultTurnProfileId ?? turnProfiles.at(0)?.id;
-
-const isBusyStatus = (status: string): boolean => status === "submitted" || status === "streaming";

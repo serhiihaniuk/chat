@@ -1,12 +1,14 @@
 import { createHttpApp } from "#adapters/http/health/health-app";
 import {
+  createPostgresTurnActivityNotificationSource,
   createPostgresWorkflowJournalMaintenance,
   type ArchiveWorkflowJournal,
 } from "@side-chat/db";
 import { createChatRoutes } from "#adapters/http/chat/chat-routes";
 import { createCapabilityRoutes } from "#adapters/http/capabilities/capability-routes";
 import { createQueryRoutes } from "#adapters/http/conversations/query-routes";
-import { EMPTY_STRUCTURED_PART_CATALOGS } from "#application/conversations/read-conversation-history";
+import { createActivityRoutes } from "#adapters/http/conversations/activity-routes";
+import { structuredPartCatalogsForServerTools } from "#application/conversations/read-conversation-history";
 import { recordServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
 import {
   InMemoryTurnState,
@@ -19,9 +21,14 @@ import {
 import type { ConversationStore } from "#application/ports/turn/conversation-store";
 import type { ConversationTitleStore } from "#application/ports/turn/title/conversation-title-store";
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
-import type { MessageStore } from "#application/ports/turn/message-store";
-import type { TurnStore } from "#application/ports/turn/turn-store";
+import type {
+  TurnCancellationStore,
+  TurnExecutionClaimStore,
+  TurnStore,
+} from "#application/ports/turn/turn-store";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
+import type { TurnActivityNotificationSource } from "#application/ports/turn/activity/turn-activity-source";
+import { createTurnActivityDispatcher } from "#application/turn/activity/turn-activity-dispatcher";
 import {
   TOOL_APPROVAL_LOOKUP,
   type ToolApprovalDecisionStore,
@@ -69,11 +76,16 @@ export async function startProductionService(
   const serverTools = selectRegisteredServerTools(settings.serverTools);
   const authorizer = createServiceAuthorizer(settings.auth);
   const persistence = createProductionPersistence(settings);
+  const activityDispatcher = createTurnActivityDispatcher(persistence.activityNotificationSource);
   const maintenanceStarters = createMaintenanceStarters(settings, options.archiveWorkflowJournal);
   // The persistence close is registered first so its pool is disposed even if a
   // later starter (telemetry, workflow readiness) fails during startup.
   const scope = await startServiceScope(settings, [
     persistence.registerClose,
+    () => ({
+      name: "turn activity dispatcher",
+      close: () => activityDispatcher.shutdown(),
+    }),
     ...maintenanceStarters.beforeTelemetry,
     startConfiguredTelemetry,
     ...maintenanceStarters.afterTelemetry,
@@ -106,7 +118,6 @@ export async function startProductionService(
         : {
             routeFinalization: {
               turns: persistence.store,
-              messages: persistence.store,
             },
           }),
       titleGeneration: {
@@ -126,10 +137,16 @@ export async function startProductionService(
       queries: persistence.store,
       telemetry: { record: recordServiceTelemetry },
       modelCatalog: publishedModelCatalog(settings),
-      // The display catalog is public; server schemas remain private and are
-      // not admitted into persisted structured-part validation yet.
-      structuredPartCatalogs: EMPTY_STRUCTURED_PART_CATALOGS,
+      structuredPartCatalogs: structuredPartCatalogsForServerTools(serverTools),
       serverTools,
+    }),
+  );
+  app.route(
+    "/",
+    createActivityRoutes({
+      dispatcher: activityDispatcher,
+      queries: persistence.store,
+      keepaliveIntervalMs: settings.keepalive.intervalMs,
     }),
   );
   return {
@@ -181,12 +198,14 @@ type ProductionPersistence = Readonly<{
   store: ConversationStore &
     ConversationQueryStore &
     ConversationTitleStore &
-    MessageStore &
     TurnStore &
+    TurnExecutionClaimStore &
+    TurnCancellationStore &
     ClientToolDispatchStore &
     ToolApprovalDecisionStore &
     TurnRunAccess;
   registerClose: StartServicePart;
+  activityNotificationSource: TurnActivityNotificationSource;
   /** True when the workflow finalize step owns terminal persistence (Postgres). */
   durable: boolean;
 }>;
@@ -212,6 +231,7 @@ function createProductionPersistence(settings: Settings): ProductionPersistence 
     );
     return {
       store,
+      activityNotificationSource: store.turnActivityNotifications,
       durable: false,
       registerClose: () => ({
         name: "in-memory turn state",
@@ -222,6 +242,7 @@ function createProductionPersistence(settings: Settings): ProductionPersistence 
   const store: PostgresTurnState = createPostgresTurnState(databaseUrl);
   return {
     store,
+    activityNotificationSource: createPostgresTurnActivityNotificationSource(databaseUrl),
     durable: true,
     registerClose: () => ({
       name: "postgres turn state",

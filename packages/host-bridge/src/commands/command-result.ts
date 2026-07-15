@@ -77,10 +77,7 @@ export const createUnsupportedResult = (
     resultCode,
   });
 
-export const createRejectedResult = (
-  command: HostCommand,
-  resultCode: string,
-): HostCommandResult =>
+export const createRejectedResult = (command: HostCommand, resultCode: string): HostCommandResult =>
   createCommandResult(command, {
     status: "rejected",
     resultCode,
@@ -95,10 +92,7 @@ export const createFailedResult = (
     resultCode,
   });
 
-export const createToolResult = (
-  toolCall: HostToolCall,
-  input: ToolResultInput,
-): HostToolResult =>
+export const createToolResult = (toolCall: HostToolCall, input: ToolResultInput): HostToolResult =>
   omitUndefinedProperties({
     toolCallId: toolCall.toolCallId,
     toolName: toolCall.toolName,

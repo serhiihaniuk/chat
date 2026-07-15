@@ -1,8 +1,9 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { assistantTurns, type sidechatTables } from "#drizzle/schema";
 import type { SidechatRepositories } from "../../contract.js";
+import { workflowRunsRead } from "../workflow/schema.js";
 import { toAssistantTurnRecord } from "./records.js";
 
 type TurnLookupDb = NodePgDatabase<typeof sidechatTables>;
@@ -49,28 +50,31 @@ export const findAssistantTurnByRequest =
   };
 
 /**
- * Read the running turn for one conversation, if any.
+ * Read the effectively active turn for one conversation, if any.
  *
- * The most recently started running turn is the one a reconnect recovers; a
- * conversation should only ever have one, but ordering keeps this stable.
+ * The most recently started product-open turn with an active Workflow run is
+ * the one a reconnect recovers. The unique index permits only one product-open
+ * row, while ordering keeps this read deterministic.
  */
 export const findActiveAssistantTurn =
   (db: TurnLookupDb): SidechatRepositories["findActiveAssistantTurn"] =>
   async (command) => {
     const rows = await db
-      .select()
+      .select({ turn: assistantTurns })
       .from(assistantTurns)
+      .innerJoin(workflowRunsRead, eq(workflowRunsRead.id, assistantTurns.runId))
       .where(
         and(
           eq(assistantTurns.workspaceId, command.workspaceId),
           eq(assistantTurns.subjectId, command.subjectId),
           eq(assistantTurns.conversationId, command.conversationId),
-          eq(assistantTurns.status, "running"),
+          eq(assistantTurns.status, "open"),
+          inArray(workflowRunsRead.status, ["pending", "running"]),
         ),
       )
       .orderBy(desc(assistantTurns.startedAt))
       .limit(1);
-    return rows[0] ? toAssistantTurnRecord(rows[0]) : undefined;
+    return rows[0] ? toAssistantTurnRecord(rows[0].turn) : undefined;
   };
 
 /**
@@ -99,7 +103,7 @@ export const findAssistantTurnByRun =
   };
 
 /**
- * Read every running turn for a subject, across all conversations.
+ * Read every effectively active turn for a subject, across all conversations.
  *
  * Powers the activity stream's snapshot on connect: one entry per conversation
  * with an in-flight turn. Ordered by start time so the snapshot is stable from
@@ -109,15 +113,17 @@ export const listActiveAssistantTurns =
   (db: TurnLookupDb): SidechatRepositories["listActiveAssistantTurns"] =>
   async (command) => {
     const rows = await db
-      .select()
+      .select({ turn: assistantTurns })
       .from(assistantTurns)
+      .innerJoin(workflowRunsRead, eq(workflowRunsRead.id, assistantTurns.runId))
       .where(
         and(
           eq(assistantTurns.workspaceId, command.workspaceId),
           eq(assistantTurns.subjectId, command.subjectId),
-          eq(assistantTurns.status, "running"),
+          eq(assistantTurns.status, "open"),
+          inArray(workflowRunsRead.status, ["pending", "running"]),
         ),
       )
       .orderBy(desc(assistantTurns.startedAt));
-    return rows.map(toAssistantTurnRecord);
+    return rows.map((row) => toAssistantTurnRecord(row.turn));
   };

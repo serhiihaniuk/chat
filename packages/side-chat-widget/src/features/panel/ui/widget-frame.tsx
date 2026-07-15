@@ -53,14 +53,14 @@ export const WidgetHeader = ({
           type="button"
         >
           <RefreshCwIcon
-            className={spinning ? "size-4 sc-refresh-spin" : "size-4"}
+            className={spinning ? "size-icon-md sc-refresh-spin" : "size-icon-md"}
             onAnimationEnd={() => setSpinning(false)}
           />
         </IconButton>
       ) : null}
       {onOpenSettings ? (
         <IconButton aria-label={labels.headerSettings} onClick={onOpenSettings} type="button">
-          <SettingsIcon className="size-4" />
+          <SettingsIcon className="size-icon-md" />
         </IconButton>
       ) : null}
       {onNewConversation ? (
@@ -71,11 +71,11 @@ export const WidgetHeader = ({
           title={labels.headerNewChat}
           type="button"
         >
-          <PlusIcon className="size-4" />
+          <PlusIcon className="size-icon-md" />
         </IconButton>
       ) : null}
       <IconButton aria-label={labels.headerClose} onClick={onClose} type="button">
-        <XIcon className="size-4" />
+        <XIcon className="size-icon-md" />
       </IconButton>
     </header>
   );

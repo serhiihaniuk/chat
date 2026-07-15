@@ -8,12 +8,14 @@ CREATE TABLE "sidechat"."assistant_turns" (
 	"user_message_id" text NOT NULL,
 	"assistant_message_id" text,
 	"run_id" text,
+	"run_bound_at" timestamp with time zone,
+	"cancel_requested_at" timestamp with time zone,
 	"model_provider" text NOT NULL,
 	"model_id" text NOT NULL,
 	"instructions_version" text NOT NULL,
 	"config_version" text NOT NULL,
 	"content_filter_version" text NOT NULL,
-	"status" text DEFAULT 'running' NOT NULL,
+	"status" text DEFAULT 'open' NOT NULL,
 	"finish_reason" text,
 	"error_code" text,
 	"input_tokens" integer DEFAULT 0 NOT NULL,
@@ -23,7 +25,8 @@ CREATE TABLE "sidechat"."assistant_turns" (
 	"cached_input_tokens" integer DEFAULT 0 NOT NULL,
 	"started_at" timestamp with time zone NOT NULL,
 	"completed_at" timestamp with time zone,
-	CONSTRAINT "assistant_turns_status_check" CHECK (status in ('running', 'completed', 'failed', 'cancelled', 'blocked'))
+	CONSTRAINT "assistant_turns_run_binding_check" CHECK ((run_id is null and run_bound_at is null) or (run_id is not null and run_bound_at is not null)),
+	CONSTRAINT "assistant_turns_status_check" CHECK (status in ('open', 'completed', 'failed', 'cancelled', 'blocked'))
 );
 --> statement-breakpoint
 CREATE TABLE "sidechat"."audit_events" (
@@ -112,7 +115,6 @@ CREATE TABLE "sidechat"."tool_approvals" (
 	"tool_name" text NOT NULL,
 	"input_digest" text NOT NULL,
 	"state" text DEFAULT 'requested' NOT NULL,
-	"decision_reason" text,
 	"decided_by_subject_id" text,
 	"decided_by_actor_id" text,
 	"requested_at" timestamp with time zone NOT NULL,
@@ -182,7 +184,7 @@ ALTER TABLE "sidechat"."usage_records" ADD CONSTRAINT "usage_records_assistant_t
 CREATE UNIQUE INDEX "assistant_turns_workspace_request_uq" ON "sidechat"."assistant_turns" USING btree ("workspace_id","request_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "assistant_turns_run_uq" ON "sidechat"."assistant_turns" USING btree ("run_id") WHERE run_id is not null;--> statement-breakpoint
 CREATE INDEX "assistant_turns_conversation_started_idx" ON "sidechat"."assistant_turns" USING btree ("conversation_id","started_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "assistant_turns_one_running_per_conversation_uq" ON "sidechat"."assistant_turns" USING btree ("conversation_id") WHERE status = 'running';--> statement-breakpoint
+CREATE UNIQUE INDEX "assistant_turns_one_open_per_conversation_uq" ON "sidechat"."assistant_turns" USING btree ("conversation_id") WHERE status = 'open';--> statement-breakpoint
 CREATE INDEX "audit_events_workspace_created_idx" ON "sidechat"."audit_events" USING btree ("workspace_id","created_at");--> statement-breakpoint
 CREATE INDEX "audit_events_target_created_idx" ON "sidechat"."audit_events" USING btree ("target_type","target_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "client_tool_dispatches_turn_call_uq" ON "sidechat"."client_tool_dispatches" USING btree ("assistant_turn_id","tool_call_id");--> statement-breakpoint

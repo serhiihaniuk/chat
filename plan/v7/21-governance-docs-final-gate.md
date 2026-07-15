@@ -36,7 +36,7 @@ One owner per topic; link, don't duplicate. Update to implemented current state:
 - `docs/architecture/package-boundaries.md` — SDK boundary rules (UI types repo-wide, providers server-only), removed packages;
 - `docs/architecture/assistant-turn.md` — native turn lifecycle: admission, cancellation, approvals, client tools, durable-run semantics;
 - `docs/architecture/runtime-and-protocol-events.md` — rewritten as: UI message stream v1 + the Side Chat profile (the Step 06 doc becomes canonical or is linked as such);
-- `docs/architecture/widget-and-host-integration.md` — useChat architecture, client tools, host-bridge flow;
+- `docs/architecture/widget-and-host-integration.md` — widget-session reducer authority, disposable native stream-reader epochs, client tools, host-bridge flow;
 - `docs/architecture/effect.md`—removed or explicitly historical; it must not describe the deleted core as the current architecture;
 - `docs/operations/configuration.md` — the settings surface incl. the obligations block and the `WORKFLOW_*` env contract (`WORKFLOW_TARGET_WORLD` build-time world selection, `WORKFLOW_POSTGRES_URL` runtime secret, `WORKFLOW_LOCAL_DATA_DIR` for tests); `capacity-and-deployment.md` — measured defaults, overload mapping, drain-deploy rule; `verification.md` — the smoke + new suites; `local-development.md` — Nitro dev loop (`nitro dev`/`nitro build`), world bootstrap; `database.md` — schema, world schema note, pruning, reset flow;
 - `docs/domain/vocabulary.md` — SDK naming adopted; retired terms removed or marked historical;

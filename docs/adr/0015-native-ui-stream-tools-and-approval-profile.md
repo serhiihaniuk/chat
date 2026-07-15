@@ -1,6 +1,6 @@
 # ADR 0015: Use the Native UI Stream, Tools, and Approval Vocabulary
 
-Status: accepted 2026-07-11; target-state implementation pending
+Status: accepted 2026-07-11; lifecycle ownership amended by ADR 0017 on 2026-07-14
 
 Supersedes: ADR 0004 and ADR 0009 at the v7 cutover. Amends the live-state portion of ADR 0012.
 
@@ -8,7 +8,7 @@ Supersedes: ADR 0004 and ADR 0009 at the v7 cutover. Amends the live-state porti
 
 `sidechat.v1` currently owns a custom request/event union, validators, SSE codec, activity vocabulary, transport errors, and a RuntimeEvent-to-wire mapping. Host commands add a second custom tool lifecycle so a browser result can find an in-memory waiter on the owning service instance.
 
-AI SDK 7 publishes a versioned UI message stream and typed parts for text, reasoning, tools, approvals, sources, files, errors, abort, and finish. `useChat` consumes that protocol directly. Dynamic/client tools represent the existing host-command use case without a Side Chat-specific model-facing vocabulary.
+AI SDK 7 publishes a versioned UI message stream and typed parts for text, reasoning, tools, approvals, sources, files, errors, abort, and finish. `WorkflowChatTransport` plus headless `Chat` consume that protocol directly. Dynamic/client tools represent the existing host-command use case without a Side Chat-specific model-facing vocabulary.
 
 ## Decision
 
@@ -17,7 +17,7 @@ The public stream contract is AI SDK UI message stream `v1`, identified by `x-ve
 - Native parts own content, reasoning, tool input/output, approval, source/file, abort, step, and finish semantics.
 - Side Chat adds no custom `data-*` part at baseline. The dynamic-tool part already carries the dispatch identity needed by host integration, and turn state derives from HTTP status plus native start/finish/abort parts.
 - Adding a future `data-*` part requires a named consumer, a schema, a privacy review, and evidence that native parts cannot express the concept.
-- The browser uses `useChat` and the selected native transport. It does not rebuild the old reducer, dense sequence protocol, or recovery markers.
+- The browser uses a disposable headless `Chat` with the selected native transport for stream assembly. A widget-lifetime session aggregate owns the visible conversation and durable handoff; the library object is never the lifecycle authority. The browser does not rebuild the old wire reducer, dense sequence protocol, or connection-bound recovery ladder.
 - Browser-executed page capabilities are client tools. “Host command” retires from model/runtime vocabulary; `host-bridge` remains the browser security/integration boundary.
 - Side Chat validates ownership, tool-call identity, result shape, timeout, and exactly-once settlement before a client-tool result reaches an agent.
 
@@ -34,7 +34,7 @@ The current configured production/fake tool inventory contains one server tool, 
 | Mixed read/write tool              | Per-input decision                         | Safe reads may proceed; mutating inputs require approval.             |
 | New read-only tool                 | Ungated only after explicit classification | Prevents an unreviewed tool from silently gaining mutation authority. |
 
-The authenticated conversation owner is the initial approver. The audit row stores approver, tenant, conversation, turn, tool and call ids, input digest, decision, optional reason, and request/decision/expiry timestamps. It never duplicates raw tool input. Durable approval expires after 24 hours unless configuration narrows it.
+The authenticated conversation owner is the initial approver. Approval is deliberately binary: the request body contains only `approved`, and free-text reasons are neither accepted nor stored. The audit row stores approver, tenant, conversation, turn, tool and call ids, input digest, decision, and request/decision/expiry timestamps. It never duplicates raw tool input. Durable approval expires after 24 hours unless configuration narrows it.
 
 The ignored upstream Workflow source clone labels `needsApproval` as a GAP, but the exact compiled pinned service (`@ai-sdk/workflow` 1.0.22) currently emits the approval request and does not invoke the tool executor. That characterization is a permanent dependency-bump tripwire, not the Side Chat durability contract. Side Chat still keeps its durable hook gate because native approval alone does not provide the authenticated same-run decision row, atomic audit, 24-hour expiry, replay authority, or current-catalog revalidation required here. Authentication and HMAC do not replace that execution barrier.
 
@@ -69,21 +69,21 @@ Every error part carries a safe code/message and retryability. Raw provider, dat
 
 ## Feature disposition
 
-| Current feature                                           | Target disposition          | User-visible consequence                                                                                                        |
-| --------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Text/reasoning/tool timeline                              | Rebuild from native parts   | Same concepts, SDK-native lifecycle names.                                                                                      |
-| First-successful-exchange conversation title              | Keep and isolate            | The title appears once; title failure or timeout never changes the turn.                                                        |
-| Content-filter safety terminal and filtered output        | Redesign with native finish | The stream ends with `finish(content-filter)`; history records the blocked outcome without retaining filtered assistant output. |
-| User cancellation terminal                                | Redesign with native abort  | Stop is a calm cancelled state, not an error card; partial output remains stream-only.                                          |
-| Tool-step limit terminal                                  | Redesign as native length   | A capped loop completes with `finish(length)` so the widget can explain truncation.                                             |
-| Per-turn usage totals and available token details         | Keep                        | Usage remains attributable to one turn; supported reasoning and cached-input details are not silently zeroed.                   |
-| Custom generic activity/progress rows                     | Delete                      | No synthetic progress row without a real native event.                                                                          |
-| Provider payload metadata in activities                   | Delete                      | Internal/provider details never reach the widget.                                                                               |
-| Dense protocol sequence numbers                           | Delete                      | Native part ids/framing and reconnect normalization own ordering.                                                               |
-| Same-instance resume handshake and transport error ladder | Replace with native replay  | Workflow run replay supports reconnect and multiple subscribers without owner-instance errors.                                  |
-| Local run markers, watchdog/backoff/poll recovery ladder  | Delete                      | Active-turn discovery plus native transport/reconnect replaces it.                                                              |
-| Custom host-command event/result vocabulary               | Delete                      | Dynamic/client-tool parts and authenticated result handling replace it.                                                         |
-| Component library, themes, approval/tool cards            | Keep and adapt              | Visual product behavior remains, driven by native parts.                                                                        |
+| Current feature                                           | Target disposition          | User-visible consequence                                                                                                                               |
+| --------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Text/reasoning/tool timeline                              | Rebuild from native parts   | Same concepts, SDK-native lifecycle names.                                                                                                             |
+| Untitled-conversation title enrichment                    | Keep and isolate            | The first successful title appears once; a failed attempt may retry after a later completed turn, and title failure or timeout never changes the turn. |
+| Content-filter safety terminal and filtered output        | Redesign with native finish | The stream ends with `finish(content-filter)`; history records the blocked outcome without retaining filtered assistant output.                        |
+| User cancellation terminal                                | Redesign with native abort  | Stop is calm rather than an error; already-visible text/reasoning is persisted from the closed Workflow journal.                                       |
+| Tool-step limit terminal                                  | Redesign as native length   | A capped loop completes with `finish(length)` so the widget can explain truncation.                                                                    |
+| Per-turn usage totals and available token details         | Keep                        | Usage remains attributable to one turn; supported reasoning and cached-input details are not silently zeroed.                                          |
+| Custom generic activity/progress rows                     | Delete                      | No synthetic progress row without a real native event.                                                                                                 |
+| Provider payload metadata in activities                   | Delete                      | Internal/provider details never reach the widget.                                                                                                      |
+| Dense protocol sequence numbers                           | Delete                      | Native part ids/framing and reconnect normalization own ordering.                                                                                      |
+| Same-instance resume handshake and transport error ladder | Replace with native replay  | Workflow run replay supports reconnect and multiple subscribers without owner-instance errors.                                                         |
+| Local run markers, watchdog/backoff/poll recovery ladder  | Delete                      | Active-turn discovery plus native transport/reconnect replaces it.                                                                                     |
+| Custom host-command event/result vocabulary               | Delete                      | Dynamic/client-tool parts and authenticated result handling replace it.                                                                                |
+| Component library, themes, approval/tool cards            | Keep and adapt              | Visual product behavior remains, driven by native parts.                                                                                               |
 
 ## Consequences
 

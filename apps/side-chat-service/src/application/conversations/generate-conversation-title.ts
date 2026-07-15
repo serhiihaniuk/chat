@@ -31,7 +31,6 @@ export type StartConversationTitleInput = Readonly<{
   auth: AuthContext;
   conversationId: string;
   requestId: string;
-  initialUserMessageId: string;
   userContent: string;
   assistantContent: string;
   modelId: string;
@@ -57,7 +56,9 @@ export async function startConversationTitleGeneration(
   input: StartConversationTitleInput,
 ): Promise<void> {
   if (!input.userContent.trim() || !input.assistantContent.trim()) {
-    await recordSafely(dependencies.telemetry, { type: "conversation.title_skipped" });
+    await recordSafely(dependencies.telemetry, {
+      type: "conversation.title_skipped",
+    });
     return;
   }
 
@@ -65,10 +66,11 @@ export async function startConversationTitleGeneration(
     const eligibility = await dependencies.titles.readTitleEligibility(
       input.auth,
       input.conversationId,
-      input.initialUserMessageId,
     );
     if (!eligibility.eligible) {
-      await recordSafely(dependencies.telemetry, { type: "conversation.title_skipped" });
+      await recordSafely(dependencies.telemetry, {
+        type: "conversation.title_skipped",
+      });
       return;
     }
 
@@ -84,7 +86,9 @@ export async function startConversationTitleGeneration(
     });
     void persistGeneratedTitle(dependencies, input, started.result);
   } catch {
-    await recordSafely(dependencies.telemetry, { type: "conversation.title_error" });
+    await recordSafely(dependencies.telemetry, {
+      type: "conversation.title_error",
+    });
   }
 }
 
@@ -97,7 +101,9 @@ async function persistGeneratedTitle(
     const generated = await result;
     const titleText = generated.title;
     if (titleText === undefined) {
-      await recordSafely(dependencies.telemetry, { type: "conversation.title_skipped" });
+      await recordSafely(dependencies.telemetry, {
+        type: "conversation.title_skipped",
+      });
       return;
     }
     if (!generated.persisted) {
@@ -107,9 +113,13 @@ async function persistGeneratedTitle(
         titleText,
       );
     }
-    await recordSafely(dependencies.telemetry, { type: "conversation.title_generated" });
+    await recordSafely(dependencies.telemetry, {
+      type: "conversation.title_generated",
+    });
   } catch {
-    await recordSafely(dependencies.telemetry, { type: "conversation.title_error" });
+    await recordSafely(dependencies.telemetry, {
+      type: "conversation.title_error",
+    });
   }
 }
 

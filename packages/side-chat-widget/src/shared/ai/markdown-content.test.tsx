@@ -37,3 +37,23 @@ describe("MarkdownContent citations", () => {
     expect(html).toContain("Just a plain answer");
   });
 });
+
+describe("MarkdownContent typography", () => {
+  it("replaces Streamdown document heading sizes with compact widget heading classes", () => {
+    const html = render("# One\n\n## Two\n\n### Three\n\n#### Four");
+
+    expect(html).toContain('class="sc-message-heading-1"');
+    expect(html).toContain('class="sc-message-heading-2"');
+    expect((html.match(/class="sc-message-heading-3"/gu) ?? []).length).toBe(2);
+    expect(html).not.toMatch(/text-(?:xl|2xl|3xl|4xl)/u);
+  });
+});
+
+describe("MarkdownContent code controls", () => {
+  it("keeps Copy and removes Download from fenced code blocks", () => {
+    const html = render("```text\nconst answer = 42;\n```");
+
+    expect(html).toContain("Copy Code");
+    expect(html).not.toContain("Download file");
+  });
+});

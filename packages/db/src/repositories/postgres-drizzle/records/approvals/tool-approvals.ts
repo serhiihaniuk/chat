@@ -43,7 +43,7 @@ export const createPostgresDrizzleToolApprovalRepository = ({
         command.toolCallId,
       );
       if (replay) return result(requireSameRequest(replay, command), false);
-      if (turn.status !== "running") {
+      if (turn.status !== "open") {
         throw new DbRepositoryError(
           DB_REPOSITORY_ERROR_CODES.INVALID_TRANSITION,
           "A tool approval can be requested only while its turn is running.",
@@ -127,7 +127,7 @@ export const createPostgresDrizzleToolApprovalRepository = ({
         await auditRejectedApprovalDecision(transaction, ids, turn, current, command, rejection);
         return rejected(current, rejection);
       }
-      if (turn.status !== "running") {
+      if (turn.status !== "open") {
         await auditRejectedApprovalDecision(
           transaction,
           ids,
@@ -166,7 +166,6 @@ export const createPostgresDrizzleToolApprovalRepository = ({
         .update(toolApprovals)
         .set({
           state: command.decision,
-          decisionReason: command.reason,
           decidedBySubjectId: command.approverSubjectId,
           decidedByActorId: command.approverActorId,
           decidedAt: command.now,
@@ -234,7 +233,7 @@ const sameDecisionIdentity = (record: ToolApprovalRecord, command: DecideToolApp
   record.inputDigest === command.inputDigest;
 
 const sameTerminalDecision = (record: ToolApprovalRecord, command: DecideToolApprovalCommand) =>
-  record.state === command.decision && record.decisionReason === command.reason;
+  record.state === command.decision;
 
 const requireApproverOwnsTurn = (ownerSubjectId: string, approverSubjectId: string) => {
   if (ownerSubjectId === approverSubjectId) return;

@@ -51,20 +51,22 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 - Selection is a discriminated state: `draft` or `persisted`, never a bare string plus a second "local draft id" variable.
 - Initial persisted selection is optional. Absence means New chat; a 404 remains a visible/typed missing selection and never chooses another conversation.
 - Draft promotion happens when the service accepts the turn and returns the workflow run id, not when the turn reaches a terminal.
-- Only an in-flight, tab-scoped recovery cursor survives refresh. It is cleared at terminal completion. Normal selection is not written to URL or persistent browser history.
+- Only the foreground in-flight, tab-scoped recovery cursor survives a hard refresh. It is cleared at terminal completion or when foreground selection leaves that run, without cancelling the widget-lifetime background session. Normal selection is not written to URL or persistent browser history.
 - Conversation list refresh is independent of draft promotion and cannot silently change the active selection.
+- Live workflow sessions are owned outside the selected panel subtree. New chat, selection, settings, close/reopen, and query refresh never dispose a running conversation.
+- Subject-scoped activity SSE, not a one-time catalog fetch, propagates running and terminal state to tabs that were already open.
 
 ### Required one-to-one feature map
 
-| Surface             | Legacy contract to preserve                                                            | Workflow correction status                                                                                                                                                          |
-| ------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Conversation shell  | New chat, select, title, refresh, running indicators, busy-safe controls               | Partial: one shared shell now owns New chat/select/refresh/settings/header/switcher, and real running/busy state is wired; conversation-specific title semantics remain to reverify |
-| Prompting           | quick actions, model/turn choice, host context, host/client tool integration           | Closed for the correction scope: model/reasoning and tool catalogs are mapped; page context requires service policy, a direct or iframe host provider, and explicit per-mount user opt-in |
-| Settings            | theme, appearance, send preference, reasoning visibility, tool detail                  | Reverified after shared-shell consolidation in the paired look fixture and interaction suite                                                                                        |
-| Message composition | reasoning/tools fold, duration, activity override, citations, images/files, copy/retry | Partial: activity override is mapped through one transport-neutral contract; the other composition behavior remains unchanged and must stay covered at cutover                      |
-| Recovery            | idle New chat, active refresh reattach, drop retry, multi-tab convergence              | Reopened in Step 16                                                                                                                                                                 |
-| Configuration       | one readable deployment declaration                                                    | Closed: default, Azure, and fake variants are standalone declarations; boot validates relationships and both HTTP and Workflow consume the same filtered catalogs                   |
-| Styling             | shared design tokens across legacy and workflow Streamdown messages                    | Closed: `MarkdownContent` alone owns `.sc-markdown`; generated Streamdown DOM consumes documented `--message-*` component tokens                                                     |
+| Surface             | Legacy contract to preserve                                                                                    | Workflow correction status                                                                                                                                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Conversation shell  | New chat, select, title, refresh, running indicators, conversation-scoped send guards                          | Reopened: the shared shell exists, but navigation must stay enabled while another conversation runs; conversation-specific title semantics remain to reverify                                                     |
+| Prompting           | quick actions, model/turn choice, host context, host/client tool integration                                   | Closed for the correction scope: model/reasoning and tool catalogs are mapped; page context requires service policy, a direct or iframe host provider, and explicit per-mount user opt-in                         |
+| Settings            | theme, appearance, send preference, tool detail                                                                | Reverified after shared-shell consolidation; completed thinking is not a visibility preference                                                                                                                    |
+| Message composition | always-visible Markdown reasoning/tools fold, duration, activity override, citations, images/files, copy/retry | Closed for the correction scope: completed reasoning stays expanded, uses the shared Markdown renderer, and is folded from the durable Workflow journal so refresh preserves it; activity override remains mapped |
+| Recovery            | idle New chat, active refresh reattach, drop retry, multi-tab convergence                                      | Reopened in Step 16                                                                                                                                                                                               |
+| Configuration       | one readable deployment declaration                                                                            | Closed: default, Azure, and fake variants are standalone declarations; boot validates relationships and both HTTP and Workflow consume the same filtered catalogs                                                 |
+| Styling             | shared design tokens across legacy and workflow Streamdown messages                                            | Reopened: Streamdown heading utility sizes still override the compact message scale; heading tokens and component overrides are required                                                                          |
 
 ### Verification gaps found by the audit
 
@@ -75,13 +77,14 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 - Resolved in the service-foundation correction: model/reasoning policy now runs before preflight or writes, `/api/models` publishes the whole configured allowlist, Azure deployment is per model, and selected server tools are shared by HTTP plus Workflow.
 - `lint:custom` passing proves package and source-shape rules, not parity or refresh correctness.
 
-### First correction slice — shared shell, refresh, and running state
+### Reopened correction — session lifetime, activity, and thinking
 
-- `SideChatPanelView` is now the single transport-neutral owner of settings-open state, sidebar, header, narrow switcher, labels, New chat/select/refresh controls, running indicators, and busy guards. The duplicate workflow panel was deleted; protocol feed/footer and native workflow content remain transport-specific slots.
-- Workflow queries share one exported query prefix. Refresh invalidates active catalog/history/discovery/model/tool reads and remounts only a persisted selection after refetch. It neither selects a catalog fallback nor mutates routing, and it leaves a local New chat draft intact.
-- The service conversation query port exposes active turns. In-memory filtering is tenant-owned, PostgreSQL uses one active-turn list read, and the HTTP/catalog boundary publishes and defensively validates `runningConversationIds`.
-- Workflow chat status is lifted to the panel. A locally accepted chat stays mounted while persistence reads catch up; running rows cannot be selected again, and both tabs converge after replay and terminal completion.
-- This slice did **not** address host context, the complete model/profile mapping, Streamdown token ownership, or Step 16 transport-drop/manual-reconnect behavior. Readable one-file config is closed by the service-foundation correction below. The other gaps remain cutover blockers. Activity rendering is closed by the correction slice below.
+- `SideChatPanelView` remains the transport-neutral shell, but its busy guards must not own navigation.
+- A widget-lifetime registry owns stable visible conversation aggregates; the selected panel subscribes to an aggregate instead of owning it, and each aggregate may replace its disposable AI SDK `Chat` attachment engine at a durable handoff.
+- Workflow query refresh reconciles idle history and never remounts a live session.
+- `/api/activity` restores the approved register-then-snapshot subject feed plus live lifecycle transitions for already-open tabs.
+- Thinking stays expanded for live and completed messages in both transports, and reasoning text uses the shared streaming Markdown wrapper.
+- Compact Markdown heading sizes are documented tier-2 message tokens consumed through Streamdown component overrides.
 
 ### Activity-renderer correction slice — one public contract
 
@@ -126,10 +129,10 @@ Recorded after the client-portable parity pass, grounded in a backend capability
 
 - **Settings view + header gear** — theme (all four), accent, corners, density, elevation, text size, typeface, send preference, tool-detail level. Reuses the shared `SettingsView`. Evidence: `evidence/task-16a-widget-parity/settings-view.png`.
 - **Empty state + quick actions** — greeting, agent mark, context-aware description, host starter prompts. Evidence: `evidence/task-16a-widget-parity/empty-state.png`.
-- **Conversation sidebar + switcher (multi-conversation)** — the shared shell now owns both compositions. The workflow path has no newest-chat fallback or URL notification, promotes on service acceptance, displays catalog running ids, and applies busy-safe navigation guards. Conversation-specific title semantics remain to reverify before this row closes.
+- **Conversation sidebar + switcher (multi-conversation)** — the shared shell owns both compositions. The workflow path has no newest-chat fallback or URL notification, promotes on service acceptance, displays activity-backed running ids, and keeps navigation usable while generation continues in the background. Conversation-specific title semantics remain to reverify before this row closes.
 - **Composer footer + model selector** — the native path uses the shared `WidgetFooter` (same composer as legacy); the model selector reads `GET /api/models` and sends the chosen id as `modelPreference`. The documented `+` control remains visible with an empty production tool catalog. It shows **Include page context** only when service policy and a host provider both exist; otherwise it honestly reports that no tools are available.
 - **Tool-detail level** — `hidden` drops tool rows, `name` pins a compact row, `full` keeps the expandable detail (unit-tested).
-- **Reasoning visibility** — `detailed` holds a completed trace open (unit-tested).
+- **Reasoning visibility** — thinking is always present and initially expanded for live and completed traces; users may collapse individual traces locally.
 - **Agent mark** — `renderAgentMark` flows to the header title and the empty state.
 - **Activity composition** — reasoning + tools folded into one "Thought process" trace ahead of the answer; sources fold; images; files (Step 14/15 + the look restoration).
 
@@ -172,7 +175,7 @@ None approved.
 ## Correction acceptance
 
 - Focused state tests cover draft creation, persisted selection, missing selection, service-accept promotion, terminal cursor cleanup, and no implicit fallback.
-- Browser tests cover empty-store refresh, idle refresh with existing chats, mid-turn refresh, no URL mutation, and two-tab running-state selection.
+- Browser tests cover empty-store refresh, idle refresh with existing chats, mid-turn refresh, switch/close/reopen continuity, no URL mutation, and an already-open two-tab activity transition plus running-state selection.
 - The parity matrix has no open row or each remaining cut has explicit user approval in the sign-off section.
 - The replacement config can be read top to bottom to identify provider routing, every request-selectable model and reasoning choice, the title job, exposed server tools, host-context policy and limits, and every wired timer. Direct and iframe browser transport are verified; future capacity policy must add enforcement before configuration.
 - Streamdown spacing/color/typography selectors consume documented tier-2 component tokens and one wrapper owns `.sc-markdown`.
@@ -180,12 +183,12 @@ None approved.
 
 ## Completion checklist
 
-- [x] Correct refresh/selection contract implemented and verified with no URL tracking or implicit fallback.
-- [x] Shared shell/presentation ownership restores refresh, busy safeguards, and running indicators without duplicate orchestration.
+- [ ] Correct refresh/selection contract keeps live sessions outside selected React lifetime with no URL tracking or implicit fallback.
+- [ ] Shared shell/presentation ownership keeps navigation usable and activity-backed running indicators current without duplicate orchestration.
 - [x] Custom activity rendering is mapped one-to-one through a transport-neutral public contract.
 - [x] Host context and the complete model/tool/profile contract are mapped one-to-one.
 - [x] One readable replacement-service config satisfies ADR 0010 in code and documentation.
-- [x] Streamdown message styling uses documented component tokens with one `.sc-markdown` owner.
-- [x] Existing settings, composer, usage, copy, durable duration, and look-identity behavior is reverified after consolidation.
+- [ ] Streamdown message styling uses documented compact heading tokens with one `.sc-markdown` owner.
+- [ ] Existing settings, always-visible Markdown thinking, composer, usage, copy, durable duration, and look-identity behavior is reverified after consolidation.
 - [ ] Step 16 has real refresh and multi-tab evidence and is complete before this gate closes.
 - [x] Step 20 references this gate as a hard precondition.

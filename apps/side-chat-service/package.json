@@ -50,7 +50,7 @@
     }
   },
   "scripts": {
-    "build": "nitro build",
+    "build": "node ../../scripts/build-side-chat-service-production.mjs",
     "build:testing": "node ../../scripts/build-side-chat-service-testing.mjs",
     "dev": "nitro dev",
     "start": "node .output/server/index.mjs",
@@ -62,11 +62,13 @@
     "@ai-sdk/openai": "4.0.11",
     "@ai-sdk/provider": "4.0.3",
     "@ai-sdk/workflow": "1.0.22",
+    "@side-chat/chat-protocol": "0.0.0",
     "@side-chat/db": "0.0.0",
     "@side-chat/stream-profile": "0.0.0",
     "@workflow/serde": "5.0.0-beta.2",
     "@workflow/world-postgres": "5.0.0-beta.24",
     "ai": "7.0.22",
+    "effect": "4.0.0-beta.70",
     "hono": "4.12.27",
     "nitro": "3.0.260610-beta",
     "rollup": "4.62.2",

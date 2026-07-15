@@ -10,11 +10,14 @@ import {
 import {
   requiresServerToolApproval,
   type ServerToolDefinition,
+  type ServerToolSource,
 } from "#application/turn/tools/server-tools/server-tool-catalog";
 import type { SuspendableTurnTimeout } from "../timeout/turn-timeout.js";
 import {
   deniedToolOutput,
+  isDeniedToolOutput,
   TOOL_APPROVAL_DENIAL_REASONS,
+  type ToolApprovalDenialOutput,
 } from "../tool-approvals/approval-output.js";
 import { toolApprovalHookToken } from "../tool-approvals/index.js";
 import { runToolApprovalStep } from "../production/approvals/tool-approval.js";
@@ -72,22 +75,63 @@ export function createServerTools(options: ServerToolRuntimeOptions): ToolSet {
           if (!isJsonValue(input) || !definition.validateInput(input)) {
             throw new TypeError(`Invalid input for server tool ${definition.name}`);
           }
-          if (!(await requiresServerToolApproval(definition.approvalPolicy, input))) {
-            return definition.execute(input, {
-              executionKey: executionKey(options.turnId, execution.toolCallId, "ungated"),
-            });
+          const output = !(await requiresServerToolApproval(definition.approvalPolicy, input))
+            ? await definition.execute(input, {
+                executionKey: executionKey(options.turnId, execution.toolCallId, "ungated"),
+              })
+            : await executeGatedServerTool({
+                ...options,
+                databaseUrl,
+                toolName: definition.name,
+                input,
+                toolCallId: execution.toolCallId,
+              });
+          const sources = readServerToolSources(definition, output);
+          if (sources.length > 0) {
+            await writeServerToolSources(sources, execution.toolCallId);
           }
-          return executeGatedServerTool({
-            ...options,
-            databaseUrl,
-            toolName: definition.name,
-            input,
-            toolCallId: execution.toolCallId,
-          });
+          return output;
         },
       }),
     ]),
   );
+}
+
+/** Persist tool-attributed URLs as native source parts before returning to the agent loop. */
+export function readServerToolSources<Input extends ToolApprovalInput, Output>(
+  definition: ServerToolDefinition<Input, Output>,
+  output: Output | ToolApprovalDenialOutput,
+): readonly ServerToolSource[] {
+  if (isDeniedToolOutput(output)) return [];
+  return definition.readSources?.(output) ?? [];
+}
+
+/** Append already-projected sources from a workflow step, where stream writes are legal. */
+export async function writeServerToolSources(
+  sources: readonly ServerToolSource[],
+  toolCallId: string,
+): Promise<void> {
+  "use step";
+
+  const writable = getWritable<ApprovalWorkflowStreamPart>();
+  const writer = writable.getWriter();
+  try {
+    for (const [index, source] of sources.entries()) {
+      await writer.write(toModelSourcePart(source, toolCallId, index));
+    }
+  } finally {
+    writer.releaseLock();
+  }
+}
+
+function toModelSourcePart(source: ServerToolSource, toolCallId: string, index: number) {
+  return {
+    type: "source" as const,
+    sourceType: "url" as const,
+    id: `${toolCallId}:source:${index + 1}`,
+    url: source.url,
+    title: source.label,
+  };
 }
 
 function requireDatabase(options: ServerToolRuntimeOptions): string {

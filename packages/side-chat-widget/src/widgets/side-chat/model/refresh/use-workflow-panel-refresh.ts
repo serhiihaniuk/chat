@@ -1,28 +1,18 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { useCallback, useRef, useState } from "react";
+import { useCallback } from "react";
 
 import { WORKFLOW_CHAT_QUERY_SCOPE } from "#entities/workflow-chat";
 
-/** Refetch every active workflow read, then remount a persisted chat for replay. */
+/** Refetch workflow reads without replacing the live native chat session. */
 export function useWorkflowPanelRefresh(
   queryClient: QueryClient,
-  activeConversationId: string,
-  isLocalDraft: boolean,
-): Readonly<{ refresh: () => void; sessionRevision: number }> {
-  const selectionRef = useRef({ activeConversationId, isLocalDraft });
-  selectionRef.current = { activeConversationId, isLocalDraft };
-  const [sessionRevision, setSessionRevision] = useState(0);
-
+): Readonly<{ refresh: () => void }> {
   const refresh = useCallback((): void => {
-    const target = selectionRef.current;
-    void queryClient
-      .invalidateQueries({ queryKey: [WORKFLOW_CHAT_QUERY_SCOPE], refetchType: "active" })
-      .finally(() => {
-        if (target.isLocalDraft) return;
-        if (selectionRef.current.activeConversationId !== target.activeConversationId) return;
-        setSessionRevision((revision) => revision + 1);
-      });
+    void queryClient.invalidateQueries({
+      queryKey: [WORKFLOW_CHAT_QUERY_SCOPE],
+      refetchType: "active",
+    });
   }, [queryClient]);
 
-  return { refresh, sessionRevision };
+  return { refresh };
 }

@@ -26,6 +26,8 @@ for (const folder of removedTopLevelFolders) {
 
 for (const file of listSourceFiles(root)) {
   if (!file.startsWith(`${widgetSourceRoot}/`)) continue;
+  // Test support has its own placement and boundary gates; it is not a production FSD layer.
+  if (file.startsWith(`${widgetSourceRoot}/testing/`)) continue;
 
   if (file === `${widgetSourceRoot}/index.ts`) {
     validatePublicEntrypoint(file);

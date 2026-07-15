@@ -68,15 +68,23 @@ export class WorkflowChatHttpError extends Error {
   }
 }
 
-export async function readWorkflowChatHistory(
+export type WorkflowActiveTurn = Readonly<{ turnId: string; runId: string }>;
+
+export type WorkflowConversationState = Readonly<{
+  messages: readonly WorkflowUIMessage[];
+  activeTurn?: WorkflowActiveTurn | undefined;
+}>;
+
+/** Read transcript and resumable run identity from one coherent server snapshot. */
+export async function readWorkflowConversationState(
   client: WorkflowConversationClient,
   signal?: AbortSignal,
-): Promise<readonly WorkflowUIMessage[]> {
+): Promise<WorkflowConversationState> {
   const request = await resolveWorkflowChatRequestConfig(client);
   const response = await workflowChatFetch(client)(
     workflowChatUrl(
       client,
-      `/api/conversations/${encodeURIComponent(client.conversationId)}/messages`,
+      `/api/conversations/${encodeURIComponent(client.conversationId)}/state`,
     ),
     createHistoryRequestInit(request, signal),
   );
@@ -86,46 +94,28 @@ export async function readWorkflowChatHistory(
   if (!isRecord(payload) || !Array.isArray(payload["messages"])) {
     throw new Error("Conversation history response is invalid.");
   }
-  if (payload["messages"].length === 0) return [];
+  const messages = await validateWorkflowHistory(payload["messages"]);
+  const activeTurn = parseWorkflowActiveTurn(payload["activeTurn"]);
+  return { messages, ...(activeTurn === undefined ? {} : { activeTurn }) };
+}
+
+async function validateWorkflowHistory(
+  value: readonly unknown[],
+): Promise<readonly WorkflowUIMessage[]> {
+  if (value.length === 0) return [];
   const validated = await safeValidateUIMessages<WorkflowUIMessage>({
-    messages: payload["messages"],
+    messages: value,
     metadataSchema: sideChatMessageMetadataSchema,
   });
   if (!validated.success) throw new Error("Conversation history contains invalid messages.");
   return validated.data;
 }
 
-/** The conversation's live run, if any, for a cold-load reattach. */
-export type WorkflowActiveTurn = Readonly<{ turnId: string; runId: string }>;
-
-/**
- * Discover whether a run is still streaming for this conversation.
- *
- * A cold load seeds history separately; this tells the widget whether to also
- * reattach to an in-progress turn's stream. `undefined` means no live run.
- */
-export async function readWorkflowActiveTurn(
-  client: WorkflowConversationClient,
-  signal?: AbortSignal,
-): Promise<WorkflowActiveTurn | undefined> {
-  const request = await resolveWorkflowChatRequestConfig(client);
-  const response = await workflowChatFetch(client)(
-    workflowChatUrl(
-      client,
-      `/api/conversations/${encodeURIComponent(client.conversationId)}/active-turn`,
-    ),
-    createHistoryRequestInit(request, signal),
-  );
-  if (!response.ok) throw await readWorkflowChatHttpError(response);
-
-  const payload: unknown = await response.json();
-  if (!isRecord(payload)) throw new Error("Active turn response is invalid.");
-  const activeTurn = payload["activeTurn"];
-  if (!isRecord(activeTurn)) return undefined;
-  const runId = activeTurn["runId"];
-  const turnId = activeTurn["turnId"];
-  if (typeof runId !== "string" || typeof turnId !== "string") return undefined;
-  return { runId, turnId };
+function parseWorkflowActiveTurn(value: unknown): WorkflowActiveTurn | undefined {
+  if (!isRecord(value)) return undefined;
+  const runId = value["runId"];
+  const turnId = value["turnId"];
+  return typeof runId === "string" && typeof turnId === "string" ? { runId, turnId } : undefined;
 }
 
 export async function cancelWorkflowChatRun(
@@ -146,6 +136,28 @@ export async function cancelWorkflowChatRun(
     init,
   );
   if (!response.ok) throw await readWorkflowChatHttpError(response);
+}
+
+/** Open the authenticated subject activity response; widget orchestration owns decoding. */
+export async function openWorkflowActivityStream(
+  client: WorkflowChatClient,
+  signal?: AbortSignal,
+): Promise<ReadableStream<Uint8Array>> {
+  assertWorkflowRequestActive(signal);
+  const request = await resolveWorkflowChatRequestConfig(client);
+  const response = await workflowChatFetch(client)(
+    workflowChatUrl(client, "/api/activity"),
+    createActivityRequestInit(request, signal),
+  );
+  if (!response.ok) throw await readWorkflowChatHttpError(response);
+  if (!response.body) {
+    throw new WorkflowChatHttpError(
+      WORKFLOW_CHAT_TRANSPORT_ERROR_CODE,
+      "Activity stream response body is missing.",
+      true,
+    );
+  }
+  return response.body;
 }
 
 export function workflowChatFetch(client: WorkflowChatClient): typeof fetch {
@@ -227,4 +239,24 @@ export function createHistoryRequestInit(
   if (request.headers !== undefined) init.headers = request.headers;
   if (signal !== undefined) init.signal = signal;
   return init;
+}
+
+function createActivityRequestInit(
+  request: WorkflowChatRequestConfig,
+  signal: AbortSignal | undefined,
+): RequestInit {
+  const init = createHistoryRequestInit(request, signal);
+  const headers = new Headers(init.headers);
+  headers.set("accept", "text/event-stream");
+  init.headers = headers;
+  return init;
+}
+
+function assertWorkflowRequestActive(signal: AbortSignal | undefined): void {
+  if (signal?.aborted !== true) return;
+  throw new WorkflowChatHttpError(
+    WORKFLOW_CHAT_TRANSPORT_ERROR_CODE,
+    "Activity stream was aborted.",
+    true,
+  );
 }

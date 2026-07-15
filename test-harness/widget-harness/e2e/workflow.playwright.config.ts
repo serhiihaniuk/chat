@@ -1,10 +1,10 @@
 import { defineConfig } from "playwright/test";
 
-const widgetPort = 5175;
+const widgetPort = readPort("SIDECHAT_WORKFLOW_WIDGET_PORT", 5175);
 const widgetBaseUrl = `http://127.0.0.1:${widgetPort}`;
-const hostPort = 5181;
+const hostPort = readPort("SIDECHAT_WORKFLOW_HOST_PORT", 5181);
 const hostBaseUrl = `http://127.0.0.1:${hostPort}`;
-const workflowFixturePort = 8788;
+const workflowFixturePort = readPort("SIDECHAT_WORKFLOW_FIXTURE_PORT", 8788);
 const workflowFixtureUrl = `http://127.0.0.1:${workflowFixturePort}`;
 
 /** Browser proof for the native Workflow branch without the legacy service stack. */
@@ -26,6 +26,9 @@ export default defineConfig({
   webServer: [
     {
       command: "node workflow-multitab-test-service.ts",
+      env: {
+        SIDECHAT_WORKFLOW_FIXTURE_PORT: String(workflowFixturePort),
+      },
       reuseExistingServer: false,
       timeout: 30_000,
       url: `${workflowFixtureUrl}/__test/health`,
@@ -53,3 +56,8 @@ export default defineConfig({
     },
   ],
 });
+
+function readPort(name: string, fallback: number): number {
+  const value = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
