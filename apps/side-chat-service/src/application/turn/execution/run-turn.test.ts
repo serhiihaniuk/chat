@@ -195,6 +195,10 @@ class FixedTurnExecution implements TurnExecution {
     });
   }
 
+  resume(runId: string, input: TurnExecutionInput): Promise<StartedTurnExecution> {
+    return this.start(input).then((execution) => ({ ...execution, runId }));
+  }
+
   cancel(): Promise<void> {
     return Promise.resolve();
   }

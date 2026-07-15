@@ -1,9 +1,4 @@
-import {
-  createModelCallToUIChunkTransform,
-  type ModelCallStreamPart,
-  type WorkflowAgent,
-  type WorkflowAgentStreamResult,
-} from "@ai-sdk/workflow";
+import { type WorkflowAgent, type WorkflowAgentStreamResult } from "@ai-sdk/workflow";
 import type { UIMessageChunk } from "ai";
 import { createHook, getWorkflowMetadata, getWritable } from "workflow";
 
@@ -15,6 +10,7 @@ import {
   type ServerToolDefinition,
 } from "#application/turn/tools/server-tools/server-tool-catalog";
 import { patchWorkflowRealmAbortSignal } from "./realm/abort-signal-patch.js";
+import type { ChatTurnJournalPart } from "./journal/chat-turn-journal.js";
 import {
   ABORT_ERROR_NAME,
   CHAT_TURN_ERROR_CODES,
@@ -25,18 +21,21 @@ import {
   withVisibleAssistantMessage,
   type ChatTurnTerminalOutcome,
 } from "./outcome/chat-turn-outcome.js";
-import { toCompletedChatTurnOutcome } from "./outcome/completed-chat-turn-outcome.js";
-import { createClientTools, preserveDynamicClientToolIdentity } from "./client-tools/index.js";
+import {
+  didWorkflowAgentFail,
+  toCompletedChatTurnOutcome,
+} from "./outcome/completed-chat-turn-outcome.js";
+import { createClientTools } from "./client-tools/index.js";
 import { runChatTurnFinalizeStep } from "./production/chat-turn-finalize.js";
 import { claimChatTurnExecution, resolveRejectedChatTurnClaim } from "./execution-claim.js";
-import { readVisibleAssistantMessageStep } from "./production/stream/chat-turn-visible-message.js";
+import { readChatTurnJournalProjectionStep } from "./production/stream/chat-turn-visible-message.js";
 import { createSuspendableTurnTimeout } from "./timeout/turn-timeout.js";
-import { createServerTools, type ApprovalWorkflowStreamPart } from "./server-tools/index.js";
+import { createServerTools } from "./server-tools/index.js";
 import type { ChatTurnWorkflowInput } from "./input/chat-turn-input.js";
-import { normalizeApprovalUIChunk } from "./tool-approvals/approval-output.js";
 import { createChatTurnAgent, toChatTurnModelMessages } from "./chat-turn-agent.js";
 
 export type { ChatTurnWorkflowInput, SerializableChatMessage } from "./input/chat-turn-input.js";
+export { stampAssistantMessageId, toChatTurnUIStream } from "./journal/chat-turn-ui-stream.js";
 
 const CHAT_TURN_WORKFLOW = {
   AGENT_ID: "side-chat-turn",
@@ -102,7 +101,7 @@ export async function executeChatTurn(
   });
   assertDurableModelHandle(resolvedModel.model);
   const providerTimeout = createSuspendableTurnTimeout(input.providerTimeoutMs);
-  const writable = getWritable<ApprovalWorkflowStreamPart>();
+  const writable = getWritable<ChatTurnJournalPart>();
   const clientTools = createClientTools({
     definitions: input.clientTools,
     runId: workflowRunId,
@@ -143,7 +142,7 @@ export async function executeChatTurn(
     writable,
     input,
   );
-  const outcome = await foldVisibleAssistantMessage(
+  const outcome = await foldChatTurnJournalProjection(
     workflowRunId,
     input.turnId,
     input.clientTools,
@@ -156,17 +155,23 @@ export async function executeChatTurn(
 }
 
 /**
- * Make the closed workflow journal the visible-message authority at terminal.
- * The final provider result still supplies status, finish reason, and usage.
+ * The closed Workflow journal receives raw provider parts and becomes the source
+ * for visible output and explicit stream failures. The provider result still
+ * supplies successful finish reason and usage, but `other` cannot distinguish an
+ * error-only stream.
  */
-async function foldVisibleAssistantMessage(
+async function foldChatTurnJournalProjection(
   runId: string,
   turnId: string,
   clientTools: readonly ClientToolDefinition[],
   outcome: ChatTurnTerminalOutcome,
 ): Promise<ChatTurnTerminalOutcome> {
-  const visibleMessage = await readVisibleAssistantMessageStep(runId, turnId, clientTools);
-  return withVisibleAssistantMessage(outcome, visibleMessage);
+  const projection = await readChatTurnJournalProjectionStep(runId, turnId, clientTools);
+  const classifiedOutcome =
+    outcome.status === CHAT_TURN_OUTCOMES.COMPLETED && projection.providerFailed
+      ? failedChatTurnOutcome()
+      : outcome;
+  return withVisibleAssistantMessage(classifiedOutcome, projection.assistantMessage);
 }
 
 /**
@@ -180,7 +185,7 @@ async function raceChatTurnOutcome(
   controller: AbortController,
   cancellation: PromiseLike<TurnCancellation>,
   providerTimeout: ReturnType<typeof createSuspendableTurnTimeout>,
-  writable: WritableStream<ApprovalWorkflowStreamPart>,
+  writable: WritableStream<ChatTurnJournalPart>,
   input: ChatTurnWorkflowInput,
 ): Promise<ChatTurnTerminalOutcome> {
   const activityStartedAt = Date.now();
@@ -233,6 +238,7 @@ function resolveSettledStream(
   controllerAbortRequested: boolean,
 ): ChatTurnTerminalOutcome | Promise<never> {
   if (settled.kind === "completed") {
+    if (didWorkflowAgentFail(settled.result)) return failedChatTurnOutcome();
     return toCompletedChatTurnOutcome(
       input.turnId,
       input.maxSteps,
@@ -261,34 +267,5 @@ function finalizeChatTurn(
       subjectId: input.subjectId,
     },
     finalization: chatTurnFinalization(outcome),
-  });
-}
-
-export function toChatTurnUIStream(
-  stream: ReadableStream<ModelCallStreamPart>,
-  clientTools: readonly ClientToolDefinition[],
-  assistantMessageId: string,
-): ReadableStream<UIMessageChunk> {
-  return stream
-    .pipeThrough(createModelCallToUIChunkTransform())
-    .pipeThrough(stampAssistantMessageId(assistantMessageId))
-    .pipeThrough(
-      new TransformStream<UIMessageChunk, UIMessageChunk>({
-        transform: (chunk, controller) => controller.enqueue(normalizeApprovalUIChunk(chunk)),
-      }),
-    )
-    .pipeThrough(preserveDynamicClientToolIdentity(clientTools));
-}
-
-/** Give every attachment epoch the same durable assistant identity. */
-export function stampAssistantMessageId(
-  assistantMessageId: string,
-): TransformStream<UIMessageChunk, UIMessageChunk> {
-  return new TransformStream({
-    transform(chunk, controller) {
-      controller.enqueue(
-        chunk.type === "start" ? { ...chunk, messageId: assistantMessageId } : chunk,
-      );
-    },
   });
 }

@@ -146,40 +146,33 @@ export function classifyChatTurnOutcome(outcome: ChatTurnTerminalOutcome): ChatT
       assistantMessage: withMessageMetadata(
         outcome.assistantMessage,
         chatTurnUsage(outcome),
-        {
-          status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.COMPLETED,
-          ...(isSideChatFinishReason(outcome.finishReason)
-            ? { finishReason: outcome.finishReason }
-            : {}),
-        },
+        completedMessageTerminal(outcome.finishReason),
         outcome.activityDurationMs,
       ),
     };
   }
   if (outcome.status === CHAT_TURN_OUTCOMES.CANCELLED) {
+    if (outcome.assistantMessage === undefined) {
+      return { status: TURN_TERMINAL_STATUSES.CANCELLED };
+    }
     return {
       status: TURN_TERMINAL_STATUSES.CANCELLED,
-      ...(outcome.assistantMessage === undefined
-        ? {}
-        : {
-            assistantMessage: withMessageMetadata(outcome.assistantMessage, ZERO_TURN_USAGE, {
-              status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.CANCELLED,
-            }),
-          }),
+      assistantMessage: withMessageMetadata(outcome.assistantMessage, ZERO_TURN_USAGE, {
+        status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.CANCELLED,
+      }),
     };
   }
   const safeErrorCode = toTurnExecutionErrorCode(outcome.code);
+  if (outcome.assistantMessage === undefined) {
+    return { status: TURN_TERMINAL_STATUSES.FAILED, safeErrorCode };
+  }
   return {
     status: TURN_TERMINAL_STATUSES.FAILED,
     safeErrorCode,
-    ...(outcome.assistantMessage === undefined
-      ? {}
-      : {
-          assistantMessage: withMessageMetadata(outcome.assistantMessage, ZERO_TURN_USAGE, {
-            status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.FAILED,
-            errorCode: toPublicTurnErrorCode(safeErrorCode),
-          }),
-        }),
+    assistantMessage: withMessageMetadata(outcome.assistantMessage, ZERO_TURN_USAGE, {
+      status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.FAILED,
+      errorCode: toPublicTurnErrorCode(safeErrorCode),
+    }),
   };
 }
 
@@ -200,16 +193,7 @@ export function chatTurnUsage(outcome: ChatTurnTerminalOutcome): TurnUsage {
 /** Build the durable-write payload the workflow finalize step persists. */
 export function chatTurnFinalization(outcome: ChatTurnTerminalOutcome): ChatTurnFinalization {
   const classification = classifyChatTurnOutcome(outcome);
-  const terminal: TurnTerminal = {
-    status: classification.status,
-    usage: chatTurnUsage(outcome),
-    ...(classification.safeErrorCode === undefined
-      ? {}
-      : { safeErrorCode: classification.safeErrorCode }),
-    ...(classification.finishReason === undefined
-      ? {}
-      : { finishReason: classification.finishReason }),
-  };
+  const terminal = toTurnTerminal(classification, chatTurnUsage(outcome));
   return classification.assistantMessage === undefined
     ? { terminal }
     : { terminal, assistantMessage: classification.assistantMessage };
@@ -221,14 +205,39 @@ function withMessageMetadata(
   terminal: SideChatMessageTerminal,
   activityDurationMs?: number,
 ): UIMessage {
+  if (activityDurationMs === undefined) {
+    return { ...message, metadata: { usage, terminal } };
+  }
   return {
     ...message,
-    metadata: {
-      usage,
-      terminal,
-      ...(activityDurationMs === undefined ? {} : { activityDurationMs }),
-    },
+    metadata: { usage, terminal, activityDurationMs },
   };
+}
+
+function completedMessageTerminal(finishReason: string): SideChatMessageTerminal {
+  if (!isSideChatFinishReason(finishReason)) {
+    return { status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.COMPLETED };
+  }
+  return {
+    status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.COMPLETED,
+    finishReason,
+  };
+}
+
+function toTurnTerminal(classification: ChatTurnClassification, usage: TurnUsage): TurnTerminal {
+  const base = { status: classification.status, usage };
+  if (classification.safeErrorCode === undefined) {
+    return classification.finishReason === undefined
+      ? base
+      : { ...base, finishReason: classification.finishReason };
+  }
+  return classification.finishReason === undefined
+    ? { ...base, safeErrorCode: classification.safeErrorCode }
+    : {
+        ...base,
+        safeErrorCode: classification.safeErrorCode,
+        finishReason: classification.finishReason,
+      };
 }
 
 export function toPublicTurnErrorCode(code: TurnExecutionErrorCode | undefined): SideChatErrorCode {

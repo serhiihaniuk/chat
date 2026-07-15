@@ -9,6 +9,7 @@ import type { HostContextRequest, WidgetHostBridge } from "@side-chat/host-bridg
 import type { JsonObject } from "@side-chat/shared";
 
 import {
+  readWorkflowChatHttpError,
   resolveWorkflowChatRequestConfig,
   workflowChatFetch,
   workflowChatUrl,
@@ -28,6 +29,8 @@ type CreateWorkflowChatTransportInput = Readonly<{
   onRunFinished: () => void;
   /** The run to reattach to on a cold-load reconnect, when discovery found one. */
   getReconnectRunId?: (() => string | undefined) | undefined;
+  onReconnectStarted?: (() => void) | undefined;
+  onReconnectConnected?: (() => void) | undefined;
 }>;
 
 type WidgetHostContextCollector = NonNullable<WidgetHostBridge["getContext"]>;
@@ -65,13 +68,19 @@ export function createWorkflowChatTransport({
   getClientTools,
   getHostContext,
   getReconnectRunId,
+  onReconnectConnected,
+  onReconnectStarted,
   onRunFinished,
   onRunStarted,
 }: CreateWorkflowChatTransportInput): SideChatWorkflowTransport {
   const client = getClient();
   const transportOptions: WorkflowChatTransportOptions<WorkflowUIMessage> = {
     api: workflowChatUrl(getClient(), "/api/chat"),
-    fetch: (input, init) => fetchWorkflowResponse(getClient(), input, init),
+    fetch: (input, init) =>
+      fetchWorkflowResponse(getClient(), input, init, {
+        onReconnectConnected,
+        onReconnectStarted,
+      }),
     onChatSendMessage: (response) => {
       const runId = response.headers.get("x-workflow-run-id");
       if (!runId) throw new Error("Chat response did not include a workflow run id.");
@@ -125,8 +134,13 @@ async function fetchWorkflowResponse(
   client: WorkflowConversationClient,
   input: RequestInfo | URL,
   init?: RequestInit,
+  observer: WorkflowReconnectObserver = {},
 ): Promise<Response> {
+  const isReconnect = init?.method !== "POST";
+  if (isReconnect) observer.onReconnectStarted?.();
   const response = await workflowChatFetch(client)(input, init);
+  if (!response.ok) throw await readWorkflowChatHttpError(response);
+  if (isReconnect && response.body) observer.onReconnectConnected?.();
   if (!response.body || !init?.signal) return response;
 
   return new Response(closeBodyCalmlyOnAbort(response.body, init.signal), {
@@ -135,6 +149,11 @@ async function fetchWorkflowResponse(
     statusText: response.statusText,
   });
 }
+
+type WorkflowReconnectObserver = Readonly<{
+  onReconnectStarted?: (() => void) | undefined;
+  onReconnectConnected?: (() => void) | undefined;
+}>;
 
 /** Let Workflow reconnect observe the aborted signal without logging a stream failure. */
 function closeBodyCalmlyOnAbort(

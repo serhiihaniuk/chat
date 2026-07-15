@@ -1,21 +1,23 @@
-import type { ModelCallStreamPart } from "@ai-sdk/workflow";
-import type { UIMessage } from "ai";
 import { getRun } from "workflow/api";
 
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
-import { readVisibleAssistantMessage } from "../../outcome/chat-turn-visible-message.js";
+import type { ChatTurnJournalPart } from "../../journal/chat-turn-journal.js";
+import {
+  readChatTurnJournalProjection,
+  type ChatTurnJournalProjection,
+} from "../../outcome/chat-turn-visible-message.js";
 
-/** Read the closed durable journal before persisting the terminal message projection. */
-export async function readVisibleAssistantMessageStep(
+/** Read the closed durable journal before persisting its terminal projection. */
+export async function readChatTurnJournalProjectionStep(
   runId: string,
   turnId: string,
   clientTools: readonly ClientToolDefinition[],
-): Promise<UIMessage | undefined> {
+): Promise<ChatTurnJournalProjection> {
   "use step";
 
-  return readVisibleAssistantMessage(
+  return readChatTurnJournalProjection(
     turnId,
-    getRun(runId).getReadable<ModelCallStreamPart>(),
+    getRun(runId).getReadable<ChatTurnJournalPart>(),
     clientTools,
   );
 }

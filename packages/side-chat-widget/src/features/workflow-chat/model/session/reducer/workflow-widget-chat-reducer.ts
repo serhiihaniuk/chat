@@ -26,6 +26,7 @@ import {
   snapshotLoaded,
   streamEnded,
   transportDropped,
+  transportReconnecting,
   transportRecovered,
   WORKFLOW_WIDGET_TRANSPORT,
   WORKFLOW_WIDGET_TURN,
@@ -119,6 +120,8 @@ export function workflowWidgetChatReducer(
       return streamEnded(state, event);
     case "TransportDropped":
       return transportDropped(state, event);
+    case "TransportReconnecting":
+      return transportReconnecting(state, event.epochId);
     case "TransportRecovered":
       return transportRecovered(state, event.epochId);
   }

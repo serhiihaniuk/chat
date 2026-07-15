@@ -1,7 +1,9 @@
-import { Effect, Queue, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 
-import type { TurnActivityNotification } from "#application/ports/turn/activity/turn-activity-source";
+import type {
+  TurnActivityNotification,
+  TurnActivityNotificationSource,
+} from "#application/ports/turn/activity/turn-activity-source";
 import type { AuthContext } from "#domain/auth-context";
 import { createActivitySubscriptionStream } from "./activity-subscription-stream.js";
 import { createTurnActivityDispatcher } from "./turn-activity-dispatcher.js";
@@ -13,63 +15,125 @@ const auth: AuthContext = {
 };
 
 describe("createActivitySubscriptionStream", () => {
-  it("registers before the active-turn snapshot and then appends live changes", async () => {
-    const source = Effect.runSync(Queue.unbounded<TurnActivityNotification>());
-    const dispatcher = createTurnActivityDispatcher({ notifications: Stream.fromQueue(source) });
+  it("registers before the snapshot and verifies buffered invalidations afterward", async () => {
+    const source = notificationSource();
+    const dispatcher = createTurnActivityDispatcher(source.source);
+    let readCount = 0;
     const events = createActivitySubscriptionStream(
       dispatcher,
       {
         listActiveTurns: async (receivedAuth) => {
           expect(receivedAuth).toEqual(auth);
-          await Effect.runPromise(
-            Queue.offer(source, {
-              workspaceId: auth.workspaceId,
-              subjectId: auth.subjectId,
-              conversationId: "conversation-live",
-              assistantTurnId: "turn-live",
-              status: "completed",
-            }),
-          );
-          return [
-            {
-              conversationId: "conversation-snapshot",
-              turnId: "turn-snapshot",
-              runId: "run-snapshot",
-              status: "running" as const,
-            },
-          ];
+          readCount += 1;
+          if (readCount === 1) {
+            source.publish(notification("conversation-live", "turn-live"));
+            return [activeTurn("conversation-snapshot", "turn-snapshot")];
+          }
+          return [];
         },
       },
       auth,
     );
+    const reader = events.getReader();
 
-    const received = await Effect.runPromise(events.pipe(Stream.take(2), Stream.runCollect));
-    expect(Array.from(received)).toMatchObject([
-      {
+    await expect(reader.read()).resolves.toMatchObject({
+      value: {
         type: "sidechat.turn-activity-sync",
         activeTurns: [
           { conversationId: "conversation-snapshot", assistantTurnId: "turn-snapshot" },
         ],
       },
-      { conversationId: "conversation-live", status: "completed" },
-    ]);
+    });
+    await expect(reader.read()).resolves.toMatchObject({
+      value: { conversationId: "conversation-live", status: "terminal" },
+    });
+    await reader.cancel();
     await dispatcher.shutdown();
   });
 
   it("emits a synchronization barrier when no turn is running", async () => {
-    const source = Effect.runSync(Queue.unbounded<TurnActivityNotification>());
-    const dispatcher = createTurnActivityDispatcher({ notifications: Stream.fromQueue(source) });
+    const source = notificationSource();
+    const dispatcher = createTurnActivityDispatcher(source.source);
     const events = createActivitySubscriptionStream(
       dispatcher,
       { listActiveTurns: () => Promise.resolve([]) },
       auth,
     );
+    const reader = events.getReader();
 
-    const received = await Effect.runPromise(events.pipe(Stream.take(1), Stream.runCollect));
+    await expect(reader.read()).resolves.toEqual({
+      done: false,
+      value: { type: "sidechat.turn-activity-sync", activeTurns: [] },
+    });
+    await reader.cancel();
+    await dispatcher.shutdown();
+  });
 
-    expect(Array.from(received)).toEqual([
-      { type: "sidechat.turn-activity-sync", activeTurns: [] },
-    ]);
+  it("does not publish a false running event when the Workflow run is missing", async () => {
+    const source = notificationSource();
+    const dispatcher = createTurnActivityDispatcher(source.source);
+    const events = createActivitySubscriptionStream(
+      dispatcher,
+      { listActiveTurns: () => Promise.resolve([]) },
+      auth,
+    );
+    const reader = events.getReader();
+
+    await reader.read();
+    source.publish(notification("conversation-1", "turn-1"));
+
+    await expect(reader.read()).resolves.toMatchObject({
+      value: {
+        conversationId: "conversation-1",
+        assistantTurnId: "turn-1",
+        status: "terminal",
+      },
+    });
+    await reader.cancel();
+    await dispatcher.shutdown();
+  });
+
+  it("does not claim synchronization when the authoritative snapshot fails", async () => {
+    const source = notificationSource();
+    const dispatcher = createTurnActivityDispatcher(source.source);
+    const events = createActivitySubscriptionStream(
+      dispatcher,
+      { listActiveTurns: () => Promise.reject(new Error("database unavailable")) },
+      auth,
+    );
+
+    await expect(events.getReader().read()).rejects.toThrow("database unavailable");
     await dispatcher.shutdown();
   });
 });
+
+function notification(conversationId: string, assistantTurnId: string): TurnActivityNotification {
+  return {
+    workspaceId: auth.workspaceId,
+    subjectId: auth.subjectId,
+    conversationId,
+    assistantTurnId,
+  };
+}
+
+function activeTurn(conversationId: string, turnId: string) {
+  return { conversationId, turnId, runId: `run-${turnId}`, status: "running" as const };
+}
+
+function notificationSource(): {
+  source: TurnActivityNotificationSource;
+  publish: (notification: TurnActivityNotification) => void;
+} {
+  let controller: ReadableStreamDefaultController<TurnActivityNotification>;
+  return {
+    source: {
+      openNotifications: () =>
+        new ReadableStream({
+          start: (nextController) => {
+            controller = nextController;
+          },
+        }),
+    },
+    publish: (value) => controller.enqueue(value),
+  };
+}

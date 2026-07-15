@@ -147,6 +147,8 @@ describe("Composer field wiring", () => {
   it("stays editable while a turn streams so the next message can be drafted", () => {
     renderComposer({ status: "streaming" });
     expect(findTextarea().disabled).toBe(false);
+    expect(container.querySelector('[aria-label="Stop generating"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Send message"]')).toBeNull();
   });
 
   it("submits the trimmed message and returns focus to the field on a pointer send", () => {

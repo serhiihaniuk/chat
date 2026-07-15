@@ -15,6 +15,17 @@ export type FinalizeTurnRecord = Readonly<{
   assistantMessage?: UIMessage | undefined;
 }>;
 
+export const BEGIN_TURN_DISPOSITIONS = {
+  CREATED: "created",
+  REUSED: "reused",
+} as const;
+
+export type BegunTurn = TurnRef &
+  Readonly<{
+    disposition: (typeof BEGIN_TURN_DISPOSITIONS)[keyof typeof BEGIN_TURN_DISPOSITIONS];
+    runId?: string | undefined;
+  }>;
+
 export const CANCEL_REQUEST_DISPOSITIONS = {
   DELIVER: "deliver",
   ACKNOWLEDGED: "acknowledged",
@@ -34,9 +45,9 @@ export type TurnClaimDisposition =
 
 export interface TurnStore {
   /** Read-only fast rejection; beginTurn repeats these checks atomically. */
-  assertCanBegin(auth: AuthContext, conversationId: string): Promise<void>;
-  /** Atomically checks ownership and idleness, persists the user message, and opens the turn. */
-  beginTurn(input: BeginTurnInput): Promise<TurnRef>;
+  assertCanBegin(auth: AuthContext, conversationId: string, requestId: string): Promise<void>;
+  /** Atomically persists or resolves the canonical message + product turn aggregate. */
+  beginTurn(input: BeginTurnInput): Promise<BegunTurn>;
   bindRun(turn: TurnRef, runId: string): Promise<void>;
   assertRunOwned(auth: AuthContext, conversationId: string, runId: string): Promise<void>;
   /** Atomically commit visible output, terminal state, and the activity signal. */

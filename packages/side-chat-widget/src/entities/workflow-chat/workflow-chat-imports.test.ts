@@ -11,6 +11,12 @@ const workflowRoots = [
   resolve(widgetSource, "widgets/side-chat/ui/workflow"),
 ];
 const workflowFiles = workflowRoots.flatMap(listProductionTypeScriptFiles);
+const removedLegacyModules = [
+  "widget-reconnect-triggers",
+  "widget-run-controller",
+  "widget-run-marker",
+  "widget-transport-recovery",
+] as const;
 
 describe("workflow chat import boundary", () => {
   it.each(workflowFiles)("keeps %s browser-safe", (file) => {
@@ -21,6 +27,9 @@ describe("workflow chat import boundary", () => {
     expect(source).not.toContain("@side-chat/chat-protocol");
     expect(source).not.toContain("@ai-sdk/react");
     expect(source).not.toMatch(/@ai-sdk\/(?:anthropic|azure|google|openai|provider)/u);
+    for (const removedModule of removedLegacyModules) {
+      expect(source).not.toContain(removedModule);
+    }
   });
 });
 

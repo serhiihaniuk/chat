@@ -10,17 +10,15 @@ type ActivityRow = Readonly<{
   subjectId: string;
   conversationId: string;
   assistantTurnId: string;
-  status: string;
 }>;
 
-/** Publish only turn identity and lifecycle; messages and provider content never enter NOTIFY. */
+/** Publish only identity; consumers must re-read effective Workflow-backed state. */
 export function notifyTurnActivity(executor: ActivityExecutor, row: ActivityRow): Promise<unknown> {
   const payload = JSON.stringify({
     workspaceId: row.workspaceId,
     subjectId: row.subjectId,
     conversationId: row.conversationId,
     assistantTurnId: row.assistantTurnId,
-    status: row.status,
   });
   return executor.execute(sql`select pg_notify(${TURN_ACTIVITY_NOTIFY_CHANNEL}, ${payload})`);
 }

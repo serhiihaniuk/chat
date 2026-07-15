@@ -1,4 +1,3 @@
-import { Effect, Option, Stream } from "effect";
 import type { UIMessage } from "ai";
 import { describe, expect, it } from "vitest";
 
@@ -52,12 +51,26 @@ describe("InMemoryTurnState", () => {
     const state = seededState();
 
     await state.beginTurn(beginInput());
-    await expect(state.beginTurn(beginInput())).rejects.toMatchObject({
-      code: "conversation_busy",
-    });
+    await expect(
+      state.beginTurn({
+        ...beginInput(),
+        requestId: "request-2",
+        userMessage: { ...USER_MESSAGE, id: "user-2" },
+      }),
+    ).rejects.toMatchObject({ code: "conversation_busy" });
 
     expect(state.userMessages).toEqual([USER_MESSAGE]);
     expect(state.runningTurns).toEqual(new Set(["conversation-1"]));
+  });
+
+  it("returns the canonical turn for an exact request replay", async () => {
+    const state = seededState();
+
+    const first = await state.beginTurn(beginInput());
+    const replay = await state.beginTurn(beginInput());
+
+    expect(replay).toMatchObject({ turnId: first.turnId, disposition: "reused" });
+    expect(state.userMessages).toEqual([USER_MESSAGE]);
   });
 
   it("hides a run from a mismatched owner on run-only access", async () => {
@@ -97,9 +110,8 @@ describe("InMemoryTurnState", () => {
 
   it("publishes running activity only after the resumable run id is bound", async () => {
     const state = seededState();
-    const firstActivity = Effect.runPromise(
-      state.turnActivityNotifications.notifications.pipe(Stream.runHead),
-    );
+    const reader = state.turnActivityNotifications.openNotifications().getReader();
+    const firstActivity = reader.read();
     let observedBeforeBind = false;
     void firstActivity.then(() => {
       observedBeforeBind = true;
@@ -111,10 +123,10 @@ describe("InMemoryTurnState", () => {
 
     await state.bindRun(turn, "run-1");
     const notification = await firstActivity;
-    expect(Option.getOrUndefined(notification)).toMatchObject({
+    expect(notification.value).toMatchObject({
       assistantTurnId: turn.turnId,
-      status: "running",
     });
+    await reader.cancel();
   });
 
   it("commits assistant output and terminal state as one idempotent finalization", async () => {

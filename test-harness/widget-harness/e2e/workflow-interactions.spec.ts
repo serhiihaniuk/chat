@@ -63,8 +63,10 @@ test("dispatches a native client tool through the host and posts one durable out
   page,
 }) => {
   let postedOutput: unknown;
+  let postedOutputCount = 0;
   await routeWorkflowApi(page, {
     runId: "run-client-tool",
+    conversationTitleSequence: ["Client tool chat"],
     stateAfterStart: {
       activeTurn: { turnId: "turn-client-tool", runId: "run-client-tool" },
       messages: [
@@ -88,6 +90,30 @@ test("dispatches a native client tool through the host and posts one durable out
         },
       ],
     },
+    stateAfterToolOutput: {
+      activeTurn: null,
+      messages: [
+        {
+          id: "user-client-tool",
+          role: "user",
+          parts: [{ type: "text", text: "Open ticket 4821" }],
+        },
+        {
+          id: "assistant-client-tool",
+          role: "assistant",
+          parts: [
+            {
+              type: "dynamic-tool",
+              toolCallId: "call-open-resource",
+              toolName: "open_resource",
+              state: "output-available",
+              input: { resourceType: "ticket", resourceId: "ticket-4821" },
+              output: { status: "applied", resultCode: "harness_local_only" },
+            },
+          ],
+        },
+      ],
+    },
     chunks: [
       { type: "start", messageId: "assistant-client-tool" },
       { type: "start-step" },
@@ -103,6 +129,7 @@ test("dispatches a native client tool through the host and posts one durable out
     ],
     onToolOutput: (body) => {
       postedOutput = body;
+      postedOutputCount += 1;
     },
   });
 
@@ -117,13 +144,20 @@ test("dispatches a native client tool through the host and posts one durable out
       output: { status: "applied", resultCode: "harness_local_only" },
     });
   await expect(page.getByTestId("demo-host-log").getByText("open_resource")).toBeVisible();
+
+  // Once the server exposes the durable output, a reload must render that
+  // settled state without dispatching the host command or posting it again.
+  await page.reload();
+  await expect(page.getByText("Client tool chat")).toBeVisible();
+  await expect(page.getByTestId("demo-host-assistant-count")).toHaveText("Assistant actions: 0");
+  await expect.poll(() => postedOutputCount).toBe(1);
   await page.screenshot({
     path: resolve(evidenceDirectory, "client-tool-dispatched.png"),
     fullPage: true,
   });
 });
 
-test("posts an approval decision and updates the existing approval row in place", async ({
+test("restores approval after reload and immediately transitions its tool to running", async ({
   page,
 }) => {
   let postedDecision: unknown;
@@ -182,20 +216,21 @@ test("posts an approval decision and updates the existing approval row in place"
   const approval = page.locator('[data-slot="tool-approval"]');
   await expect(approval).toHaveCount(1);
   await expect(approval).toHaveAttribute("data-state", "requested");
-  await page.getByLabel("Reason (optional)").fill("Needed for the current task");
+
+  // Approval is durable history, not transient component state. A remount must
+  // restore the same request before the user decides it.
+  await page.reload();
+  await expect(approval).toHaveCount(1);
+  await expect(approval).toHaveAttribute("data-state", "requested");
   await page.getByRole("button", { name: "Approve" }).click();
 
-  await expect
-    .poll(() => postedDecision)
-    .toEqual({
-      approved: true,
-      reason: "Needed for the current task",
-    });
-  await expect(approval).toHaveCount(1);
-  await expect(approval).toHaveAttribute("data-state", "approved");
-  await expect(approval.getByText("Approved", { exact: true })).toBeVisible();
-  await approval.screenshot({
+  await expect.poll(() => postedDecision).toEqual({ approved: true });
+  await expect(approval).toHaveCount(0);
+  const runningTool = page.locator('[data-slot="tool-detail-row"][data-state="running"]');
+  await expect(runningTool).toContainText("Needs access");
+  await page.screenshot({
     path: resolve(evidenceDirectory, "approval-approved.png"),
+    fullPage: true,
   });
 });
 
@@ -256,10 +291,60 @@ test("shows the empty state with quick actions before the first message", async 
   await expect(page.getByRole("button", { name: "Summarize this page" })).toBeVisible();
   // The restored composer footer surfaces the workflow model selector.
   await expect(page.getByRole("combobox").filter({ hasText: "gpt-5.6-luna" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("How can I help with this page?")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Summarize this page" })).toBeVisible();
   await page.screenshot({
     path: resolve(parityEvidenceDirectory, "empty-state.png"),
     fullPage: true,
   });
+});
+
+test("keeps the next send usable after the idle activity connection drops", async ({ page }) => {
+  let activityReadCount = 0;
+  await routeWorkflowApi(page, {
+    conversationTitleSequence: ["Idle recovery chat"],
+    failActivityReads: true,
+    onActivityRead: () => {
+      activityReadCount += 1;
+    },
+    runId: "run-after-idle-activity-loss",
+    stateAfterStart: {
+      activeTurn: null,
+      messages: [
+        {
+          id: "user-after-idle-activity-loss",
+          role: "user",
+          parts: [{ type: "text", text: "Send after idle activity loss" }],
+        },
+        {
+          id: "assistant-after-idle-activity-loss",
+          role: "assistant",
+          parts: [{ type: "text", text: "The next turn still works." }],
+        },
+      ],
+    },
+    chunks: [
+      { type: "start", messageId: "assistant-after-idle-activity-loss" },
+      { type: "start-step" },
+      { type: "text-start", id: "text-after-idle-activity-loss" },
+      {
+        type: "text-delta",
+        id: "text-after-idle-activity-loss",
+        delta: "The next turn still works.",
+      },
+      { type: "text-end", id: "text-after-idle-activity-loss" },
+      { type: "finish-step" },
+      { type: "finish" },
+    ],
+  });
+
+  await page.goto(workflowWidgetUrl);
+  await expect.poll(() => activityReadCount).toBeGreaterThanOrEqual(1);
+  await page.getByLabel("Message").fill("Send after idle activity loss");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  await expect(page.getByText("The next turn still works.")).toBeVisible();
 });
 
 test("keeps a new-chat draft usable when its server history does not exist yet", async ({
@@ -329,6 +414,51 @@ test("keeps a new-chat draft usable when its server history does not exist yet",
     .poll(() => page.evaluate((key) => sessionStorage.getItem(key), parityRecoveryStorageKey))
     .toBeNull();
   await expect(page.getByText("The requested resource is unavailable.")).toHaveCount(0);
+});
+
+test("replaces the first-message fallback with the generated workflow title", async ({ page }) => {
+  const observedTitles: string[] = [];
+  await routeWorkflowApi(page, {
+    runId: "run-title-refresh",
+    stateAfterStart: {
+      activeTurn: null,
+      messages: [
+        {
+          id: "user-title-refresh",
+          role: "user",
+          parts: [{ type: "text", text: "first fallback title" }],
+        },
+        {
+          id: "assistant-title-refresh",
+          role: "assistant",
+          parts: [{ type: "text", text: "The title workflow can now run." }],
+        },
+      ],
+    },
+    chunks: [
+      { type: "start", messageId: "assistant-title-refresh" },
+      { type: "start-step" },
+      { type: "text-start", id: "text-title-refresh" },
+      {
+        type: "text-delta",
+        id: "text-title-refresh",
+        delta: "The title workflow can now run.",
+      },
+      { type: "text-end", id: "text-title-refresh" },
+      { type: "finish-step" },
+      { type: "finish" },
+    ],
+    conversationTitleSequence: ["first fallback title", "Generated workflow title"],
+    onConversationTitleRead: (title) => observedTitles.push(title),
+  });
+
+  await page.goto(parityWidgetUrl);
+  await page.getByLabel("Message").fill("first fallback title");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  await expect(page.getByText("Generated workflow title", { exact: true })).toBeVisible();
+  expect(observedTitles).toContain("first fallback title");
+  expect(observedTitles).toContain("Generated workflow title");
 });
 
 test("selects server tools per turn and renders terminal context usage", async ({ page }) => {
@@ -423,7 +553,10 @@ test("selects server tools per turn and renders terminal context usage", async (
     fullPage: true,
   });
 
-  await page.getByText("Mock web search", { exact: true }).click();
+  const webSearchRow = page.getByRole("menuitemcheckbox", { name: /Mock web search/u });
+  await expect(webSearchRow).toHaveAttribute("aria-checked", "true");
+  await webSearchRow.locator(".sc-switch-root").click();
+  await expect(webSearchRow).toHaveAttribute("aria-checked", "false");
   await page.keyboard.press("Escape");
   await expect(toolsPopup).toHaveCount(0);
   await page.getByLabel("Message").fill("Calculate the selected total");
@@ -568,6 +701,15 @@ test("lists workspace conversations in the sidebar and opens a different one", a
   await page.getByText("Refund policy").click();
   await expect(page.getByText("What is the refund window?")).toBeVisible();
   expect(new URL(page.url()).searchParams.get("conversationId")).toBeNull();
+
+  await page.reload();
+  await expect(page.getByText("What is the refund window?")).toBeVisible();
+
+  await page.getByRole("button", { name: "New chat", exact: true }).click();
+  await expect(page.getByText("How can I help with this page?")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("How can I help with this page?")).toBeVisible();
+  await expect(page.getByText("What is the refund window?")).toHaveCount(0);
 });
 
 async function seedWorkflowRecoveryCursor(
@@ -584,6 +726,10 @@ async function seedWorkflowRecoveryCursor(
 function readConversationId(body: string | null): string | undefined {
   if (!body) return undefined;
   return /"conversationId"\s*:\s*"([^"]+)"/u.exec(body)?.[1];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // A run-less conversation: empty history, no active turn, and no other workspace
@@ -658,51 +804,96 @@ async function fulfillWorkflowRead(
 
 type WorkflowRouteScenario = Readonly<{
   readonly chunks: readonly Readonly<Record<string, unknown>>[];
+  readonly failActivityReads?: boolean | undefined;
   readonly runId: string;
-  readonly stateAfterStart?:
-    | Readonly<{
-        activeTurn: Readonly<Record<string, unknown>> | null;
-        messages: readonly Readonly<Record<string, unknown>>[];
-      }>
-    | undefined;
+  readonly stateAfterStart?: WorkflowRouteState | undefined;
+  readonly stateAfterToolOutput?: WorkflowRouteState | undefined;
   readonly onApproval?: ((body: unknown) => void) | undefined;
+  readonly onActivityRead?: (() => void) | undefined;
   readonly onChatRequest?: ((body: unknown) => void) | undefined;
   readonly onToolOutput?: ((body: unknown) => void) | undefined;
+  readonly conversationTitleSequence?: readonly string[] | undefined;
+  readonly onConversationTitleRead?: ((title: string) => void) | undefined;
   readonly tools?: readonly Readonly<Record<string, unknown>>[] | undefined;
 }>;
 
+type WorkflowRouteState = Readonly<{
+  activeTurn: Readonly<Record<string, unknown>> | null;
+  messages: readonly Readonly<Record<string, unknown>>[];
+}>;
+
 async function routeWorkflowApi(page: Page, scenario: WorkflowRouteScenario): Promise<void> {
-  const runtime = { chatStarted: false };
+  const runtime: WorkflowRouteRuntime = {
+    chatStarted: false,
+    conversationId: undefined,
+    conversationTitleReadCount: 0,
+    toolOutputPosted: false,
+  };
   await page.route("**/side-chat-api/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
-    const stateAfterStart = runtime.chatStarted ? scenario.stateAfterStart : undefined;
+    if (await abortConfiguredActivityRead(route, path, scenario)) return;
+    const stateAfterStart = selectWorkflowRouteState(scenario, runtime);
+    const conversations = workflowScenarioConversations(path, scenario, runtime);
     const readWasFulfilled = await fulfillWorkflowRead(route, path, {
       activeTurn: stateAfterStart?.activeTurn ?? null,
-      conversations: [],
+      conversations,
       messages: stateAfterStart?.messages ?? [],
       tools: scenario.tools ?? [],
     });
     if (readWasFulfilled) return;
+    if (runtime.chatStarted && route.request().method() === "GET" && path.endsWith("/stream")) {
+      await fulfillWorkflowStream(route, scenario);
+      return;
+    }
     if (await fulfillWorkflowMutation(route, path, scenario, runtime)) return;
     await route.abort("failed");
   });
+}
+
+async function abortConfiguredActivityRead(
+  route: Route,
+  path: string,
+  scenario: WorkflowRouteScenario,
+): Promise<boolean> {
+  if (scenario.failActivityReads !== true) return false;
+  if (route.request().method() !== "GET") return false;
+  if (!path.endsWith("/activity")) return false;
+  scenario.onActivityRead?.();
+  await route.abort("connectionfailed");
+  return true;
+}
+
+function selectWorkflowRouteState(
+  scenario: WorkflowRouteScenario,
+  runtime: WorkflowRouteRuntime,
+): WorkflowRouteState | undefined {
+  if (!runtime.chatStarted) return undefined;
+  if (runtime.toolOutputPosted) {
+    return scenario.stateAfterToolOutput ?? scenario.stateAfterStart;
+  }
+  return scenario.stateAfterStart;
 }
 
 async function fulfillWorkflowMutation(
   route: Route,
   path: string,
   scenario: WorkflowRouteScenario,
-  runtime: { chatStarted: boolean },
+  runtime: WorkflowRouteRuntime,
 ): Promise<boolean> {
   const request = route.request();
   if (request.method() !== "POST") return false;
   if (path.endsWith("/api/chat")) {
     runtime.chatStarted = true;
-    scenario.onChatRequest?.(request.postDataJSON());
+    const body: unknown = request.postDataJSON();
+    if (isRecord(body) && typeof body["conversationId"] === "string") {
+      runtime.conversationId = body["conversationId"];
+    }
+    scenario.onChatRequest?.(body);
     await fulfillWorkflowStream(route, scenario);
     return true;
   }
   if (path.endsWith("/output")) {
+    runtime.toolOutputPosted = true;
     scenario.onToolOutput?.(request.postDataJSON());
     await route.fulfill({ json: { accepted: true } });
     return true;
@@ -718,6 +909,34 @@ async function fulfillWorkflowMutation(
     },
   });
   return true;
+}
+
+type WorkflowRouteRuntime = {
+  chatStarted: boolean;
+  conversationId: string | undefined;
+  conversationTitleReadCount: number;
+  toolOutputPosted: boolean;
+};
+
+function workflowScenarioConversations(
+  path: string,
+  scenario: WorkflowRouteScenario,
+  runtime: WorkflowRouteRuntime,
+): readonly Readonly<Record<string, unknown>>[] {
+  const titles = scenario.conversationTitleSequence;
+  if (!runtime.chatStarted || !runtime.conversationId || !titles?.length) return [];
+  if (!path.endsWith("/conversations")) return [];
+  const title = titles[Math.min(runtime.conversationTitleReadCount, titles.length - 1)];
+  runtime.conversationTitleReadCount += 1;
+  if (title === undefined) return [];
+  scenario.onConversationTitleRead?.(title);
+  return [
+    {
+      id: runtime.conversationId,
+      title,
+      lastMessageAt: "2026-07-15T10:00:00Z",
+    },
+  ];
 }
 
 type WorkflowRecoveryScenario = Readonly<{

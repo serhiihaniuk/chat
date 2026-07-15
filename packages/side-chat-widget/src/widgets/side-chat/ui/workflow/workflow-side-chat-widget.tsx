@@ -32,6 +32,7 @@ export function WorkflowSideChatWidget({
   themeStorageKey,
   workflowChat,
   workflowActiveTurnStorageKey,
+  workflowConversationSelectionStorageKey,
 }: WorkflowSideChatWidgetProps) {
   const labels = useMemo(() => resolveWidgetLabels(labelsProp), [labelsProp]);
   const [sessionRegistry] = useState(createWorkflowWidgetChatSessionRegistry);
@@ -100,6 +101,7 @@ export function WorkflowSideChatWidget({
           theme={theme}
           workflowChat={workflowChat}
           workflowActiveTurnStorageKey={workflowActiveTurnStorageKey}
+          workflowConversationSelectionStorageKey={workflowConversationSelectionStorageKey}
           modelSelection={modelSelection}
           sessionRegistry={sessionRegistry}
           toolSelection={toolSelection}

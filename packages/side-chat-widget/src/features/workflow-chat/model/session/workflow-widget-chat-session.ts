@@ -44,6 +44,15 @@ export function createWorkflowWidgetChatSessionRegistry(): WorkflowWidgetChatSes
     }
   }
 
+  async function reconcileInactiveConversation(conversationId: string): Promise<void> {
+    const session = sessions.get(conversationId);
+    if (!session) return;
+    await session.reconnect();
+    if (!session.canPrune()) return;
+    session.dispose();
+    sessions.delete(conversationId);
+  }
+
   function disposeAll(): void {
     for (const session of sessions.values()) session.dispose();
     sessions.clear();
@@ -54,5 +63,6 @@ export function createWorkflowWidgetChatSessionRegistry(): WorkflowWidgetChatSes
     getOrCreate,
     has: (conversationId) => sessions.has(conversationId),
     pruneIdleExcept,
+    reconcileInactiveConversation,
   };
 }

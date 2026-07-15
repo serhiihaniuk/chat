@@ -21,6 +21,8 @@ import { useWidgetLabels } from "#shared/lib/widget-labels";
 import { LinkSafetyDialog, openExternalUrl } from "#shared/ui/link-safety-dialog";
 import { usePortalContainer } from "#shared/ui/widget-root";
 
+const MAX_EXTERNAL_SOURCE_URL_LENGTH = 2_048;
+
 /** One attributed source; structurally matches the protocol's ActivitySource. */
 export type CitationSource = {
   readonly label: string;
@@ -51,10 +53,10 @@ export function SourcesFold({
           data-slot="sources-fold"
           className="flex items-center gap-2 text-xs font-semibold text-muted-foreground"
         >
-          <Folder className="size-3.5" />
+          <Folder className="size-icon-sm" />
           {labels.activitySources(sources.length)}
           <ChevronDown
-            className={cn("size-3.5 transition-transform ease-out", open && "rotate-180")}
+            className={cn("size-icon-sm transition-transform ease-out", open && "rotate-180")}
           />
         </Collapsible.Trigger>
         <Collapsible.Panel className="sc-cite-panel">
@@ -98,6 +100,7 @@ export function InlineCitation({
   readonly source: CitationSource;
 }): ReactElement {
   const container = usePortalContainer();
+  const safeSource = withSafeExternalUrl(source);
   return (
     <PreviewCard.Root>
       <PreviewCard.Trigger
@@ -114,7 +117,7 @@ export function InlineCitation({
       <PreviewCard.Portal container={container}>
         <PreviewCard.Positioner sideOffset={6}>
           <PreviewCard.Popup data-slot="hover-card-content" className="sc-cite-card">
-            <SourceCard source={source} />
+            <SourceCard source={safeSource} />
           </PreviewCard.Popup>
         </PreviewCard.Positioner>
       </PreviewCard.Portal>
@@ -131,16 +134,17 @@ const SourceRow = ({
   readonly source: CitationSource;
   readonly onOpen: (url: string) => void;
 }): ReactElement => {
+  const safeSource = withSafeExternalUrl(source);
   const body = (
     <>
-      <SourceBody source={source} />
+      <SourceBody source={safeSource} />
       <span className="sc-cite-marker">{marker}</span>
     </>
   );
 
   // Linked sources are real anchors; terminal sources still list, but there is
   // nothing to open — no hover, no pointer, no trailing affordance.
-  if (!source.url) {
+  if (!safeSource.url) {
     return (
       <div data-slot="source-row" className="sc-cite-source">
         {body}
@@ -150,7 +154,7 @@ const SourceRow = ({
 
   // Keep the real href (right-click "copy link", middle-click) but intercept the
   // left click to route through the link-safety confirm instead of navigating.
-  const url = source.url;
+  const url = safeSource.url;
   return (
     <a
       data-slot="source-row"
@@ -163,7 +167,7 @@ const SourceRow = ({
       }}
     >
       {body}
-      <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
+      <ArrowUpRight className="size-icon-sm shrink-0 text-muted-foreground" />
     </a>
   );
 };
@@ -211,7 +215,7 @@ const SourceGlyph = ({ domain }: { readonly domain: string | undefined }): React
   if (!domain) {
     return (
       <span className="sc-cite-glyph" aria-hidden="true">
-        <Quote className="size-2.5" />
+        <Quote className="size-icon-sm" />
       </span>
     );
   }
@@ -241,3 +245,26 @@ const readDomain = (url: string | undefined): string | undefined => {
     return undefined;
   }
 };
+
+/** Sources are untrusted model output; only bounded credential-free HTTPS URLs may navigate. */
+function withSafeExternalUrl(source: CitationSource): CitationSource {
+  const url = readSafeExternalUrl(source.url);
+  if (url) return { ...source, url };
+  return {
+    label: source.label,
+    ...(source.excerpt === undefined ? {} : { excerpt: source.excerpt }),
+  };
+}
+
+function readSafeExternalUrl(value: string | undefined): string | undefined {
+  if (!value || value.length > MAX_EXTERNAL_SOURCE_URL_LENGTH || value !== value.trim()) {
+    return undefined;
+  }
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password) return undefined;
+    return value;
+  } catch {
+    return undefined;
+  }
+}

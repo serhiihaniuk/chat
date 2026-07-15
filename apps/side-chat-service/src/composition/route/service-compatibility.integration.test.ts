@@ -150,6 +150,10 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
     expect(observation["lateContentAccepted"]).toBe(false);
     await response.text();
     expect(requireFixture().countObservations(requestId, "provider-attempt")).toBe(1);
+    await expectInterruptedHistory(requestId, {
+      terminalStatus: "failed",
+      expectsPartial: false,
+    });
   });
 
   it.each([
@@ -173,6 +177,10 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
       expect(stream.includes("partial reply")).toBe(expectsPartial);
       expect(stream).not.toContain(LATE_CONTENT_MARKER);
       expect(requireFixture().countObservations(requestId, "provider-attempt")).toBe(1);
+      await expectInterruptedHistory(requestId, {
+        terminalStatus: "cancelled",
+        expectsPartial,
+      });
     },
   );
 
@@ -189,6 +197,11 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
       expect(stream.includes("partial reply")).toBe(partial);
       expect(countStreamParts(stream, "error")).toBe(1);
       expect(requireFixture().countObservations(requestId, "provider-attempt")).toBe(1);
+      await expectInterruptedHistory(requestId, {
+        terminalStatus: "failed",
+        expectsPartial: partial,
+        publicErrorCode: "provider_failed",
+      });
     },
   );
 
@@ -321,6 +334,61 @@ async function readReaderToEnd(
 
 function countStreamParts(stream: string, type: string): number {
   return stream.split(`"type":"${type}"`).length - 1;
+}
+
+type InterruptedHistoryExpectation = Readonly<{
+  expectsPartial: boolean;
+  terminalStatus: "cancelled" | "failed";
+  publicErrorCode?: string;
+}>;
+
+async function expectInterruptedHistory(
+  requestId: string,
+  expectation: InterruptedHistoryExpectation,
+): Promise<void> {
+  const state = await requireFixture().waitForSettledConversationState(requestId);
+  const messages = requireMessages(state);
+  const userIndex = messages.findIndex((message) => message["id"] === `user-${requestId}`);
+  expect(userIndex).toBeGreaterThanOrEqual(0);
+  const assistant = messages[userIndex + 1];
+
+  if (!expectation.expectsPartial) {
+    expectNoAssistantAfterInterruptedUser(assistant);
+    return;
+  }
+
+  expectPartialInterruptedAssistant(assistant, expectation);
+}
+
+function expectNoAssistantAfterInterruptedUser(
+  assistant: Record<string, unknown> | undefined,
+): void {
+  expect(assistant?.["role"]).not.toBe("assistant");
+}
+
+function expectPartialInterruptedAssistant(
+  assistant: Record<string, unknown> | undefined,
+  expectation: InterruptedHistoryExpectation,
+): void {
+  expect(assistant?.["role"]).toBe("assistant");
+  expect(JSON.stringify(assistant?.["parts"])).toContain("partial reply");
+  const metadata = requireRecord(assistant?.["metadata"], "assistant metadata");
+  const terminal = requireRecord(metadata["terminal"], "assistant terminal metadata");
+  expect(terminal["status"]).toBe(expectation.terminalStatus);
+  expect(terminal["errorCode"]).toBe(expectation.publicErrorCode);
+}
+
+function requireMessages(state: Record<string, unknown>): Array<Record<string, unknown>> {
+  const messages = state["messages"];
+  if (!Array.isArray(messages) || !messages.every(isRecord)) {
+    throw new Error("Expected conversation state messages");
+  }
+  return messages;
+}
+
+function requireRecord(value: unknown, name: string): Record<string, unknown> {
+  if (!isRecord(value)) throw new Error(`Expected ${name}`);
+  return value;
 }
 
 function requireFixture(): CompiledCompatibilityFixture {

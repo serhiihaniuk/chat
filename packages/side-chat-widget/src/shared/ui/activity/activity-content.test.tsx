@@ -28,6 +28,16 @@ describe("SourcesFold", () => {
     expect((html.match(/<a\s/gu) ?? []).length).toBe(1);
   });
 
+  it.each(["http://unsafe.test", "javascript:alert(1)", "https://user:secret@unsafe.test"])(
+    "renders an unsafe source URL as display-only: %s",
+    (url) => {
+      const html = renderToStaticMarkup(<SourcesFold sources={[{ label: "Unsafe", url }]} />);
+
+      expect(html).not.toContain("href=");
+      expect(html).not.toContain("target=");
+    },
+  );
+
   it("keeps the source list folded by default", () => {
     const html = renderToStaticMarkup(
       <SourcesFold sources={[{ label: "Mock Search Result", url: "https://example.test/a" }]} />,

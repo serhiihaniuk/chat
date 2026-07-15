@@ -134,6 +134,7 @@ describe("useWorkflowWidgetChat recovery", () => {
 
   it("lets a newer terminal snapshot replace a still-open replay without an abort terminal", async () => {
     const onRunReconciled = vi.fn<(runId: string) => void>();
+    const onRunTerminal = vi.fn<(runId: string) => void>();
     const request = vi.fn<typeof fetch>((_input, init) => {
       if (init?.signal?.aborted) {
         return Promise.reject(new DOMException("Workflow replay aborted.", "AbortError"));
@@ -150,7 +151,7 @@ describe("useWorkflowWidgetChat recovery", () => {
         activeTurn,
         client,
         initialMessages,
-        lifecycle: { onRunReconciled },
+        lifecycle: { onRunReconciled, onRunTerminal },
         stateObservationId,
       });
       return null;
@@ -181,6 +182,8 @@ describe("useWorkflowWidgetChat recovery", () => {
       kind: "completed",
       messageId: "assistant-1",
     });
+    expect(onRunTerminal).toHaveBeenCalledOnce();
+    expect(onRunTerminal).toHaveBeenCalledWith("run-1");
     expect(onRunReconciled).toHaveBeenCalledWith("run-1");
   });
 
@@ -222,6 +225,47 @@ describe("useWorkflowWidgetChat recovery", () => {
     expect(
       current.current?.messages.filter((message) => message.role === "assistant"),
     ).toHaveLength(1);
+  });
+
+  it("reconciles and prunes an inactive session after durable activity becomes terminal", async () => {
+    const controlled = controllableTurnResponse();
+    const durableAssistant: WorkflowUIMessage = {
+      id: "assistant-1",
+      role: "assistant",
+      parts: [{ type: "text", text: "Durable answer" }],
+      metadata: {
+        terminal: { status: "completed", finishReason: "stop" },
+        usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+      },
+    };
+    const request = vi.fn<typeof fetch>((input, init) => {
+      const url = requestUrl(input);
+      if (init?.method === "POST") return Promise.resolve(controlled.response);
+      if (url.endsWith("/state")) {
+        return Promise.resolve(
+          Response.json({ messages: [SEEDED_MESSAGE, durableAssistant], activeTurn: null }),
+        );
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    const registry = createWorkflowWidgetChatSessionRegistry();
+    const session = registry.getOrCreate({
+      client: createClient(request),
+      includeHostContext: false,
+      initialMessages: [SEEDED_MESSAGE],
+      lifecycle: {},
+    });
+
+    void session.submitMessage("Keep running");
+    await waitFor(() => session.getSnapshot().activeRunId === "run-1");
+    controlled.finish();
+    await waitFor(() => session.getSnapshot().activeEpoch === undefined);
+
+    expect(registry.has("conversation-1")).toBe(true);
+    await registry.reconcileInactiveConversation("conversation-1");
+
+    expect(registry.has("conversation-1")).toBe(false);
+    expect(request).toHaveBeenCalledTimes(2);
   });
 });
 

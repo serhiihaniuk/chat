@@ -70,6 +70,8 @@ export interface TurnExecution {
    * stream, so the caller can still return an HTTP error.
    */
   start(input: TurnExecutionInput): Promise<StartedTurnExecution>;
+  /** Re-attach an idempotent request replay to its already-created durable run. */
+  resume(runId: string, input: TurnExecutionInput): Promise<StartedTurnExecution>;
   /**
    * Deliver a cancellation to the in-flight provider call for `runId`. Signal-based:
    * the running step aborts and the run resolves a cancelled terminal. A no-op if

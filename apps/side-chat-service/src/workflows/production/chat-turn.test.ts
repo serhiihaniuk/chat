@@ -1,10 +1,43 @@
 import type { UIMessageChunk } from "ai";
 import type { ModelCallStreamPart } from "@ai-sdk/workflow";
+import type * as WorkflowModule from "workflow";
 import { HookNotFoundError, WorkflowRunNotFoundError } from "workflow/internal/errors";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { ModelProvider } from "#application/ports/model-provider";
+import { TURN_CLAIM_DISPOSITIONS } from "#application/ports/turn/turn-store";
+import type { createChatTurnAgent, toChatTurnModelMessages } from "../chat-turn-agent.js";
+import type { claimChatTurnExecution, resolveRejectedChatTurnClaim } from "../execution-claim.js";
+
+const { claimExecutionMock, createAgentMock, createHookMock, resolveRejectedClaimMock } =
+  vi.hoisted(() => ({
+    claimExecutionMock: vi.fn<typeof claimChatTurnExecution>(),
+    createAgentMock: vi.fn<typeof createChatTurnAgent>(),
+    createHookMock: vi.fn<() => Promise<never>>(),
+    resolveRejectedClaimMock: vi.fn<typeof resolveRejectedChatTurnClaim>(),
+  }));
+
+vi.mock("workflow", async (importOriginal) => {
+  const actual = await importOriginal<typeof WorkflowModule>();
+  return {
+    ...actual,
+    createHook: createHookMock,
+    getWorkflowMetadata: () => ({ workflowRunId: "workflow-run-1" }),
+  };
+});
+vi.mock("../execution-claim.js", () => ({
+  claimChatTurnExecution: claimExecutionMock,
+  resolveRejectedChatTurnClaim: resolveRejectedClaimMock,
+}));
+vi.mock("../chat-turn-agent.js", () => ({
+  createChatTurnAgent: createAgentMock,
+  toChatTurnModelMessages: vi.fn<typeof toChatTurnModelMessages>(),
+}));
 
 import {
   clientToolResultHookToken,
+  didWorkflowAgentFail,
+  executeChatTurn,
   preserveDynamicClientToolIdentity,
   stampAssistantMessageId,
   toChatTurnUIStream,
@@ -15,7 +48,62 @@ import { cancelChatTurn, wakeChatTurnProviderStep } from "./cancellation/index.j
 const ZERO_USAGE = { inputTokens: 0, outputTokens: 0, totalTokens: 0 } as const;
 const ACTIVITY_DURATION_MS = 1_501;
 
+beforeEach(() => {
+  claimExecutionMock.mockReset();
+  createAgentMock.mockReset();
+  createHookMock.mockReset();
+  resolveRejectedClaimMock.mockReset();
+});
+
+describe("provider execution fence", () => {
+  it("does not resolve or call a provider after the provider-boundary claim is fenced", async () => {
+    claimExecutionMock
+      .mockResolvedValueOnce(TURN_CLAIM_DISPOSITIONS.EXECUTE)
+      .mockResolvedValueOnce(TURN_CLAIM_DISPOSITIONS.FENCED);
+    createHookMock.mockReturnValue(new Promise<never>(() => undefined));
+    resolveRejectedClaimMock.mockResolvedValue({
+      status: "cancelled",
+      reason: "product_turn_fenced",
+    });
+    const modelFor = vi.fn<ModelProvider["modelFor"]>(() => {
+      throw new Error("Provider lookup must remain behind the durable fence.");
+    });
+
+    await expect(
+      executeChatTurn(
+        {
+          workspaceId: "workspace-1",
+          subjectId: "subject-1",
+          conversationId: "conversation-1",
+          turnId: "turn-1",
+          requestId: "request-1",
+          modelId: "model-1",
+          instructions: "Answer safely.",
+          maxSteps: 4,
+          providerTimeoutMs: 30_000,
+          clientToolTimeoutMs: 30_000,
+          messages: [{ role: "user", content: "Hello" }],
+          clientTools: [],
+        },
+        { modelFor },
+        [],
+        "postgres://test",
+      ),
+    ).resolves.toEqual({ status: "cancelled", reason: "product_turn_fenced" });
+
+    expect(claimExecutionMock).toHaveBeenCalledTimes(2);
+    expect(modelFor).not.toHaveBeenCalled();
+    expect(createAgentMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("completed chat turn outcome", () => {
+  it("recognizes a resolved WorkflowAgent error result as a failed run", () => {
+    expect(didWorkflowAgentFail({ finishReason: "error" })).toBe(true);
+    expect(didWorkflowAgentFail({ finishReason: "other" })).toBe(false);
+    expect(didWorkflowAgentFail({ finishReason: "stop" })).toBe(false);
+  });
+
   it("creates a stable empty assistant UIMessage when the model emits no content", () => {
     const outcome = toCompletedChatTurnOutcome("turn-1", 4, ACTIVITY_DURATION_MS, {
       steps: [{ content: [] }],

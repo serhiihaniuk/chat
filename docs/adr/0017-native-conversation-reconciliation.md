@@ -85,8 +85,9 @@ current. Durable snapshots and Workflow replay remain the correctness sources.
 The browser recovery cursor remains a narrow tab-local hint. It may choose the
 conversation to recover after a hard refresh, but the service snapshot decides the
 current run. A stale cursor is cleared without changing that persisted selection;
-the terminal history remains visible for the recovery load. The next idle refresh,
-with no cursor, starts at New chat as usual.
+the terminal history remains visible for the recovery load. A separate optional
+tab-local selection key may restore only the selected durable conversation id on
+the next idle refresh. It stores no content or lifecycle, and New chat clears it.
 
 ## Alternatives rejected
 

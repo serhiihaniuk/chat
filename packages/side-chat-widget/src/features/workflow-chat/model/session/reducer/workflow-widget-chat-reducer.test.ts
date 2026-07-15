@@ -140,6 +140,28 @@ describe("workflowWidgetChatReducer", () => {
     expect(state.activeRunId).toBe("run-1");
   });
 
+  it("reports an automatic replay attempt as reconnecting until HTTP reconnects", () => {
+    let state = activeState();
+    state = workflowWidgetChatReducer(state, {
+      type: "TransportRecovered",
+      epochId: "epoch-1",
+    });
+    state = workflowWidgetChatReducer(state, {
+      type: "TransportReconnecting",
+      epochId: "epoch-1",
+    });
+
+    expect(state.transport).toBe(WORKFLOW_WIDGET_TRANSPORT.RECONNECTING);
+    expect(state.terminal).toEqual({ kind: "none" });
+
+    state = workflowWidgetChatReducer(state, {
+      type: "TransportRecovered",
+      epochId: "epoch-1",
+    });
+
+    expect(state.transport).toBe(WORKFLOW_WIDGET_TRANSPORT.LIVE);
+  });
+
   it("keeps cancel provisional until a server snapshot confirms the outcome", () => {
     let state = activeState();
     state = workflowWidgetChatReducer(state, {

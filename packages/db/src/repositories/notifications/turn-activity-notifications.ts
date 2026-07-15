@@ -1,23 +1,21 @@
-import { Stream } from "effect";
 import { parseJsonRecord } from "@side-chat/shared";
 
-/** Identity-only signal emitted when one assistant turn starts or terminalizes. */
+/** Identity-only invalidation emitted when one assistant turn changes lifecycle. */
 export type TurnActivityNotification = {
   readonly workspaceId: string;
   readonly subjectId: string;
   readonly conversationId: string;
   readonly assistantTurnId: string;
-  readonly status: string;
 };
 
-/** Per-process feed backed by one persistence-owned notification connection. */
+/** Native per-process feed backed by one persistence-owned notification connection. */
 export type TurnActivityNotificationSource = {
-  readonly notifications: Stream.Stream<TurnActivityNotification>;
+  readonly openNotifications: () => ReadableStream<TurnActivityNotification>;
 };
 
 /** Memory persistence publishes directly, so callers without a source can stay idle. */
 export const NOOP_TURN_ACTIVITY_NOTIFICATION_SOURCE: TurnActivityNotificationSource = {
-  notifications: Stream.never,
+  openNotifications: () => new ReadableStream<TurnActivityNotification>(),
 };
 
 /** Reject malformed or content-bearing database notifications at the adapter edge. */
@@ -31,15 +29,13 @@ export const parseTurnActivityNotification = (
   const subjectId = record["subjectId"];
   const conversationId = record["conversationId"];
   const assistantTurnId = record["assistantTurnId"];
-  const status = record["status"];
   if (
     typeof workspaceId !== "string" ||
     typeof subjectId !== "string" ||
     typeof conversationId !== "string" ||
-    typeof assistantTurnId !== "string" ||
-    typeof status !== "string"
+    typeof assistantTurnId !== "string"
   ) {
     return undefined;
   }
-  return { workspaceId, subjectId, conversationId, assistantTurnId, status };
+  return { workspaceId, subjectId, conversationId, assistantTurnId };
 };

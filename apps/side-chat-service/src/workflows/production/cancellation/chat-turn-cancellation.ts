@@ -21,9 +21,10 @@ type CancelChatTurnDependencies = Readonly<{
 }>;
 
 /**
- * Record the durable user intent before waking the host-native provider signal.
- * This module stays outside the workflow entry so Postgres runtime code cannot
- * leak into the deterministic workflow sandbox bundle.
+ * Convert a route cancellation request into durable workflow intent, then wake
+ * the host-side provider abort signal. The run id and reason are the source; the
+ * resumed hook and abort notification are the targets. Keeping this adapter
+ * outside the workflow preserves a deterministic bundle without Postgres code.
  */
 export async function cancelChatTurn(
   runId: string,

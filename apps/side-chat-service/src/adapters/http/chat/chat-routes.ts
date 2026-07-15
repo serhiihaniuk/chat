@@ -26,6 +26,10 @@ import { parseCancelRequest, parseChatRequest } from "./chat-request-schema.js";
 import { createChatStreamResponse, type OutboundTransformFactory } from "./chat-stream-response.js";
 import { readToolApprovalDecision } from "./approvals/read-tool-approval-decision.js";
 import { readCappedBytes } from "./body/read-capped-bytes.js";
+import { readCappedJson } from "./body/read-capped-json.js";
+
+export const CHAT_REQUEST_MAX_BYTES = 512 * 1024;
+const CANCEL_REQUEST_MAX_BYTES = 4 * 1024;
 
 export {
   TOOL_APPROVAL_DECISION_MAX_BYTES,
@@ -55,7 +59,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
   app.post(CHAT_HTTP_ROUTES.START, async (context) => {
     const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
     const request = await parseChatRequest(
-      await safeJson(context.req.raw),
+      await readCappedJson(context.req.raw, CHAT_REQUEST_MAX_BYTES),
       dependencies.serverToolNames,
       dependencies.hostContextPolicy,
     );
@@ -93,7 +97,9 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
 
   app.post(CHAT_HTTP_ROUTES.CANCEL, async (context) => {
     const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
-    const request = parseCancelRequest(await safeJson(context.req.raw));
+    const request = parseCancelRequest(
+      await readCappedJson(context.req.raw, CANCEL_REQUEST_MAX_BYTES),
+    );
     if (!request) {
       return errorResponse(requestId, HTTP_ERROR.BAD_REQUEST, "Invalid cancel request.");
     }
@@ -214,14 +220,6 @@ function mapTurnError(requestId: string, error: unknown): Response {
     HTTP_ERROR.INTERNAL_SERVER_ERROR,
     "The turn request could not be completed.",
   );
-}
-
-async function safeJson(request: Request): Promise<unknown> {
-  try {
-    return await request.json();
-  } catch {
-    return undefined;
-  }
 }
 
 export const CLIENT_TOOL_OUTPUT_MAX_BYTES = 64 * 1024;

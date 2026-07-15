@@ -72,6 +72,29 @@ describe("ToolsMenu host context", () => {
     expect(container.textContent).not.toContain("Include page context");
     expect(container.textContent).toContain("No tools available");
   });
+
+  it("toggles the owning rows when their visible switch indicators are clicked", async () => {
+    const toggleContext = vi.fn<() => void>();
+    const toggleTool = vi.fn<(name: string) => void>();
+    renderMenu({
+      includeHostContext: false,
+      onToggleHostContext: toggleContext,
+      onToggleTool: toggleTool,
+      tools: [{ name: "mock_web_search", label: "Mock web search", enabled: true }],
+    });
+
+    await openMenu();
+
+    const indicators = [...container.querySelectorAll<HTMLElement>(".sc-switch-root")];
+    expect(indicators).toHaveLength(2);
+    expect(container.querySelector('[role="switch"]')).toBeNull();
+
+    act(() => indicators[0]?.click());
+    expect(toggleContext).toHaveBeenCalledTimes(1);
+
+    act(() => indicators[1]?.click());
+    expect(toggleTool).toHaveBeenCalledWith("mock_web_search");
+  });
 });
 
 function renderMenu(props: NonNullable<Parameters<typeof ToolsMenu>[0]>): void {

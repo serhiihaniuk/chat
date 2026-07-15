@@ -10,10 +10,11 @@ type ChatTurnFinalizeInput = Readonly<{
 }>;
 
 /**
- * Persist the complete terminal projection inside the durable workflow. One
- * repository transaction commits the optional assistant message, usage, turn
- * status, conversation activity, and notification behind a guarded transition.
- * A replay after commit is a no-op; there is no terminal-without-history window.
+ * Convert the workflow's terminal projection into one guarded Postgres write.
+ * The source is the closed journal plus terminal outcome; the target is the
+ * product turn, optional assistant message, conversation activity, and
+ * notification. The transaction preserves the invariant that history and the
+ * terminal state become visible together, while a replay after commit is a no-op.
  */
 export async function runChatTurnFinalizeStep(input: ChatTurnFinalizeInput): Promise<void> {
   "use step";

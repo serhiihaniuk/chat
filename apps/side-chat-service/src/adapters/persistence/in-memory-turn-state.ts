@@ -3,7 +3,6 @@ import type { UIMessage } from "ai";
 import type { ConversationStore } from "#application/ports/turn/conversation-store";
 import type { ConversationTitleStore } from "#application/ports/turn/title/conversation-title-store";
 import {
-  DEFAULT_HISTORY_PAGE_LIMIT,
   type ConversationHistoryPage,
   type ConversationHistoryQuery,
   type ConversationQueryStore,
@@ -11,6 +10,7 @@ import {
 } from "#application/ports/conversation-query-store";
 import {
   CANCEL_REQUEST_DISPOSITIONS,
+  BEGIN_TURN_DISPOSITIONS,
   TURN_CLAIM_DISPOSITIONS,
   type BeginTurnInput,
   type TurnStore,
@@ -21,7 +21,13 @@ import type { AuthContext } from "#domain/auth-context";
 import type { TurnMessage, TurnRef, TurnTerminal } from "#domain/turn/turn";
 
 import {
+  createInMemoryTurnReference,
+  findTurnByRequest,
   listOwnedActiveTurns,
+  requireIdleConversation,
+  requestConflict,
+  sameReplayInput,
+  sameReplayOwner,
   sameOwner,
   type InMemoryStoredTurn,
 } from "./in-memory-turn-state/active-turns.js";
@@ -32,6 +38,7 @@ import {
   assertInMemoryRunAccessible,
   findInMemoryActiveTurn,
   readInMemoryConversationState,
+  readInMemoryHistoryPage,
 } from "./in-memory-turn-state/queries.js";
 
 export type SeedConversation = Readonly<{
@@ -87,18 +94,9 @@ export class InMemoryTurnState
   ): Promise<ConversationHistoryPage> {
     try {
       this.requireOwnedConversation(auth, conversationId);
-      // Array positions mirror the Postgres backward-history cursor semantics.
-      const all = this.conversationMessages.get(conversationId) ?? [];
-      const limit = query?.limit ?? DEFAULT_HISTORY_PAGE_LIMIT;
-      const upperExclusive = Math.min(query?.beforeSequenceIndex ?? all.length, all.length);
-      const start = Math.max(0, upperExclusive - limit);
-      const hasMoreBefore = start > 0;
-      const nextBeforeSequenceIndex = hasMoreBefore ? start : undefined;
-      return Promise.resolve({
-        messages: all.slice(start, upperExclusive),
-        hasMoreBefore,
-        ...(nextBeforeSequenceIndex === undefined ? {} : { nextBeforeSequenceIndex }),
-      });
+      return Promise.resolve(
+        readInMemoryHistoryPage(this.conversationMessages.get(conversationId) ?? [], query),
+      );
     } catch (error) {
       return Promise.reject(asError(error));
     }
@@ -157,34 +155,56 @@ export class InMemoryTurnState
   }
 
   recordConversationTitleRun(): Promise<void> {
-    // No durable Workflow journal exists here, so title-run linkage is a no-op.
     return Promise.resolve();
   }
 
-  assertCanBegin(auth: AuthContext, conversationId: string): Promise<void> {
+  assertCanBegin(auth: AuthContext, conversationId: string, requestId: string): Promise<void> {
     try {
       this.requireOwnedConversation(auth, conversationId);
-      this.requireIdleConversation(conversationId);
+      const replay = findTurnByRequest(this.turns.values(), requestId);
+      if (replay) {
+        if (sameReplayOwner(replay, auth, conversationId)) return Promise.resolve();
+        throw requestConflict();
+      }
+      requireIdleConversation(this.runningTurns, conversationId);
       return Promise.resolve();
     } catch (error) {
       return Promise.reject(asError(error));
     }
   }
 
-  beginTurn(input: BeginTurnInput): Promise<TurnRef> {
+  beginTurn(input: BeginTurnInput): ReturnType<TurnStore["beginTurn"]> {
     try {
       this.requireOwnedConversation(input.auth, input.conversationId);
-      this.requireIdleConversation(input.conversationId);
+      const replay = findTurnByRequest(this.turns.values(), input.requestId);
+      if (replay) {
+        if (!sameReplayInput(replay, input)) throw requestConflict();
+        return Promise.resolve({
+          ...replay.reference,
+          disposition: BEGIN_TURN_DISPOSITIONS.REUSED,
+          ...(replay.runId === undefined ? {} : { runId: replay.runId }),
+        });
+      }
+      requireIdleConversation(this.runningTurns, input.conversationId);
 
-      const reference = this.createTurnReference(input.conversationId, input.auth);
+      const reference = createInMemoryTurnReference(
+        input.conversationId,
+        input.auth,
+        this.nextTurnNumber,
+      );
+      this.nextTurnNumber += 1;
       this.runningTurns.add(input.conversationId);
       this.userMessages.push(input.userMessage);
       this.appendConversationMessage(input.conversationId, storedUserMessage(input.userMessage));
       this.turns.set(reference.turnId, {
         reference,
         requestId: input.requestId,
+        userMessage: input.userMessage,
       });
-      return Promise.resolve(reference);
+      return Promise.resolve({
+        ...reference,
+        disposition: BEGIN_TURN_DISPOSITIONS.CREATED,
+      });
     } catch (error) {
       return Promise.reject(asError(error));
     }
@@ -194,7 +214,7 @@ export class InMemoryTurnState
     const stored = this.requireTurn(turn);
     if (stored.runId === runId) return Promise.resolve();
     this.turns.set(turn.turnId, { ...stored, runId });
-    this.turnActivity.publish(turn, "running");
+    this.turnActivity.publish(turn);
     return Promise.resolve();
   }
 
@@ -245,7 +265,7 @@ export class InMemoryTurnState
     }
     this.terminals.set(turn.turnId, record.terminal);
     this.runningTurns.delete(turn.conversationId);
-    this.turnActivity.publish(turn, record.terminal.status);
+    this.turnActivity.publish(turn);
     return Promise.resolve(true);
   }
 
@@ -261,32 +281,12 @@ export class InMemoryTurnState
     return conversation;
   }
 
-  private requireIdleConversation(conversationId: string): void {
-    if (!this.runningTurns.has(conversationId)) return;
-
-    throw new TurnRejectedError(
-      TURN_REJECTION_CODES.BUSY,
-      "Conversation already has a running turn",
-    );
-  }
-
   private requireTurn(turn: TurnRef): InMemoryStoredTurn {
     const stored = this.turns.get(turn.turnId);
     if (stored?.reference.conversationId !== turn.conversationId) {
       throw new TurnRejectedError(TURN_REJECTION_CODES.RUN_NOT_FOUND, "Turn not found");
     }
     return stored;
-  }
-
-  private createTurnReference(conversationId: string, auth: AuthContext): TurnRef {
-    const turnId = `turn-${this.nextTurnNumber}`;
-    this.nextTurnNumber += 1;
-    return {
-      conversationId,
-      turnId,
-      workspaceId: auth.workspaceId,
-      subjectId: auth.subjectId,
-    };
   }
 
   private appendConversationMessage(

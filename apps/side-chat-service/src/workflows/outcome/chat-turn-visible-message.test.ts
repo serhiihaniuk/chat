@@ -1,7 +1,10 @@
-import type { ModelCallStreamPart } from "@ai-sdk/workflow";
 import { describe, expect, it } from "vitest";
 
-import { readVisibleAssistantMessage } from "./chat-turn-visible-message.js";
+import type { ChatTurnJournalPart } from "../journal/chat-turn-journal.js";
+import {
+  readChatTurnJournalProjection,
+  readVisibleAssistantMessage,
+} from "./chat-turn-visible-message.js";
 
 describe("readVisibleAssistantMessage", () => {
   it("reassembles streamed reasoning and text in source order", async () => {
@@ -50,6 +53,48 @@ describe("readVisibleAssistantMessage", () => {
         }),
       ),
     ).resolves.toBeUndefined();
+  });
+
+  it("does not create an empty assistant message for an error-only journal", async () => {
+    await expect(
+      readVisibleAssistantMessage(
+        "turn-error",
+        parts({ type: "error", error: new Error("private provider failure") }),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("reports a durable provider failure while preserving partial visible output", async () => {
+    const projection = await readChatTurnJournalProjection(
+      "turn-provider-error",
+      parts(
+        { type: "text-start", id: "text-1" },
+        { type: "text-delta", id: "text-1", text: "Partial answer" },
+        { type: "text-end", id: "text-1" },
+        { type: "error", error: new Error("private provider failure") },
+      ),
+    );
+
+    expect(projection.providerFailed).toBe(true);
+    expect(projection.assistantMessage).toMatchObject({
+      id: "turn-provider-error-assistant",
+    });
+    expect(projection.assistantMessage?.parts).toContainEqual(
+      expect.objectContaining({ type: "text", text: "Partial answer" }),
+    );
+  });
+
+  it("does not infer provider failure from a successful journal", async () => {
+    await expect(
+      readChatTurnJournalProjection(
+        "turn-success",
+        parts(
+          { type: "text-start", id: "text-1" },
+          { type: "text-delta", id: "text-1", text: "Complete answer" },
+          { type: "text-end", id: "text-1" },
+        ),
+      ),
+    ).resolves.toMatchObject({ providerFailed: false });
   });
 
   it("persists the native tool lifecycle and attributed sources", async () => {
@@ -116,8 +161,8 @@ describe("readVisibleAssistantMessage", () => {
         },
         {
           type: "tool-approval-request",
-          toolCallId: "call-1",
           approvalId: "approval-call-1",
+          toolCallId: "call-1",
         },
         {
           type: "tool-result",
@@ -143,10 +188,10 @@ describe("readVisibleAssistantMessage", () => {
   });
 });
 
-function parts(...values: unknown[]): ReadableStream<ModelCallStreamPart> {
+function parts(...values: ChatTurnJournalPart[]): ReadableStream<ChatTurnJournalPart> {
   return new ReadableStream({
     start(controller) {
-      for (const value of values) controller.enqueue(value as ModelCallStreamPart);
+      for (const value of values) controller.enqueue(value);
       controller.close();
     },
   });

@@ -11,7 +11,6 @@ describe("parseTurnActivityNotification", () => {
           subjectId: "subject-1",
           conversationId: "conversation-1",
           assistantTurnId: "turn-1",
-          status: "running",
         }),
       ),
     ).toEqual({
@@ -19,7 +18,6 @@ describe("parseTurnActivityNotification", () => {
       subjectId: "subject-1",
       conversationId: "conversation-1",
       assistantTurnId: "turn-1",
-      status: "running",
     });
   });
 

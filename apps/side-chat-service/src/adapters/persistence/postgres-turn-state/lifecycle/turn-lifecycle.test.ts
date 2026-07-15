@@ -1,14 +1,16 @@
 import {
+  DB_REPOSITORY_ERROR_CODES,
   DbRepositoryError,
-  type AppendMessageCommand,
+  type BeginAssistantTurnCommand,
   type FinalizeAssistantTurnCommand,
-  type CreateOrGetConversationCommand,
-  type StartAssistantTurnCommand,
 } from "@side-chat/db";
 import { describe, expect, it } from "vitest";
 
 import { TURN_REJECTION_CODES } from "#application/turn/turn-errors";
-import { TURN_CLAIM_DISPOSITIONS } from "#application/ports/turn/turn-store";
+import {
+  BEGIN_TURN_DISPOSITIONS,
+  TURN_CLAIM_DISPOSITIONS,
+} from "#application/ports/turn/turn-store";
 import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES } from "#domain/turn/turn";
 
 import {
@@ -16,33 +18,21 @@ import {
   BEGIN_INPUT,
   NOW,
   assistantTurnRecord,
+  begunTurn,
   conversationRecord,
   fakeRepositories,
-  messageRecord,
-  ok,
-  uniqueViolation,
 } from "#testing/persistence/postgres-turn-state-test-support";
 
 import { createTurnStateFromRepositories } from "../../postgres-turn-state.js";
 
 describe("postgres turn state adapter mapping", () => {
   it("maps a TurnMessage to a text part and threads pass-through identity on begin", async () => {
-    let appendCommand: AppendMessageCommand | undefined;
-    let startCommand: StartAssistantTurnCommand | undefined;
-    let conversationCreated: CreateOrGetConversationCommand | undefined;
+    let beginCommand: BeginAssistantTurnCommand | undefined;
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        createOrGetConversation: (command) => {
-          conversationCreated = command;
-          return ok(conversationRecord());
-        },
-        appendMessage: (command) => {
-          appendCommand = command;
-          return ok(messageRecord());
-        },
-        startAssistantTurn: (command) => {
-          startCommand = command;
-          return ok(assistantTurnRecord("turn_9"));
+        beginAssistantTurn: (command) => {
+          beginCommand = command;
+          return begunTurn("turn_9");
         },
       }),
     );
@@ -54,27 +44,20 @@ describe("postgres turn state adapter mapping", () => {
       turnId: "turn_9",
       workspaceId: AUTH.workspaceId,
       subjectId: AUTH.subjectId,
+      disposition: BEGIN_TURN_DISPOSITIONS.CREATED,
     });
-    // conversationId is passed through as both id and key; actor is the subject.
-    expect(conversationCreated).toMatchObject({
+    expect(beginCommand).toMatchObject({
       conversationId: "conversation_1",
       conversationKey: "conversation_1",
       actorId: AUTH.subjectId,
-    });
-    // The user TurnMessage becomes a single durable text part.
-    expect(appendCommand).toMatchObject({
-      conversationId: "conversation_1",
-      messageId: "user_1",
-      subjectId: "subject_1",
-      role: "user",
-      parts: [{ type: "text", text: "Hello" }],
-      metadataJson: {},
-    });
-    // Provenance is placeholder (no model info on BeginTurnInput yet).
-    expect(startCommand).toMatchObject({
       requestId: "request_1",
       userMessageId: "user_1",
-      actorId: AUTH.subjectId,
+      userMessage: {
+        messageId: "user_1",
+        role: "user",
+        parts: [{ type: "text", text: "Hello" }],
+        metadataJson: {},
+      },
       modelProvider: "pending",
       modelId: "pending",
     });
@@ -83,10 +66,10 @@ describe("postgres turn state adapter mapping", () => {
   it("maps the db busy guard to a BUSY rejection", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        createOrGetConversation: () => ok(conversationRecord()),
-        appendMessage: () => ok(messageRecord()),
-        startAssistantTurn: () =>
-          Promise.reject(new DbRepositoryError("conversation_busy", "busy")),
+        beginAssistantTurn: () =>
+          Promise.reject(
+            new DbRepositoryError(DB_REPOSITORY_ERROR_CODES.CONVERSATION_BUSY, "busy"),
+          ),
       }),
     );
 
@@ -95,10 +78,16 @@ describe("postgres turn state adapter mapping", () => {
     });
   });
 
-  it("maps a conversations_pkey collision to a FORBIDDEN rejection", async () => {
+  it("maps a cross-tenant aggregate rejection to FORBIDDEN", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        createOrGetConversation: () => Promise.reject(uniqueViolation("conversations_pkey")),
+        beginAssistantTurn: () =>
+          Promise.reject(
+            new DbRepositoryError(
+              DB_REPOSITORY_ERROR_CODES.CROSS_TENANT_ACCESS_DENIED,
+              "forbidden",
+            ),
+          ),
       }),
     );
 
@@ -107,15 +96,18 @@ describe("postgres turn state adapter mapping", () => {
     });
   });
 
-  it("rethrows a non-pkey unique violation from conversation create", async () => {
+  it("maps mismatched request-id reuse to REQUEST_CONFLICT", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        createOrGetConversation: () => Promise.reject(uniqueViolation("some_other_constraint")),
+        beginAssistantTurn: () =>
+          Promise.reject(
+            new DbRepositoryError(DB_REPOSITORY_ERROR_CODES.IDEMPOTENCY_CONFLICT, "conflict"),
+          ),
       }),
     );
 
     await expect(state.beginTurn(BEGIN_INPUT)).rejects.toMatchObject({
-      message: expect.stringContaining("unique constraint"),
+      code: TURN_REJECTION_CODES.REQUEST_CONFLICT,
     });
   });
 
@@ -142,11 +134,12 @@ describe("postgres turn state adapter mapping", () => {
   it("maps an unavailable resolved slot to BUSY on the assertCanBegin pre-check", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
+        findAssistantTurnByRequest: () => Promise.resolve(undefined),
         resolveConversationTurnAvailability: () => Promise.resolve(false),
       }),
     );
 
-    await expect(state.assertCanBegin(AUTH, "conversation_1")).rejects.toMatchObject({
+    await expect(state.assertCanBegin(AUTH, "conversation_1", "request_1")).rejects.toMatchObject({
       code: TURN_REJECTION_CODES.BUSY,
     });
   });
@@ -154,11 +147,32 @@ describe("postgres turn state adapter mapping", () => {
   it("allows assertCanBegin when recovery resolves the slot as available", async () => {
     const state = createTurnStateFromRepositories(
       fakeRepositories({
+        findAssistantTurnByRequest: () => Promise.resolve(undefined),
         resolveConversationTurnAvailability: () => Promise.resolve(true),
       }),
     );
 
-    await expect(state.assertCanBegin(AUTH, "conversation_1")).resolves.toBeUndefined();
+    await expect(
+      state.assertCanBegin(AUTH, "conversation_1", "request_1"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("allows an owned request replay without consulting the busy slot", async () => {
+    let availabilityRead = false;
+    const state = createTurnStateFromRepositories(
+      fakeRepositories({
+        findAssistantTurnByRequest: () => Promise.resolve(assistantTurnRecord("turn_replay")),
+        resolveConversationTurnAvailability: () => {
+          availabilityRead = true;
+          return Promise.resolve(false);
+        },
+      }),
+    );
+
+    await expect(
+      state.assertCanBegin(AUTH, "conversation_1", "request_1"),
+    ).resolves.toBeUndefined();
+    expect(availabilityRead).toBe(false);
   });
 
   it("maps the Workflow claim to execute, cancel, or fenced", async () => {
@@ -226,9 +240,7 @@ describe("postgres turn state adapter mapping", () => {
     let finalizeCommand: FinalizeAssistantTurnCommand | undefined;
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        createOrGetConversation: () => ok(conversationRecord()),
-        appendMessage: () => ok(messageRecord()),
-        startAssistantTurn: () => ok(assistantTurnRecord("turn_claim")),
+        beginAssistantTurn: () => begunTurn("turn_claim"),
         finalizeAssistantTurn: (command) => {
           finalizeCommand = command;
           return Promise.resolve({
@@ -268,9 +280,7 @@ describe("postgres turn state adapter mapping", () => {
     let finalizeCommand: FinalizeAssistantTurnCommand | undefined;
     const state = createTurnStateFromRepositories(
       fakeRepositories({
-        createOrGetConversation: () => ok(conversationRecord()),
-        appendMessage: () => ok(messageRecord()),
-        startAssistantTurn: () => ok(assistantTurnRecord("turn_msg")),
+        beginAssistantTurn: () => begunTurn("turn_msg"),
         finalizeAssistantTurn: (command) => {
           finalizeCommand = command;
           return Promise.resolve({

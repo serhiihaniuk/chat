@@ -1,6 +1,7 @@
 import {
   REPOSITORY_ADAPTER_KINDS,
   type AssistantTurnRecord,
+  type BeginAssistantTurnResult,
   type ConversationRecord,
   type MessageRecord,
   type SidechatRepositories,
@@ -101,7 +102,7 @@ export const fakeRepositories = (
   prepareConversationTitle: rejects("prepareConversationTitle"),
   resetConversation: rejects("resetConversation"),
   recordConversationTitleRun: rejects("recordConversationTitleRun"),
-  startAssistantTurn: rejects("startAssistantTurn"),
+  beginAssistantTurn: rejects("beginAssistantTurn"),
   bindTurnRun: rejects("bindTurnRun"),
   claimTurnRun: rejects("claimTurnRun"),
   resolveConversationTurnAvailability: rejects("resolveConversationTurnAvailability"),
@@ -132,6 +133,21 @@ export const fakeRepositories = (
 });
 
 export const ok = <T>(record: T) => Promise.resolve({ record, inserted: true });
+
+export const begunTurn = (
+  assistantTurnId: string,
+  inserted = true,
+): Promise<BeginAssistantTurnResult> =>
+  Promise.resolve({
+    conversation: conversationRecord(),
+    userMessage: {
+      ...messageRecord(),
+      messageId: USER_MESSAGE.id,
+      parts: [{ type: "text", text: USER_MESSAGE.text }],
+    },
+    turn: assistantTurnRecord(assistantTurnId),
+    inserted,
+  });
 
 /** A Postgres unique_violation carrying the constraint reported by the driver. */
 export const uniqueViolation = (constraint: string): Error =>

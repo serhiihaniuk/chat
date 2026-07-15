@@ -2,9 +2,14 @@ import type { SideChatReasoningEffort } from "@side-chat/stream-profile";
 
 import type { TurnAdmission, TurnAdmissionLease } from "#application/ports/turn/turn-admission";
 import type { StartedTurnExecution, TurnExecution } from "#application/ports/turn/turn-execution";
-import type { TurnStore } from "#application/ports/turn/turn-store";
+import {
+  BEGIN_TURN_DISPOSITIONS,
+  type BegunTurn,
+  type TurnStore,
+} from "#application/ports/turn/turn-store";
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
 import type { TurnModelPolicy } from "#application/turn/turn-model-policy";
+import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
 import type { HostContext } from "#domain/host-context";
 import {
@@ -54,11 +59,11 @@ export async function prepareTurn(
   input: PrepareTurnInput,
 ): Promise<PreparedTurn> {
   const model = dependencies.modelPolicy(input.requestedModelId, input.requestedReasoningEffort);
-  await dependencies.turns.assertCanBegin(input.auth, input.conversationId);
+  await dependencies.turns.assertCanBegin(input.auth, input.conversationId, input.requestId);
   const admission = await dependencies.admission.admitTurn(input.conversationId);
 
   try {
-    const turn = await dependencies.turns.beginTurn({
+    const begun = await dependencies.turns.beginTurn({
       auth: input.auth,
       conversationId: input.conversationId,
       requestId: input.requestId,
@@ -70,7 +75,7 @@ export async function prepareTurn(
       input.hostContext,
     );
     const executionInput = {
-      ...turn,
+      ...toTurnRef(begun),
       auth: input.auth,
       requestId: input.requestId,
       modelId: model.modelId,
@@ -79,14 +84,43 @@ export async function prepareTurn(
       clientTools: input.clientTools ?? [],
       ...(input.enabledToolNames === undefined ? {} : { enabledToolNames: input.enabledToolNames }),
     };
-    const execution = await startExecution(dependencies, turn, executionInput);
-    await dependencies.turns.bindRun(turn, execution.runId);
+    const turn = toTurnRef(begun);
+    const execution = await beginExecution(dependencies, begun, executionInput);
+    if (begun.disposition === BEGIN_TURN_DISPOSITIONS.CREATED) {
+      await dependencies.turns.bindRun(turn, execution.runId);
+    }
     return { turn, execution, admission };
   } catch (error) {
     await admission.release();
     throw error;
   }
 }
+
+async function beginExecution(
+  dependencies: PrepareTurnDependencies,
+  begun: BegunTurn,
+  input: Parameters<TurnExecution["start"]>[0],
+): Promise<StartedTurnExecution> {
+  const turn = toTurnRef(begun);
+  if (begun.disposition === BEGIN_TURN_DISPOSITIONS.CREATED) {
+    return startExecution(dependencies, turn, input);
+  }
+  if (begun.runId === undefined) {
+    throw new TurnRejectedError(
+      TURN_REJECTION_CODES.RUN_NOT_READY,
+      "The accepted turn is waiting for its durable run",
+      1,
+    );
+  }
+  return dependencies.execution.resume(begun.runId, input);
+}
+
+const toTurnRef = (begun: BegunTurn): TurnRef => ({
+  conversationId: begun.conversationId,
+  turnId: begun.turnId,
+  workspaceId: begun.workspaceId,
+  subjectId: begun.subjectId,
+});
 
 async function startExecution(
   dependencies: PrepareTurnDependencies,

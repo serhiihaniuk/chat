@@ -4,17 +4,19 @@ import { describe, expect, it, vi } from "vitest";
 import { HTTP_ERROR } from "#adapters/http/error-response";
 import { CHAT_HTTP_ROUTES, HTTP_HEADERS } from "#adapters/http/http-contract";
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
-import type {
-  StartedTurnExecution,
-  TurnExecution,
-  TurnExecutionInput,
-  TurnExecutionTerminal,
-} from "#application/ports/turn/turn-execution";
+import type { TurnExecutionTerminal } from "#application/ports/turn/turn-execution";
 import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES, type TurnMessage } from "#domain/turn/turn";
 import { createServiceTestHarness } from "#composition/route/testing-harness/service-test-harness";
 import { SCRIPTED_PROVIDER } from "#config/providers/scripted-provider-config";
 import { OPENAI_PROVIDER } from "#config/providers/openai-provider-config";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
+import {
+  chunks,
+  ControlledTurnExecution,
+  deferred,
+  neverTerminal,
+  TEST_RUN_ID,
+} from "#testing/http/chat/chat-routes.test-support";
 
 const TEST_CONVERSATION = {
   conversationId: "conversation-1",
@@ -23,7 +25,6 @@ const TEST_CONVERSATION = {
 } as const;
 
 const SUCCESS_HTTP_STATUS = 200;
-const TEST_RUN_ID = "run-1";
 const UNKNOWN_RUN_ID = "run-secret";
 const RAW_PROVIDER_SENTINEL = "RAW provider secret sk-live-should-never-ship";
 
@@ -335,25 +336,6 @@ describe("chat routes", () => {
   });
 });
 
-class ControlledTurnExecution implements TurnExecution {
-  readonly started: TurnExecutionInput[] = [];
-  readonly cancelled: string[] = [];
-
-  constructor(
-    private readonly stream: ReadableStream<UIMessageChunk>,
-    private readonly terminal: Promise<TurnExecutionTerminal>,
-  ) {}
-
-  async start(input: TurnExecutionInput): Promise<StartedTurnExecution> {
-    this.started.push(input);
-    return { runId: TEST_RUN_ID, stream: this.stream, terminal: this.terminal };
-  }
-
-  async cancel(runId: string): Promise<void> {
-    this.cancelled.push(runId);
-  }
-}
-
 function openAiReasoningModels() {
   return {
     provider: OPENAI_PROVIDER.KIND,
@@ -383,15 +365,6 @@ function chatRequest(extra: Record<string, unknown> = {}): RequestInit {
       ...extra,
     }),
   };
-}
-
-function chunks(...parts: UIMessageChunk[]): ReadableStream<UIMessageChunk> {
-  return new ReadableStream({
-    start(controller) {
-      for (const part of parts) controller.enqueue(part);
-      controller.close();
-    },
-  });
 }
 
 async function responseText(response: Response): Promise<string> {
@@ -438,12 +411,4 @@ function ownedState(): InMemoryTurnState {
 
 function cancelRoute(runId: string): string {
   return CHAT_HTTP_ROUTES.CANCEL.replace(":runId", runId);
-}
-
-function deferred<T>() {
-  return Promise.withResolvers<T>();
-}
-
-function neverTerminal(): Promise<TurnExecutionTerminal> {
-  return new Promise(() => undefined);
 }

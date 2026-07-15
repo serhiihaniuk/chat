@@ -8,7 +8,12 @@ import {
   type SideChatMessageTerminal,
 } from "@side-chat/stream-profile";
 
-import type { TurnExecution, TurnExecutionTerminal } from "#application/ports/turn/turn-execution";
+import type {
+  StartedTurnExecution,
+  TurnExecution,
+  TurnExecutionInput,
+  TurnExecutionTerminal,
+} from "#application/ports/turn/turn-execution";
 import { UI_MESSAGE_CHUNK_TYPES } from "#application/turn/stream/ui-message-chunk-types";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { Settings } from "#config/settings/resolve-settings";
@@ -24,6 +29,7 @@ import {
   CHAT_TURN_OUTCOMES,
   chatTurnUsage,
   classifyChatTurnOutcome,
+  resumeChatTurn,
   startChatTurn,
   toPublicTurnErrorCode,
   type ChatTurnTerminalOutcome,
@@ -34,6 +40,10 @@ import {
 import { cancelChatTurn } from "#workflows/production/cancellation/index";
 
 export type StartChatTurn = (input: ChatTurnWorkflowInput) => Promise<StartedChatTurn>;
+export type ResumeChatTurn = (
+  runId: string,
+  input: ChatTurnWorkflowInput,
+) => Promise<StartedChatTurn>;
 
 const TURN_CANCELLATION = {
   USER_REASON: "user_requested_cancellation",
@@ -52,43 +62,64 @@ const TURN_CANCELLATION = {
 export function createWorkflowTurnExecution(
   settings: Settings,
   startTurn: StartChatTurn = startChatTurn,
+  resumeTurn: ResumeChatTurn = resumeChatTurn,
 ): TurnExecution {
   return {
     async start(input) {
-      if (input.clientTools.length > 0 && settings.persistence.databaseUrl === undefined) {
-        throw new TurnRejectedError(
-          TURN_REJECTION_CODES.CLIENT_TOOLS_UNAVAILABLE,
-          "Client tools require durable persistence",
-        );
-      }
-      const started = await startTurn({
-        workspaceId: input.auth.workspaceId,
-        subjectId: input.auth.subjectId,
-        conversationId: input.conversationId,
-        turnId: input.turnId,
-        requestId: input.requestId,
-        modelId: input.modelId,
-        ...(input.reasoningEffort === undefined ? {} : { reasoningEffort: input.reasoningEffort }),
-        instructions: settings.agent.instructions,
-        maxSteps: settings.agent.maxSteps,
-        providerTimeoutMs: settings.timeouts.providerMs,
-        clientToolTimeoutMs: settings.timeouts.clientToolMs,
-        messages: input.messages.map(toSerializableMessage),
-        clientTools: input.clientTools,
-        ...(input.enabledToolNames === undefined
-          ? {}
-          : { enabledToolNames: input.enabledToolNames }),
-      });
-      const terminal = started.terminal.then(toApplicationTerminal);
-      return {
-        runId: started.runId,
-        stream: stampFinishReason(started.stream, terminal),
-        terminal,
-      };
+      assertClientToolsAvailable(settings, input.clientTools);
+      return toStartedExecution(await startTurn(toWorkflowInput(settings, input)));
+    },
+    async resume(runId, input) {
+      assertClientToolsAvailable(settings, input.clientTools);
+      return toStartedExecution(await resumeTurn(runId, toWorkflowInput(settings, input)));
     },
     async cancel(runId) {
       await cancelChatTurn(runId, TURN_CANCELLATION.USER_REASON);
     },
+  };
+}
+
+function assertClientToolsAvailable(
+  settings: Settings,
+  clientTools: TurnExecutionInput["clientTools"],
+): void {
+  if (clientTools.length === 0 || settings.persistence.databaseUrl !== undefined) return;
+  throw new TurnRejectedError(
+    TURN_REJECTION_CODES.CLIENT_TOOLS_UNAVAILABLE,
+    "Client tools require durable persistence",
+  );
+}
+
+function toWorkflowInput(settings: Settings, input: TurnExecutionInput): ChatTurnWorkflowInput {
+  const required: ChatTurnWorkflowInput = {
+    workspaceId: input.auth.workspaceId,
+    subjectId: input.auth.subjectId,
+    conversationId: input.conversationId,
+    turnId: input.turnId,
+    requestId: input.requestId,
+    modelId: input.modelId,
+    instructions: settings.agent.instructions,
+    maxSteps: settings.agent.maxSteps,
+    providerTimeoutMs: settings.timeouts.providerMs,
+    clientToolTimeoutMs: settings.timeouts.clientToolMs,
+    messages: input.messages.map(toSerializableMessage),
+    clientTools: input.clientTools,
+  };
+  const withReasoning =
+    input.reasoningEffort === undefined
+      ? required
+      : { ...required, reasoningEffort: input.reasoningEffort };
+  return input.enabledToolNames === undefined
+    ? withReasoning
+    : { ...withReasoning, enabledToolNames: input.enabledToolNames };
+}
+
+function toStartedExecution(started: StartedChatTurn): StartedTurnExecution {
+  const terminal = started.terminal.then(toApplicationTerminal);
+  return {
+    runId: started.runId,
+    stream: stampFinishReason(started.stream, terminal),
+    terminal,
   };
 }
 
@@ -140,19 +171,7 @@ export function stampFinishReason(
         const terminalOutcome = await terminal;
         const reason = finishReasonForTerminal(terminalOutcome);
         const messageTerminal = toMessageTerminal(terminalOutcome);
-        const hasMetadata =
-          terminalOutcome.stepUsage !== undefined || messageTerminal !== undefined;
-        const messageMetadata = hasMetadata
-          ? {
-              messageMetadata: {
-                usage: sumTurnUsage(terminalOutcome.stepUsage ?? []),
-                ...(terminalOutcome.activityDurationMs === undefined
-                  ? {}
-                  : { activityDurationMs: terminalOutcome.activityDurationMs }),
-                ...(messageTerminal === undefined ? {} : { terminal: messageTerminal }),
-              },
-            }
-          : {};
+        const messageMetadata = toFinishMessageMetadata(terminalOutcome, messageTerminal);
         controller.enqueue(
           reason === undefined
             ? { ...chunk, ...messageMetadata }
@@ -179,11 +198,14 @@ function toMessageTerminal(terminal: {
   readonly status?: TurnTerminalStatus | undefined;
 }): SideChatMessageTerminal | undefined {
   if (terminal.status === TURN_TERMINAL_STATUSES.COMPLETED) {
+    if (isSideChatFinishReason(terminal.finishReason)) {
+      return {
+        status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.COMPLETED,
+        finishReason: terminal.finishReason,
+      };
+    }
     return {
       status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.COMPLETED,
-      ...(isSideChatFinishReason(terminal.finishReason)
-        ? { finishReason: terminal.finishReason }
-        : {}),
     };
   }
   if (terminal.status === TURN_TERMINAL_STATUSES.CANCELLED) {
@@ -194,6 +216,32 @@ function toMessageTerminal(terminal: {
     status: SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.FAILED,
     errorCode: toPublicTurnErrorCode(terminal.safeErrorCode),
   };
+}
+
+type FinishMessageMetadata = Readonly<{
+  usage: TurnUsage;
+  activityDurationMs?: number;
+  terminal?: SideChatMessageTerminal;
+}>;
+
+function toFinishMessageMetadata(
+  terminal: Readonly<{
+    stepUsage?: readonly TurnUsage[];
+    activityDurationMs?: number;
+  }>,
+  messageTerminal: SideChatMessageTerminal | undefined,
+): Readonly<{ messageMetadata?: FinishMessageMetadata }> {
+  if (terminal.stepUsage === undefined && messageTerminal === undefined) return {};
+  const metadata: {
+    usage: TurnUsage;
+    activityDurationMs?: number;
+    terminal?: SideChatMessageTerminal;
+  } = { usage: sumTurnUsage(terminal.stepUsage ?? []) };
+  if (terminal.activityDurationMs !== undefined) {
+    metadata.activityDurationMs = terminal.activityDurationMs;
+  }
+  if (messageTerminal !== undefined) metadata.terminal = messageTerminal;
+  return { messageMetadata: metadata };
 }
 
 function toFinishReason(value: string | undefined): SideChatFinishReason | undefined {

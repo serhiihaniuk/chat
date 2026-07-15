@@ -1,4 +1,3 @@
-import { type ModelCallStreamPart } from "@ai-sdk/workflow";
 import { getRun, start } from "workflow/api";
 
 import { initializeTestingWorkflowServices } from "#composition/workflow/testing";
@@ -9,6 +8,7 @@ import {
   type StartedChatTurn,
 } from "#workflows/chat-turn";
 import type { ChatTurnTerminalOutcome } from "#workflows/outcome/chat-turn-outcome";
+import type { ChatTurnJournalPart } from "#workflows/journal/chat-turn-journal";
 
 /** Compiled test entry uses the same mechanics with the serde scripted model port. */
 export async function testingChatTurnWorkflow(
@@ -25,7 +25,7 @@ export async function startTestingChatTurn(input: ChatTurnWorkflowInput): Promis
   return {
     runId: run.runId,
     stream: toChatTurnUIStream(
-      run.getReadable<ModelCallStreamPart>(),
+      run.getReadable<ChatTurnJournalPart>(),
       input.clientTools,
       `${input.turnId}-assistant`,
     ),
@@ -35,7 +35,7 @@ export async function startTestingChatTurn(input: ChatTurnWorkflowInput): Promis
 
 /** Testing-only measurement of the journal shape produced by WorkflowAgent. */
 export async function inspectTestingChatTurnJournal(runId: string) {
-  const readable = getRun<ChatTurnTerminalOutcome>(runId).getReadable<ModelCallStreamPart>();
+  const readable = getRun<ChatTurnTerminalOutcome>(runId).getReadable<ChatTurnJournalPart>();
   const dataRows = (await readable.getTailIndex()) + 1;
   const totalRows = dataRows + 1; // Workflow's EOF marker is stored as its own row.
   return { dataRows, totalRows, postgresSqlRoundTrips: totalRows * 2 };

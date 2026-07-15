@@ -31,6 +31,7 @@ export type WorkflowWidgetChatEvent =
       serverAborted: boolean;
     }>
   | Readonly<{ type: "TransportDropped"; epochId: string; error: WorkflowChatHttpError }>
+  | Readonly<{ type: "TransportReconnecting"; epochId: string }>
   | Readonly<{ type: "TransportRecovered"; epochId: string }>
   | Readonly<{ type: "CancelRequested"; runId: string | undefined }>
   | Readonly<{ type: "CancelDeliveryStarted"; runId: string }>

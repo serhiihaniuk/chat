@@ -16,7 +16,7 @@ import {
 describe("workflow conversation selection state", () => {
   it("starts with a client-only draft when no initial conversation or recovery exists", () => {
     expect(
-      createInitialWorkflowConversationSelection(undefined, undefined, () => "draft-1"),
+      createInitialWorkflowConversationSelection(undefined, undefined, undefined, () => "draft-1"),
     ).toEqual({
       kind: WORKFLOW_CONVERSATION_SELECTION_KIND.DRAFT,
       conversationId: "draft-1",
@@ -24,7 +24,13 @@ describe("workflow conversation selection state", () => {
   });
 
   it("treats an explicit initial conversation as persisted", () => {
-    expect(createInitialWorkflowConversationSelection("conversation-1", undefined)).toEqual({
+    expect(
+      createInitialWorkflowConversationSelection(
+        "conversation-1",
+        undefined,
+        "conversation-stored",
+      ),
+    ).toEqual({
       kind: WORKFLOW_CONVERSATION_SELECTION_KIND.PERSISTED,
       conversationId: "conversation-1",
     });
@@ -32,13 +38,26 @@ describe("workflow conversation selection state", () => {
 
   it("restores the active recovery conversation ahead of an initial selection", () => {
     expect(
-      createInitialWorkflowConversationSelection("conversation-old", {
-        conversationId: "conversation-running",
-        runId: "run-running",
-      }),
+      createInitialWorkflowConversationSelection(
+        "conversation-old",
+        {
+          conversationId: "conversation-running",
+          runId: "run-running",
+        },
+        "conversation-stored",
+      ),
     ).toEqual({
       kind: WORKFLOW_CONVERSATION_SELECTION_KIND.PERSISTED,
       conversationId: "conversation-running",
+    });
+  });
+
+  it("restores a stored idle selection before falling back to New chat", () => {
+    expect(
+      createInitialWorkflowConversationSelection(undefined, undefined, "conversation-stored"),
+    ).toEqual({
+      kind: WORKFLOW_CONVERSATION_SELECTION_KIND.PERSISTED,
+      conversationId: "conversation-stored",
     });
   });
 
@@ -89,7 +108,7 @@ describe("workflow conversation selection recovery cursor", () => {
     const root = createRoot(container);
     const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
     const Probe = () => {
-      current.value = useWorkflowConversationSelection(undefined, storageKey);
+      current.value = useWorkflowConversationSelection(undefined, storageKey, undefined);
       return null;
     };
 
@@ -127,7 +146,7 @@ describe("workflow conversation selection recovery cursor", () => {
     const root = createRoot(container);
     const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
     const Probe = () => {
-      current.value = useWorkflowConversationSelection("conversation-1", storageKey);
+      current.value = useWorkflowConversationSelection("conversation-1", storageKey, undefined);
       return null;
     };
 
@@ -166,7 +185,7 @@ describe("workflow conversation selection recovery cursor", () => {
     const root = createRoot(container);
     const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
     const Probe = () => {
-      current.value = useWorkflowConversationSelection(undefined, storageKey);
+      current.value = useWorkflowConversationSelection(undefined, storageKey, undefined);
       return null;
     };
 
@@ -177,6 +196,47 @@ describe("workflow conversation selection recovery cursor", () => {
     expect(current.value?.isLocalDraft).toBe(false);
     expect(current.value?.recoveryCursor).toBeUndefined();
     expect(sessionStorage.getItem(storageKey)).toBeNull();
+
+    act(() => root.unmount());
+  });
+
+  it("restores, updates, and explicitly clears tab-scoped idle selection", () => {
+    const selectionStorageKey = "workflow-conversation-selection";
+    const currentWindow = new Window();
+    openWindows.push(currentWindow);
+    Object.defineProperty(globalThis, "window", { configurable: true, value: currentWindow });
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: currentWindow.document,
+    });
+    Object.defineProperty(globalThis, "sessionStorage", {
+      configurable: true,
+      value: currentWindow.sessionStorage,
+    });
+    sessionStorage.setItem(
+      selectionStorageKey,
+      JSON.stringify({ conversationId: "conversation-restored" }),
+    );
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
+    const Probe = () => {
+      current.value = useWorkflowConversationSelection(undefined, undefined, selectionStorageKey);
+      return null;
+    };
+
+    act(() => root.render(createElement(Probe)));
+    expect(current.value?.activeConversationId).toBe("conversation-restored");
+
+    act(() => current.value?.selectConversation("conversation-next"));
+    expect(JSON.parse(sessionStorage.getItem(selectionStorageKey) ?? "null")).toEqual({
+      conversationId: "conversation-next",
+    });
+
+    act(() => current.value?.startNewConversation());
+    expect(current.value?.isLocalDraft).toBe(true);
+    expect(sessionStorage.getItem(selectionStorageKey)).toBeNull();
 
     act(() => root.unmount());
   });

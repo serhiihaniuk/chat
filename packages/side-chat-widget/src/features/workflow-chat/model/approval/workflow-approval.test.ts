@@ -25,8 +25,8 @@ describe("resolveWorkflowApprovalDecision", () => {
   });
 
   it.each([
-    [409, "tool_approval_conflict", "expired"],
-    [403, "run_not_found", "foreign"],
+    [409, "conflict", "expired"],
+    [403, "forbidden", "foreign"],
   ] as const)("maps a %s decision failure to the calm %s state", async (status, code, state) => {
     const fetch = vi.fn<typeof globalThis.fetch>(() =>
       Promise.resolve(

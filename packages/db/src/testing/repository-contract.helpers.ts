@@ -1,5 +1,10 @@
 import type { SidechatRepositories } from "#repositories/contract";
-import { toMessageId, toUserMessageId } from "#schema-contract";
+import {
+  toConversationId,
+  toMessageId,
+  toUserMessageId,
+  type BeginAssistantTurnCommand,
+} from "#schema-contract";
 
 export const now = "2026-05-23T13:00:00.000Z";
 
@@ -50,15 +55,22 @@ export const readConversationHistory = (
  * are scoped through the turn's workspace.
  */
 export const startTurn = async (repositories: SidechatRepositories, scope: string) => {
-  const conversation = await createConversation(repositories, scope);
-  const userMessage = await appendUserMessage(repositories, scope, conversation.conversationId);
-  const turn = await repositories.startAssistantTurn({
+  const conversationId = toConversationId(`conversation_${scope}`);
+  const messageId = toMessageId(`${conversationId}:user`);
+  const result = await repositories.beginAssistantTurn({
     workspaceId: workspaceId(scope),
     subjectId: subjectId(scope),
     actorId: actorId(scope),
     requestId: "request_1",
-    conversationId: conversation.conversationId,
-    userMessageId: toUserMessageId(userMessage.record.messageId),
+    conversationId,
+    conversationKey: "default",
+    userMessageId: toUserMessageId(messageId),
+    userMessage: {
+      messageId,
+      role: "user",
+      parts: [{ type: "text", text: "hello" }],
+      metadataJson: {},
+    },
     modelProvider: "fake",
     modelId: "fake-model",
     instructionsVersion: "instructions_v1",
@@ -66,7 +78,37 @@ export const startTurn = async (repositories: SidechatRepositories, scope: strin
     contentFilterVersion: "filter_v1",
     now,
   });
-  return turn.record;
+  return result.turn;
+};
+
+export const beginTurnCommand = (
+  scope: string,
+  conversationId: string,
+  requestId: string,
+  text = "hello",
+): BeginAssistantTurnCommand => {
+  const messageId = toMessageId(`${conversationId}:${requestId}:user`);
+  return {
+    workspaceId: workspaceId(scope),
+    subjectId: subjectId(scope),
+    actorId: actorId(scope),
+    requestId,
+    conversationId: toConversationId(conversationId),
+    conversationKey: conversationId,
+    userMessageId: toUserMessageId(messageId),
+    userMessage: {
+      messageId,
+      role: "user",
+      parts: [{ type: "text", text }],
+      metadataJson: {},
+    },
+    modelProvider: "fake",
+    modelId: "fake-model",
+    instructionsVersion: "instructions_v1",
+    configVersion: "config_v1",
+    contentFilterVersion: "filter_v1",
+    now,
+  };
 };
 
 export const workspaceId = (scope: string) => `workspace_${scope}`;

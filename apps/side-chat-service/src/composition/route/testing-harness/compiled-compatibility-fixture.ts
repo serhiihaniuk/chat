@@ -38,7 +38,7 @@ export class CompiledCompatibilityFixture {
 
   static async start(request: typeof fetch): Promise<CompiledCompatibilityFixture> {
     const service = await startCompiledService({
-      environment: serviceProcessEnv(),
+      environment: isolatedCompatibilityEnvironment(),
       configName: BUNDLED_CONFIG_NAMES.FAKE,
       configNameEnvKey: SERVICE_ENV_KEYS.CONFIG_NAME,
       localBaseUrlEnvKey: SERVICE_ENV_KEYS.WORKFLOW_LOCAL_BASE_URL,
@@ -90,6 +90,22 @@ export class CompiledCompatibilityFixture {
     return this.#request(`${this.baseUrl}/api/chat/${runId}/stream?startIndex=${startIndex}`, {
       headers: { authorization: COMPATIBILITY_FIXTURE.AUTHORIZATION },
     });
+  }
+
+  async waitForSettledConversationState(requestId: string): Promise<Record<string, unknown>> {
+    const deadline = Date.now() + COMPATIBILITY_FIXTURE.TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const response = await this.#request(
+        `${this.baseUrl}/api/conversations/${COMPATIBILITY_FIXTURE.CONVERSATION_ID}/state`,
+        { headers: { authorization: COMPATIBILITY_FIXTURE.AUTHORIZATION } },
+      );
+      if (response.ok) {
+        const state: unknown = await response.json();
+        if (isRecord(state) && hasSettledRequest(state, requestId)) return state;
+      }
+      await delay(COMPATIBILITY_FIXTURE.POLL_INTERVAL_MS);
+    }
+    throw new Error(`Conversation state never settled for ${requestId}:\n${this.output()}`);
   }
 
   async readJournalShape(runId: string): Promise<Record<string, unknown>> {
@@ -180,6 +196,15 @@ export class CompiledCompatibilityFixture {
   }
 }
 
+/** Compatibility runs must never inherit a developer's durable database targets. */
+function isolatedCompatibilityEnvironment(): Readonly<Record<string, string | undefined>> {
+  return {
+    ...serviceProcessEnv(),
+    [SERVICE_ENV_KEYS.SIDECHAT_DATABASE_URL]: undefined,
+    [SERVICE_ENV_KEYS.WORKFLOW_POSTGRES_URL]: undefined,
+  };
+}
+
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -190,6 +215,12 @@ function userMessage(requestId: string): Record<string, unknown> {
     role: "user",
     parts: [{ type: "text", text: "hello" }],
   };
+}
+
+function hasSettledRequest(state: Record<string, unknown>, requestId: string): boolean {
+  const messages = state["messages"];
+  if (!Array.isArray(messages) || isRecord(state["activeTurn"])) return false;
+  return messages.some((message) => isRecord(message) && message["id"] === `user-${requestId}`);
 }
 
 function tryParseJson(source: string): unknown {

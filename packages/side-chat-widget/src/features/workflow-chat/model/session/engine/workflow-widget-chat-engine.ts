@@ -36,6 +36,7 @@ type CreateWorkflowWidgetChatEngineInput = Readonly<{
   onRunAccepted: (runId: string) => void;
   onStreamEnded: (end: WorkflowWidgetChatStreamEnd) => void;
   onTransportDropped: (error: unknown) => void;
+  onTransportReconnecting: () => void;
   onTransportRecovered: () => void;
 }>;
 
@@ -71,6 +72,8 @@ export function createWorkflowWidgetChatEngine(
     getClientTools: () => readClientTools(input.hostBridge),
     getHostContext: (request) => readHostContext(input, request),
     getReconnectRunId: () => (input.mode.kind === "reconnect" ? input.mode.runId : undefined),
+    onReconnectConnected: input.onTransportRecovered,
+    onReconnectStarted: input.onTransportReconnecting,
     onRunFinished: () => undefined,
     onRunStarted: input.onRunAccepted,
   });
@@ -81,7 +84,6 @@ export function createWorkflowWidgetChatEngine(
       try {
         const stream = await openStream(transport, input, abortController.signal);
         if (abortController.signal.aborted) return;
-        input.onTransportRecovered();
         if (!stream) {
           input.onStreamEnded({ finishReason: undefined, serverAborted: false });
           return;

@@ -7,6 +7,73 @@
 import type { TokenRow } from "./tokens";
 
 export const componentTokenGroups: Record<string, readonly TokenRow[]> = {
+  switch: [
+    { token: "--switch-w", resolvesTo: "1.875rem", property: "width", usage: "Track width." },
+    { token: "--switch-h", resolvesTo: "1.125rem", property: "height", usage: "Track height." },
+    {
+      token: "--switch-knob-size",
+      resolvesTo: "0.875rem",
+      property: "width/height",
+      usage: "Knob diameter.",
+    },
+    {
+      token: "--switch-inset",
+      resolvesTo: "2px",
+      property: "inset",
+      usage: "Gap between knob and track edge (drives travel).",
+    },
+    {
+      token: "--switch-track-on",
+      resolvesTo: "var(--primary)",
+      property: "background",
+      usage: "Checked track fill.",
+    },
+    {
+      token: "--switch-track-off",
+      resolvesTo: "var(--input)",
+      property: "background",
+      usage: "Unchecked track fill.",
+    },
+    {
+      token: "--switch-knob-fill",
+      resolvesTo: "oklch(0.99 0 0)",
+      property: "background",
+      usage: "Knob fill (near-white).",
+    },
+  ],
+  segmented: [
+    {
+      token: "--seg-pad",
+      resolvesTo: "3px",
+      property: "padding",
+      usage: "Outer track inset around the items.",
+    },
+    {
+      token: "--seg-radius",
+      resolvesTo: "var(--radius-md)",
+      property: "border-radius",
+      usage: "Outer track radius.",
+    },
+    {
+      token: "--seg-item-radius",
+      resolvesTo: "calc(var(--radius-md) - 3px)",
+      property: "border-radius",
+      usage: "Active item radius (nested inside track).",
+    },
+    { token: "--muted", resolvesTo: "tier-1", property: "background", usage: "Track surface." },
+    {
+      token: "--background",
+      resolvesTo: "tier-1",
+      property: "background",
+      usage: "Active item surface.",
+    },
+    {
+      token: "--muted-foreground",
+      resolvesTo: "tier-1",
+      property: "color",
+      usage: "Inactive item text.",
+    },
+  ],
   "shell": [
     { token: "--header-h", resolvesTo: "var(--size-header)", property: "height", usage: "Fixed height of the panel header bar; the rail's New chat zone matches it so the two columns align at the top." },
     { token: "--header-px", resolvesTo: "calc(var(--spacing) * 4)", property: "padding-inline", usage: "Horizontal padding inside the header and the rail New chat zone, keeping controls off the edges." },

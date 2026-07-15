@@ -13,10 +13,11 @@ import { createContext, useContext } from "react";
 
 export type WidgetLabels = {
   // The widget title (header + launcher + empty-state greeting) and the composer's
-  // placeholder + send label — the three labels that were already overridable.
+  // placeholder + send/stop labels — the primary composer controls.
   readonly title: string;
   readonly placeholder: string;
   readonly send: string;
+  readonly stop: string;
   readonly emptyStateTitle: string;
   // Shown when a host bridge supplies page context vs. when the widget stands alone,
   // so the "I can see the page you're viewing" claim is only made when it is true.
@@ -79,6 +80,7 @@ export const defaultWidgetLabels: WidgetLabels = {
   title: "Workspace Assistant",
   placeholder: "Ask anything...",
   send: "Send",
+  stop: "Stop generating",
   emptyStateTitle: "How can I help with this page?",
   emptyStateWithContext:
     "I can see the page you're viewing. Ask about it, or pick a place to start.",
@@ -141,6 +143,7 @@ export const resolveWidgetLabels = (overrides: SideChatWidgetLabels | undefined)
     title: read("title"),
     placeholder: read("placeholder"),
     send: read("send"),
+    stop: read("stop"),
     emptyStateTitle: read("emptyStateTitle"),
     emptyStateWithContext: read("emptyStateWithContext"),
     emptyStateWithoutContext: read("emptyStateWithoutContext"),

@@ -5,6 +5,7 @@ import {
   TURN_ACTIVITY_SYNC_EVENT_TYPE,
   type TurnActivityEvent,
 } from "@side-chat/chat-protocol";
+import { SIDE_CHAT_ERROR_CODES, SIDE_CHAT_ERROR_VOCABULARY } from "@side-chat/stream-profile";
 
 const PORT = readPort("SIDECHAT_WORKFLOW_FIXTURE_PORT", 8788);
 const RUN_ID = "run-multitab";
@@ -13,9 +14,17 @@ const ASSISTANT_MESSAGE_ID = "assistant-multitab";
 const TEXT_PART_ID = "text-multitab";
 const PARTIAL_ANSWER = "Both tabs receive the shared";
 const COMPLETE_ANSWER = `${PARTIAL_ANSWER} workflow answer.`;
+const REFERENCE_CONVERSATION_ID = "conversation-reference";
+const REFERENCE_PROMPT = "Show the reference conversation";
+const REFERENCE_ANSWER = "Reference conversation history.";
+const CONFLICT_CONVERSATION_ID = "conversation-conflict";
+const CONFLICT_PROMPT = "Earlier conflict conversation";
+const CONFLICT_ANSWER = "Conflict conversation history.";
 
 type StreamChunk = Readonly<Record<string, unknown>>;
 type FixtureCounters = {
+  chatAccepted: number;
+  chatConflicts: number;
   conversations: number;
   models: number;
   replayConnections: number;
@@ -87,6 +96,8 @@ function createState(): FixtureState {
     running: false,
     subscribers: new Set(),
     counters: {
+      chatAccepted: 0,
+      chatConflicts: 0,
       conversations: 0,
       models: 0,
       replayConnections: 0,
@@ -128,16 +139,30 @@ function handleCatalogRead(request: IncomingMessage, response: ServerResponse, u
   }
   if (url.pathname === "/api/conversations") {
     state.counters.conversations += 1;
-    const conversations = state.conversationId
-      ? [
-          {
-            id: state.conversationId,
-            status: "active",
-            title: "Shared running chat",
-            lastMessageAt: "2026-07-14T12:00:00Z",
-          },
-        ]
-      : [];
+    const conversations = [
+      ...(state.conversationId && state.conversationId !== CONFLICT_CONVERSATION_ID
+        ? [
+            {
+              id: state.conversationId,
+              status: "active",
+              title: "Shared running chat",
+              lastMessageAt: "2026-07-14T12:00:00Z",
+            },
+          ]
+        : []),
+      {
+        id: REFERENCE_CONVERSATION_ID,
+        status: "active",
+        title: "Reference chat",
+        lastMessageAt: "2026-07-13T12:00:00Z",
+      },
+      {
+        id: CONFLICT_CONVERSATION_ID,
+        status: "active",
+        title: "Conflict chat",
+        lastMessageAt: "2026-07-12T12:00:00Z",
+      },
+    ];
     json(response, 200, {
       conversations,
       runningConversationIds: state.running && state.conversationId ? [state.conversationId] : [],
@@ -165,23 +190,55 @@ function handleConversationRead(
   response: ServerResponse,
   url: URL,
 ): boolean {
-  if (request.method !== "GET" || !state.conversationId) return false;
-  const conversationRoot = `/api/conversations/${encodeURIComponent(state.conversationId)}`;
-  if (url.pathname === `${conversationRoot}/state`) {
-    state.counters.state += 1;
-    const messages: unknown[] = [
-      { id: "user-multitab", role: "user", parts: [{ type: "text", text: state.prompt }] },
-    ];
-    if (state.completed) {
-      messages.push({
-        id: ASSISTANT_MESSAGE_ID,
-        role: "assistant",
-        parts: [{ type: "text", text: COMPLETE_ANSWER }],
+  if (request.method !== "GET") return false;
+  if (state.conversationId) {
+    const conversationRoot = `/api/conversations/${encodeURIComponent(state.conversationId)}`;
+    if (url.pathname === `${conversationRoot}/state`) {
+      state.counters.state += 1;
+      const messages: unknown[] = [
+        { id: "user-multitab", role: "user", parts: [{ type: "text", text: state.prompt }] },
+      ];
+      if (state.completed) {
+        messages.push({
+          id: ASSISTANT_MESSAGE_ID,
+          role: "assistant",
+          parts: [{ type: "text", text: COMPLETE_ANSWER }],
+        });
+      }
+      json(response, 200, {
+        messages,
+        activeTurn: state.running ? { turnId: TURN_ID, runId: RUN_ID, status: "running" } : null,
       });
+      return true;
     }
+  }
+  if (url.pathname === `/api/conversations/${REFERENCE_CONVERSATION_ID}/state`) {
+    state.counters.state += 1;
     json(response, 200, {
-      messages,
-      activeTurn: state.running ? { turnId: TURN_ID, runId: RUN_ID, status: "running" } : null,
+      activeTurn: null,
+      messages: [
+        { id: "user-reference", role: "user", parts: [{ type: "text", text: REFERENCE_PROMPT }] },
+        {
+          id: "assistant-reference",
+          role: "assistant",
+          parts: [{ type: "text", text: REFERENCE_ANSWER }],
+        },
+      ],
+    });
+    return true;
+  }
+  if (url.pathname === `/api/conversations/${CONFLICT_CONVERSATION_ID}/state`) {
+    state.counters.state += 1;
+    json(response, 200, {
+      activeTurn: null,
+      messages: [
+        { id: "user-conflict", role: "user", parts: [{ type: "text", text: CONFLICT_PROMPT }] },
+        {
+          id: "assistant-conflict",
+          role: "assistant",
+          parts: [{ type: "text", text: CONFLICT_ANSWER }],
+        },
+      ],
     });
     return true;
   }
@@ -191,10 +248,25 @@ function handleConversationRead(
 async function startChat(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const body = await readJson(request);
   const conversationId = body["conversationId"];
+  if (state.running && conversationId === state.conversationId) {
+    state.counters.chatConflicts += 1;
+    const conflict = SIDE_CHAT_ERROR_VOCABULARY[SIDE_CHAT_ERROR_CODES.CONFLICT];
+    json(response, 409, {
+      code: SIDE_CHAT_ERROR_CODES.CONFLICT,
+      message: conflict.safeMessage,
+      retryable: conflict.retryable,
+    });
+    return;
+  }
+  state.counters.chatAccepted += 1;
   state.conversationId = typeof conversationId === "string" ? conversationId : undefined;
   state.prompt = readPrompt(body["messages"]);
   state.running = true;
-  publishActivity("running");
+  // The conflict fixture deliberately withholds the cross-tab running event so
+  // the losing tab can prove its bounded 409 presentation before reconciliation.
+  if (state.conversationId !== CONFLICT_CONVERSATION_ID) {
+    publishActivity("running");
+  }
   openStream(response, true);
 }
 

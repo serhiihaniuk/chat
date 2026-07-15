@@ -43,6 +43,7 @@ export type ComposerProps = {
   readonly onValueChange?: (value: string) => void;
   readonly placeholder?: string;
   readonly sendLabel?: string;
+  readonly stopLabel?: string;
   // When true (default) Enter sends and Shift+Enter inserts a newline; when false
   // (the "Send with Ctrl+Enter" preference) Ctrl/Cmd+Enter sends and Enter is a newline.
   readonly sendOnEnter?: boolean;
@@ -79,6 +80,7 @@ export function Composer({
   onValueChange,
   placeholder = "Message...",
   sendLabel = "Send message",
+  stopLabel = "Stop generating",
   sendOnEnter = true,
   status = "idle",
   value,
@@ -119,7 +121,7 @@ export function Composer({
         <div className="ml-auto flex min-w-0 items-center gap-1.5">
           {selector}
           <button
-            aria-label={sendLabel}
+            aria-label={isBusy ? stopLabel : sendLabel}
             className="sc-send"
             data-armed={canSend || isBusy ? true : undefined}
             onClick={send}

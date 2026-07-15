@@ -1,8 +1,12 @@
-import { toUIMessageChunk, type ModelCallStreamPart } from "@ai-sdk/workflow";
 import type { UIMessageChunk } from "ai";
 import { getRun, type Run } from "workflow/api";
 
 import type { ChatTurnTerminalOutcome } from "../chat-turn.js";
+import {
+  CHAT_TURN_JOURNAL_PART_TYPES,
+  toChatTurnUIChunk,
+  type ChatTurnJournalPart,
+} from "../../journal/chat-turn-journal.js";
 import { normalizeApprovalUIChunk } from "../../tool-approvals/approval-output.js";
 
 export type ReplayedChatTurn =
@@ -53,7 +57,7 @@ async function openUiReplay(
     }>
   | Readonly<{ status: "start_index_out_of_range"; tailIndex: number }>
 > {
-  const raw = run.getReadable<ModelCallStreamPart>();
+  const raw = run.getReadable<ChatTurnJournalPart>();
   const rawTailIndex = await raw.getTailIndex();
   const terminal = isTerminalRunStatus(await run.status);
   const reader = raw.getReader();
@@ -83,7 +87,7 @@ async function openUiReplay(
 }
 
 async function readRawPrefix(
-  reader: ReadableStreamDefaultReader<ModelCallStreamPart>,
+  reader: ReadableStreamDefaultReader<ChatTurnJournalPart>,
   count: number,
   output: UIMessageChunk[],
 ): Promise<void> {
@@ -95,7 +99,7 @@ async function readRawPrefix(
 }
 
 async function readRawToEnd(
-  reader: ReadableStreamDefaultReader<ModelCallStreamPart>,
+  reader: ReadableStreamDefaultReader<ChatTurnJournalPart>,
   output: UIMessageChunk[],
 ): Promise<void> {
   while (true) {
@@ -105,14 +109,14 @@ async function readRawToEnd(
   }
 }
 
-function appendUiChunk(output: UIMessageChunk[], raw: ModelCallStreamPart): void {
-  const chunk = toUIMessageChunk(raw);
+function appendUiChunk(output: UIMessageChunk[], raw: ChatTurnJournalPart): void {
+  const chunk = toChatTurnUIChunk(raw);
   if (chunk !== undefined) output.push(normalizeApprovalUIChunk(chunk));
 }
 
 /** Release the pinned world's subscriber on client cancel and normal EOF. */
 function uiReplayStream(
-  reader: ReadableStreamDefaultReader<ModelCallStreamPart>,
+  reader: ReadableStreamDefaultReader<ChatTurnJournalPart>,
   buffered: readonly UIMessageChunk[],
   terminal: boolean,
 ): ReadableStream<UIMessageChunk> {
@@ -138,19 +142,19 @@ function uiReplayStream(
 }
 
 async function enqueueNextLiveChunk(
-  reader: ReadableStreamDefaultReader<ModelCallStreamPart>,
+  reader: ReadableStreamDefaultReader<ChatTurnJournalPart>,
   controller: ReadableStreamDefaultController<UIMessageChunk>,
 ): Promise<void> {
   while (true) {
     const next = await reader.read();
     if (next.done) {
-      controller.enqueue({ type: "finish-step" });
+      controller.enqueue({ type: CHAT_TURN_JOURNAL_PART_TYPES.FINISH_STEP });
       controller.enqueue({ type: "finish" });
       await reader.cancel();
       controller.close();
       return;
     }
-    const chunk = toUIMessageChunk(next.value);
+    const chunk = toChatTurnUIChunk(next.value);
     if (chunk !== undefined) {
       controller.enqueue(normalizeApprovalUIChunk(chunk));
       return;

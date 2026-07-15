@@ -1,5 +1,4 @@
 import { dynamicTool, jsonSchema, type ToolSet } from "ai";
-import type { ModelCallStreamPart } from "@ai-sdk/workflow";
 import { createHook, getWritable, sleep } from "workflow";
 
 import {
@@ -10,14 +9,15 @@ import {
 import {
   requiresServerToolApproval,
   type ServerToolDefinition,
-  type ServerToolSource,
 } from "#application/turn/tools/server-tools/server-tool-catalog";
 import type { SuspendableTurnTimeout } from "../timeout/turn-timeout.js";
 import {
+  CHAT_TURN_JOURNAL_PART_TYPES,
+  type ChatTurnJournalPart,
+} from "../journal/chat-turn-journal.js";
+import {
   deniedToolOutput,
-  isDeniedToolOutput,
   TOOL_APPROVAL_DENIAL_REASONS,
-  type ToolApprovalDenialOutput,
 } from "../tool-approvals/approval-output.js";
 import { toolApprovalHookToken } from "../tool-approvals/index.js";
 import { runToolApprovalStep } from "../production/approvals/tool-approval.js";
@@ -25,17 +25,11 @@ import {
   runApprovedServerToolStep,
   type ApprovedServerToolExecutionCommand,
 } from "../production/server-tools/execute-server-tool.js";
+import { readServerToolSources, writeServerToolSources } from "./server-tool-sources.js";
+
+export { readServerToolSources, writeServerToolSources } from "./server-tool-sources.js";
 
 export const TOOL_APPROVAL_TIMEOUT_MS = 24 * 60 * 60 * 1_000;
-export const TOOL_APPROVAL_REQUEST_STREAM_PART_TYPE = "tool-approval-request";
-
-export type ApprovalRequestStreamPart = Readonly<{
-  type: typeof TOOL_APPROVAL_REQUEST_STREAM_PART_TYPE;
-  approvalId: string;
-  toolCallId: string;
-}>;
-
-export type ApprovalWorkflowStreamPart = ModelCallStreamPart | ApprovalRequestStreamPart;
 export type ToolApprovalStepRunner = typeof runToolApprovalStep;
 export type ApprovedServerToolStepRunner = (
   command: ApprovedServerToolExecutionCommand,
@@ -95,43 +89,6 @@ export function createServerTools(options: ServerToolRuntimeOptions): ToolSet {
       }),
     ]),
   );
-}
-
-/** Persist tool-attributed URLs as native source parts before returning to the agent loop. */
-export function readServerToolSources<Input extends ToolApprovalInput, Output>(
-  definition: ServerToolDefinition<Input, Output>,
-  output: Output | ToolApprovalDenialOutput,
-): readonly ServerToolSource[] {
-  if (isDeniedToolOutput(output)) return [];
-  return definition.readSources?.(output) ?? [];
-}
-
-/** Append already-projected sources from a workflow step, where stream writes are legal. */
-export async function writeServerToolSources(
-  sources: readonly ServerToolSource[],
-  toolCallId: string,
-): Promise<void> {
-  "use step";
-
-  const writable = getWritable<ApprovalWorkflowStreamPart>();
-  const writer = writable.getWriter();
-  try {
-    for (const [index, source] of sources.entries()) {
-      await writer.write(toModelSourcePart(source, toolCallId, index));
-    }
-  } finally {
-    writer.releaseLock();
-  }
-}
-
-function toModelSourcePart(source: ServerToolSource, toolCallId: string, index: number) {
-  return {
-    type: "source" as const,
-    sourceType: "url" as const,
-    id: `${toolCallId}:source:${index + 1}`,
-    url: source.url,
-    title: source.label,
-  };
 }
 
 function requireDatabase(options: ServerToolRuntimeOptions): string {
@@ -283,11 +240,11 @@ function approvalIdentity(
 async function writeApprovalRequest(approvalId: string, toolCallId: string): Promise<true> {
   "use step";
 
-  const writable = getWritable<ApprovalWorkflowStreamPart>();
+  const writable = getWritable<ChatTurnJournalPart>();
   const writer = writable.getWriter();
   try {
     await writer.write({
-      type: TOOL_APPROVAL_REQUEST_STREAM_PART_TYPE,
+      type: CHAT_TURN_JOURNAL_PART_TYPES.APPROVAL_REQUEST,
       approvalId,
       toolCallId,
     });

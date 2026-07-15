@@ -154,7 +154,6 @@ function createBridge({
 function createClient(fetch: typeof globalThis.fetch): WorkflowChatClient {
   return {
     baseUrl: "https://service.example",
-    conversationId: "conversation-1",
     fetch,
   };
 }

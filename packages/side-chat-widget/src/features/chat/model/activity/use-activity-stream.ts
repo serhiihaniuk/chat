@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  isRunningActivity,
   TURN_ACTIVITY_SYNC_EVENT_TYPE,
   type TurnActivityEvent,
   type TurnActivitySyncEvent,
@@ -154,7 +155,7 @@ const applyActivity = (
   current: ReadonlySet<string>,
   event: TurnActivityEvent,
 ): ReadonlySet<string> => {
-  const isRunning = event.status === "running";
+  const isRunning = isRunningActivity(event);
   if (isRunning === current.has(event.conversationId)) return current;
   const next = new Set(current);
   if (isRunning) next.add(event.conversationId);

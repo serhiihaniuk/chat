@@ -6,7 +6,11 @@ import { createDefaultConfig } from "#config/settings/settings.test-fixture";
 import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES } from "#domain/turn/turn";
 import { CHAT_TURN_ERROR_CODES, CHAT_TURN_OUTCOMES } from "#workflows/production/chat-turn";
 
-import { createWorkflowTurnExecution, type StartChatTurn } from "./workflow-turn-execution.js";
+import {
+  createWorkflowTurnExecution,
+  type ResumeChatTurn,
+  type StartChatTurn,
+} from "./workflow-turn-execution.js";
 
 function testSettings() {
   const result = validateSettings(createDefaultConfig());
@@ -138,6 +142,33 @@ describe("createWorkflowTurnExecution", () => {
           { role: "user", content: renderedUserMessage },
         ],
       }),
+    );
+  });
+
+  it("re-attaches through the resume boundary without launching another workflow", async () => {
+    const startTurn = vi.fn<StartChatTurn>();
+    const resumeTurn = vi.fn<ResumeChatTurn>((runId) =>
+      Promise.resolve({
+        runId,
+        stream: new ReadableStream<UIMessageChunk>(),
+        terminal: Promise.resolve({
+          status: CHAT_TURN_OUTCOMES.COMPLETED,
+          assistantMessage: { id: "turn-1-assistant", role: "assistant", parts: [] },
+          finishReason: "stop",
+          activityDurationMs: 1,
+          usage: usage(0, 0),
+        }),
+      }),
+    );
+    const execution = createWorkflowTurnExecution(testSettings(), startTurn, resumeTurn);
+
+    const resumed = await execution.resume("run-existing", TURN_INPUT);
+
+    expect(resumed.runId).toBe("run-existing");
+    expect(startTurn).not.toHaveBeenCalled();
+    expect(resumeTurn).toHaveBeenCalledWith(
+      "run-existing",
+      expect.objectContaining({ requestId: TURN_INPUT.requestId }),
     );
   });
 

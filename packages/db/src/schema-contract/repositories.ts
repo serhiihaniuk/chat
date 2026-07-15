@@ -99,6 +99,24 @@ export type StartAssistantTurnCommand = RepositoryCommandEnvelope & {
   readonly recoveryGraceMs?: number | undefined;
 };
 
+/** One accepted user request committed as a single persistence aggregate. */
+export type BeginAssistantTurnCommand = StartAssistantTurnCommand & {
+  readonly conversationKey: string;
+  readonly userMessage: Readonly<{
+    readonly messageId: MessageId;
+    readonly role: MessageRecord["role"];
+    readonly parts: readonly JsonObject[];
+    readonly metadataJson: JsonObject;
+  }>;
+};
+
+export type BeginAssistantTurnResult = Readonly<{
+  readonly conversation: ConversationRecord;
+  readonly userMessage: MessageRecord;
+  readonly turn: AssistantTurnRecord;
+  readonly inserted: boolean;
+}>;
+
 export type RecordTurnContextSnapshotCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: AssistantTurnId;
   readonly contextSchemaVersion: string;
@@ -341,9 +359,9 @@ export type AssistantTurnRepositoryContract = {
   // conversation partial unique index is the race-safe busy guard — a concurrent
   // second open turn raises `conversation_busy` rather than a check-then-act
   // window.
-  readonly startAssistantTurn: (
-    command: StartAssistantTurnCommand,
-  ) => Promise<RepositoryCommandResult<AssistantTurnRecord>>;
+  readonly beginAssistantTurn: (
+    command: BeginAssistantTurnCommand,
+  ) => Promise<BeginAssistantTurnResult>;
   // Bind the durable Workflow run id to a turn once its run has started.
   readonly bindTurnRun: (command: BindTurnRunCommand) => Promise<AssistantTurnRecord>;
   /** Workflow-side pre-provider fence and idempotent run binding. */

@@ -134,8 +134,8 @@ describe("SideChatWidget interactions", () => {
     renderWidget(client);
     await submit("keep streaming");
     await waitForText("keep streaming");
-    // The composer swaps Send for a stop control while busy; pressing it cancels.
-    await clickButton("Send");
+    // The composer exposes a distinct accessible stop action while busy.
+    await clickButton("Stop generating");
 
     expect(cancelledTurnIds).toEqual(["turn-1"]);
   });

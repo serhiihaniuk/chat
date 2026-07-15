@@ -31,7 +31,7 @@ describe("client-tool model input validation", () => {
   it("turns a schema-violating model input into a typed tool error without running the wait", async () => {
     expect(isSupportedClientToolSchema(OPEN_FILE.inputSchema)).toBe(true);
 
-    const execute = vi.fn(async () => ({ opened: true }));
+    const execute = vi.fn<() => Promise<unknown>>(async () => ({ opened: true }));
     const model = new MockLanguageModelV4({
       doStream: async () => ({
         stream: toStream(invalidToolCallParts()),

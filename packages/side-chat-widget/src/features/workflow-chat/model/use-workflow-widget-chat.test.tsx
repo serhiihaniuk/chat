@@ -2,6 +2,7 @@ import { Window } from "happy-dom";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SIDE_CHAT_ERROR_CODES, SIDE_CHAT_ERROR_VOCABULARY } from "@side-chat/stream-profile";
 
 import type {
   WorkflowActiveTurn,
@@ -143,14 +144,15 @@ describe("useWorkflowWidgetChat", () => {
     expect(chat.current?.error).toBeUndefined();
   });
 
-  it("keeps a typed busy failure calm and does not retry", async () => {
+  it("keeps a public conflict failure bounded without automatic retry", async () => {
+    const conflict = SIDE_CHAT_ERROR_VOCABULARY[SIDE_CHAT_ERROR_CODES.CONFLICT];
     const request = vi.fn<typeof fetch>(() =>
       Promise.resolve(
         Response.json(
           {
-            code: "conversation_busy",
-            message: "A turn is already active.",
-            retryable: false,
+            code: SIDE_CHAT_ERROR_CODES.CONFLICT,
+            message: conflict.safeMessage,
+            retryable: conflict.retryable,
           },
           { status: 409 },
         ),
@@ -162,9 +164,10 @@ describe("useWorkflowWidgetChat", () => {
     await waitFor(() => chat.current?.status === "error");
 
     expect(chat.current?.error).toMatchObject({
-      code: "conversation_busy",
-      message: "A turn is already active.",
-      retryable: false,
+      code: SIDE_CHAT_ERROR_CODES.CONFLICT,
+      message: conflict.safeMessage,
+      retryable: conflict.retryable,
+      status: 409,
     });
     expect(request).toHaveBeenCalledTimes(1);
   });
@@ -319,6 +322,62 @@ describe("useWorkflowWidgetChat", () => {
 
     await act(async () => chat.current?.reconnect());
     await waitFor(() => chat.current?.error === undefined);
+  });
+
+  it("shows automatic replay as reattaching until its HTTP response connects", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let resolveReplay: ((response: Response) => void) | undefined;
+    const request = vi.fn<typeof fetch>((input) => {
+      if (requestUrl(input).includes("/stream?")) {
+        return new Promise<Response>((resolve) => {
+          resolveReplay = resolve;
+        });
+      }
+      return Promise.resolve(interruptedTurnResponse());
+    });
+    const chat = renderChat({ fetch: request });
+
+    act(() => {
+      void chat.current?.submitMessage("Recover automatically");
+    });
+    await waitFor(() => chat.current?.phase === "reattaching");
+    expect(chat.current?.error).toBeUndefined();
+
+    act(() => resolveReplay?.(completedTurnResponse()));
+    await waitFor(() => chat.current?.terminal.kind === "completed");
+
+    expect(chat.current?.phase).toBe("settling");
+    expect(chat.current?.error).toBeUndefined();
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("replaces an exhausted accepted-run attachment during manual reconnect", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let recoveryStarted = false;
+    const request = vi.fn<typeof fetch>((input) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/state")) {
+        recoveryStarted = true;
+        return Promise.resolve(
+          Response.json({
+            activeTurn: { runId: "run-1", turnId: "turn-1" },
+            messages: [SEEDED_MESSAGE],
+          }),
+        );
+      }
+      return Promise.resolve(recoveryStarted ? completedTurnResponse() : interruptedTurnResponse());
+    });
+    const chat = renderChat({ fetch: request, maxConsecutiveErrors: 2 });
+
+    await act(async () => chat.current?.submitMessage("Exhaust replay"));
+    await waitFor(() => chat.current?.error !== undefined);
+    expect(chat.current?.phase).toBe("error");
+
+    await act(async () => chat.current?.reconnect());
+    await waitFor(() => chat.current?.status === "idle");
+
+    expect(chat.current?.error).toBeUndefined();
+    expect(chat.current?.messages.some((message) => message.id === "assistant-1")).toBe(true);
   });
 
   it("retains an accepted run when its response stream loses transport", async () => {

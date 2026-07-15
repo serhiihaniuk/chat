@@ -9,7 +9,7 @@ import { uniqueViolationConstraint } from "../pg-errors.js";
 import type { PostgresDrizzleRepositoryContext } from "./context.js";
 import { createFinalizeAssistantTurn } from "./activity/finalize-assistant-turn.js";
 import { notifyTurnActivity } from "./activity/turn-activity-notification.js";
-import { createStartAssistantTurn } from "./recovery/start-turn.js";
+import { createBeginAssistantTurn } from "./recovery/begin-turn.js";
 import { createTurnRecoveryRepository } from "./recovery/turn-recovery.js";
 import { toAssistantTurnRecord, toContextSnapshotRecord } from "./records.js";
 import {
@@ -39,7 +39,7 @@ export const createPostgresDrizzleTurnRepository = ({
   ids,
 }: PostgresDrizzleRepositoryContext): Pick<
   SidechatRepositories,
-  | "startAssistantTurn"
+  | "beginAssistantTurn"
   | "bindTurnRun"
   | "claimTurnRun"
   | "requestTurnCancellation"
@@ -61,7 +61,7 @@ export const createPostgresDrizzleTurnRepository = ({
     // insert; the insert then either succeeds, races another same-request insert
     // (converge on it), or hits the one-open-per-conversation partial unique
     // index — the race-safe busy guard — which surfaces as `conversation_busy`.
-    startAssistantTurn: createStartAssistantTurn({ db, ids }, recovery),
+    beginAssistantTurn: createBeginAssistantTurn({ db, ids }),
     // Bind the durable Workflow run id once the run has started. A replay may set
     // the same id again, but a different id cannot steal an existing binding.
     bindTurnRun: async (command) => {
@@ -82,7 +82,7 @@ export const createPostgresDrizzleTurnRepository = ({
             )
             .returning();
           if (updated[0]) {
-            await notifyTurnActivity(transaction, { ...updated[0], status: "running" });
+            await notifyTurnActivity(transaction, updated[0]);
           }
           return updated;
         });

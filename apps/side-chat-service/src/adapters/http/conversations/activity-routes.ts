@@ -1,5 +1,4 @@
 import { encodeTurnActivitySseEvent } from "@side-chat/chat-protocol";
-import { Stream } from "effect";
 import { Hono } from "hono";
 
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
@@ -29,15 +28,24 @@ export function createActivityRoutes(dependencies: {
       dependencies.queries,
       context.get("authContext"),
     );
-    const encodedEvents = events.pipe(
-      Stream.map((event) => encodeTurnActivitySseEvent(event)),
-      Stream.encodeText,
-    );
-    const encoded: ReadableStream<Uint8Array> = Stream.toReadableStream(encodedEvents);
+    const encoded = encodeActivityEvents(events);
     const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
     return new Response(withIdleSseKeepalive(encoded, dependencies.keepaliveIntervalMs), {
       headers: { ...SSE_HEADERS, [HTTP_HEADERS.REQUEST_ID]: requestId },
     });
   });
   return app;
+}
+
+function encodeActivityEvents(
+  events: ReadableStream<Parameters<typeof encodeTurnActivitySseEvent>[0]>,
+): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return events.pipeThrough(
+    new TransformStream({
+      transform: (event, controller) => {
+        controller.enqueue(encoder.encode(encodeTurnActivitySseEvent(event)));
+      },
+    }),
+  );
 }

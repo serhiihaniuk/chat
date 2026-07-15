@@ -1,6 +1,3 @@
-import { TURN_ACTIVITY_EVENT_TYPE, type TurnActivityEvent } from "@side-chat/chat-protocol";
-import { Effect, Exit, Queue, Scope, Stream } from "effect";
-
 import type {
   TurnActivityNotification,
   TurnActivityNotificationSource,
@@ -9,7 +6,7 @@ import type {
 const SUBSCRIBER_QUEUE_CAPACITY = 256;
 
 export type ActivitySubscription = Readonly<{
-  events: Queue.Dequeue<TurnActivityEvent>;
+  events: ReadableStream<TurnActivityNotification>;
   release: () => Promise<void>;
 }>;
 
@@ -18,28 +15,55 @@ export type TurnActivityDispatcher = Readonly<{
   shutdown: () => Promise<void>;
 }>;
 
-type ActivityFanout = { readonly subscribers: Set<Queue.Queue<TurnActivityEvent>> };
+type ActivitySubscriber = Readonly<{
+  controller: ReadableStreamDefaultController<TurnActivityNotification>;
+  release: () => void;
+}>;
+
+type ActivityFanout = { readonly subscribers: Set<ActivitySubscriber> };
 
 /**
- * Fan lifecycle hints out by authenticated workspace and subject.
+ * Fan identity-only lifecycle invalidations out by authenticated workspace and subject.
  *
- * A bounded queue makes this deliberately lossy: the active-turn snapshot repairs
- * missed hints on reconnect, while a stalled browser cannot retain unbounded RAM.
+ * The bounded native streams are deliberately lossy: each HTTP subscription
+ * re-reads Workflow-backed activity before exposing a public status, and its
+ * initial synchronization snapshot repairs any invalidation dropped here.
  */
 export function createTurnActivityDispatcher(
   notificationSource: TurnActivityNotificationSource,
 ): TurnActivityDispatcher {
-  const scope = Effect.runSync(Scope.make());
   const fanouts = new Map<string, ActivityFanout>();
-  const drain = Stream.runForEach(notificationSource.notifications, (notification) =>
-    Effect.sync(() => fanOut(fanouts, notification)),
-  );
-  Effect.runSync(Effect.forkIn(drain, scope));
+  const sourceReader = notificationSource.openNotifications().getReader();
+  let stopped = false;
+  const drain = drainNotifications(sourceReader, fanouts, () => stopped);
 
   return {
-    subscribe: (input) => Effect.runPromise(registerSubscriber(fanouts, input)),
-    shutdown: () => Effect.runPromise(Scope.close(scope, Exit.succeed(undefined))),
+    subscribe: (input) => Promise.resolve(registerSubscriber(fanouts, input)),
+    shutdown: async () => {
+      if (stopped) return;
+      stopped = true;
+      await sourceReader.cancel();
+      await drain;
+      closeSubscribers(fanouts);
+    },
   };
+}
+
+async function drainNotifications(
+  reader: ReadableStreamDefaultReader<TurnActivityNotification>,
+  fanouts: Map<string, ActivityFanout>,
+  isStopped: () => boolean,
+): Promise<void> {
+  try {
+    while (!isStopped()) {
+      const next = await reader.read();
+      if (next.done) return;
+      fanOut(fanouts, next.value);
+    }
+  } catch {
+    // The Postgres adapter reconnects internally. A terminal source failure
+    // simply leaves snapshot/reconnect reconciliation as the correctness path.
+  }
 }
 
 function fanOut(
@@ -48,42 +72,70 @@ function fanOut(
 ): void {
   const fanout = fanouts.get(fanoutKey(notification.workspaceId, notification.subjectId));
   if (!fanout) return;
-  const event: TurnActivityEvent = {
-    type: TURN_ACTIVITY_EVENT_TYPE,
-    conversationId: notification.conversationId,
-    assistantTurnId: notification.assistantTurnId,
-    status: notification.status,
-  };
-  for (const queue of fanout.subscribers) Queue.offerUnsafe(queue, event);
+  for (const subscriber of fanout.subscribers) {
+    if ((subscriber.controller.desiredSize ?? 0) > 0) {
+      subscriber.controller.enqueue(notification);
+    }
+  }
 }
 
-const registerSubscriber = (
+function registerSubscriber(
   fanouts: Map<string, ActivityFanout>,
   input: { readonly workspaceId: string; readonly subjectId: string },
-): Effect.Effect<ActivitySubscription> =>
-  Effect.gen(function* () {
-    const queue = yield* Queue.dropping<TurnActivityEvent>(SUBSCRIBER_QUEUE_CAPACITY);
-    const key = fanoutKey(input.workspaceId, input.subjectId);
-    const fanout = fanouts.get(key) ?? { subscribers: new Set() };
-    fanouts.set(key, fanout);
-    fanout.subscribers.add(queue);
-    return {
-      events: queue,
-      release: () => Effect.runPromise(releaseSubscriber(fanouts, key, queue)),
-    };
-  });
+): ActivitySubscription {
+  const key = fanoutKey(input.workspaceId, input.subjectId);
+  const fanout = fanouts.get(key) ?? { subscribers: new Set<ActivitySubscriber>() };
+  fanouts.set(key, fanout);
 
-const releaseSubscriber = (
+  let releaseSubscriber = (): void => undefined;
+  const events = new ReadableStream<TurnActivityNotification>(
+    {
+      start: (controller) => {
+        let active = true;
+        const subscriber: ActivitySubscriber = {
+          controller,
+          release: () => {
+            if (!active) return;
+            active = false;
+            removeSubscriber(fanouts, key, subscriber);
+          },
+        };
+        releaseSubscriber = subscriber.release;
+        fanout.subscribers.add(subscriber);
+      },
+      cancel: () => releaseSubscriber(),
+    },
+    { highWaterMark: SUBSCRIBER_QUEUE_CAPACITY },
+  );
+
+  return {
+    events,
+    release: () => {
+      releaseSubscriber();
+      return Promise.resolve();
+    },
+  };
+}
+
+function removeSubscriber(
   fanouts: Map<string, ActivityFanout>,
   key: string,
-  queue: Queue.Queue<TurnActivityEvent>,
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    const fanout = fanouts.get(key);
-    fanout?.subscribers.delete(queue);
-    if (fanout?.subscribers.size === 0) fanouts.delete(key);
-    yield* Queue.shutdown(queue);
-  });
+  subscriber: ActivitySubscriber,
+): void {
+  const fanout = fanouts.get(key);
+  fanout?.subscribers.delete(subscriber);
+  if (fanout?.subscribers.size === 0) fanouts.delete(key);
+}
+
+function closeSubscribers(fanouts: Map<string, ActivityFanout>): void {
+  for (const fanout of fanouts.values()) {
+    for (const subscriber of fanout.subscribers) {
+      subscriber.controller.close();
+      subscriber.release();
+    }
+  }
+  fanouts.clear();
+}
 
 const fanoutKey = (workspaceId: string, subjectId: string): string =>
   `${workspaceId}\u0000${subjectId}`;

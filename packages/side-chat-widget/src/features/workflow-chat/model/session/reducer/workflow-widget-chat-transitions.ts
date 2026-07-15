@@ -159,6 +159,18 @@ export function transportRecovered(
   };
 }
 
+export function transportReconnecting(
+  state: WorkflowWidgetChatState,
+  epochId: string,
+): WorkflowWidgetChatState {
+  if (!isCurrentEpoch(state, epochId) || state.terminal.kind !== "none") return state;
+  return {
+    ...state,
+    transport: WORKFLOW_WIDGET_TRANSPORT.RECONNECTING,
+    transportError: undefined,
+  };
+}
+
 export function cancelRequested(
   state: WorkflowWidgetChatState,
   runId: string | undefined,

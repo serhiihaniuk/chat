@@ -17,6 +17,13 @@ type CompletedAgentResult = Readonly<{
   }>;
 }>;
 
+const FAILED_WORKFLOW_AGENT_FINISH_REASON = "error";
+
+/** The Workflow wrapper resolves provider error streams, so inspect its terminal reason. */
+export function didWorkflowAgentFail(result: Pick<CompletedAgentResult, "finishReason">): boolean {
+  return result.finishReason === FAILED_WORKFLOW_AGENT_FINISH_REASON;
+}
+
 /** Project the provider's final aggregate into terminal metadata and fallback content. */
 export function toCompletedChatTurnOutcome(
   turnId: string,

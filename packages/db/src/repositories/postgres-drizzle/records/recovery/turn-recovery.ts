@@ -73,25 +73,14 @@ export function createTurnRecoveryRepository({
           DB_REPOSITORY_ERROR_CODES.INVALID_TRANSITION,
           "Assistant turn lost its execution claim while locked.",
         );
-        await notifyTurnActivity(transaction, activityRow(claimed, "running"));
+        await notifyTurnActivity(transaction, claimed);
         return { record: toAssistantTurnRecord(claimed), claimed: true };
       }),
 
     resolveConversationTurnAvailability: (command) =>
-      db.transaction(async (transaction) => {
-        const observation = await selectOpenConversationTurnForUpdate(transaction, command);
-        if (!observation) return true;
-        if (isActiveWorkflowRunStatus(observation.workflowStatus)) return false;
-        if (isTerminalWorkflowRunStatus(observation.workflowStatus)) {
-          await terminalizeOpenTurn(transaction, observation.turn, "failed", command.now);
-          return true;
-        }
-        if (!recoveryGraceExpired(observation, command.now, command.recoveryGraceMs)) {
-          return false;
-        }
-        await terminalizeOpenTurn(transaction, observation.turn, "failed", command.now);
-        return true;
-      }),
+      db.transaction((transaction) =>
+        resolveConversationTurnAvailabilityInTransaction(transaction, command),
+      ),
 
     requestTurnCancellation: (command) =>
       db.transaction(async (transaction) => {
@@ -127,6 +116,29 @@ export function createTurnRecoveryRepository({
         return TURN_CANCELLATION_DISPOSITIONS.ACKNOWLEDGED;
       }),
   };
+}
+
+/** Resolve stale product/Workflow activity inside a caller-owned transaction. */
+export async function resolveConversationTurnAvailabilityInTransaction(
+  transaction: PostgresDrizzleTransaction,
+  command: {
+    readonly workspaceId: string;
+    readonly subjectId: string;
+    readonly conversationId: string;
+    readonly now: string;
+    readonly recoveryGraceMs: number;
+  },
+): Promise<boolean> {
+  const observation = await selectOpenConversationTurnForUpdate(transaction, command);
+  if (!observation) return true;
+  if (isActiveWorkflowRunStatus(observation.workflowStatus)) return false;
+  if (isTerminalWorkflowRunStatus(observation.workflowStatus)) {
+    await terminalizeOpenTurn(transaction, observation.turn, "failed", command.now);
+    return true;
+  }
+  if (!recoveryGraceExpired(observation, command.now, command.recoveryGraceMs)) return false;
+  await terminalizeOpenTurn(transaction, observation.turn, "failed", command.now);
+  return true;
 }
 
 async function selectOwnedTurnForUpdate(
@@ -261,23 +273,4 @@ async function terminalizeOpenTurn(
   );
   await notifyTurnActivity(transaction, terminal);
   return toAssistantTurnRecord(terminal);
-}
-
-function activityRow(
-  row: typeof assistantTurns.$inferSelect,
-  status: string,
-): Readonly<{
-  workspaceId: string;
-  subjectId: string;
-  conversationId: string;
-  assistantTurnId: string;
-  status: string;
-}> {
-  return {
-    workspaceId: row.workspaceId,
-    subjectId: row.subjectId,
-    conversationId: row.conversationId,
-    assistantTurnId: row.assistantTurnId,
-    status,
-  };
 }

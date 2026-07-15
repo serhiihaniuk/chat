@@ -1,6 +1,3 @@
-import { supportsTool, type HostToolCall } from "@side-chat/host-bridge";
-import { toJsonObject } from "@side-chat/shared";
-
 import { resolveWorkflowApprovalDecision } from "../../approval/workflow-approval.js";
 import {
   dispatchWorkflowClientTool,
@@ -62,7 +59,7 @@ export async function dispatchPendingWorkflowClientTool(
     Readonly<{ toolCall: WorkflowClientToolCall }>,
 ): Promise<WorkflowWidgetInteractionContinuation | undefined> {
   const runId = input.readSnapshot().activeRunId;
-  if (!runId || !(await isSupportedClientTool(input.hostBridge, input.toolCall))) {
+  if (!runId) {
     input.dispatch({ type: "ClientToolSettled", toolCallId: input.toolCall.toolCallId });
     return undefined;
   }
@@ -87,22 +84,4 @@ export async function dispatchPendingWorkflowClientTool(
   if (input.readSnapshot().activeRunId !== runId) return undefined;
   input.dispatch({ type: "ClientToolSettled", toolCallId: input.toolCall.toolCallId });
   return { reconnect: outcome.outputPosted, runId };
-}
-
-async function isSupportedClientTool(
-  hostBridge: WorkflowWidgetChatRuntimeContext["hostBridge"],
-  toolCall: WorkflowClientToolCall,
-): Promise<boolean> {
-  if (!hostBridge?.getCapabilities) return false;
-  try {
-    const capabilities = await hostBridge.getCapabilities();
-    const hostCall: HostToolCall = {
-      input: toJsonObject(toolCall.input),
-      toolCallId: toolCall.toolCallId,
-      toolName: toolCall.toolName,
-    };
-    return supportsTool(capabilities, hostCall);
-  } catch {
-    return true;
-  }
 }

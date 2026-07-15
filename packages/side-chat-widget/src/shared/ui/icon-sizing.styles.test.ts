@@ -7,6 +7,16 @@ const headerSource = readFileSync(
   "utf8",
 );
 const noticeSource = readFileSync(new URL("./error-notice.tsx", import.meta.url), "utf8");
+const reasoningSource = readFileSync(new URL("./reasoning.tsx", import.meta.url), "utf8");
+const citationsSource = readFileSync(new URL("./activity/citations.tsx", import.meta.url), "utf8");
+const workflowTimelineSource = readFileSync(
+  new URL("../../features/workflow-chat/ui/workflow-message-timeline.tsx", import.meta.url),
+  "utf8",
+);
+const workflowToolSource = readFileSync(
+  new URL("../../features/workflow-chat/ui/workflow-tool-presentation.tsx", import.meta.url),
+  "utf8",
+);
 
 describe("shared icon size contract", () => {
   it("defines named compact and standard glyph tiers", () => {
@@ -30,5 +40,17 @@ describe("shared icon size contract", () => {
     expect(styles).toMatch(
       /\[data-streamdown="code-block-actions"\] svg \{[\s\S]*?width: var\(--size-icon-sm\);[\s\S]*?height: var\(--size-icon-sm\);/u,
     );
+  });
+
+  it("uses semantic icon tiers across message activity surfaces", () => {
+    for (const source of [
+      reasoningSource,
+      citationsSource,
+      workflowTimelineSource,
+      workflowToolSource,
+    ]) {
+      expect(source).toContain("size-icon-sm");
+      expect(source).not.toMatch(/\bsize-(?:2\.5|3\.5|4)\b/u);
+    }
   });
 });

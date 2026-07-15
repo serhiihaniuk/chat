@@ -1,9 +1,9 @@
-import { useEffect, useState, type ReactElement } from "react";
+import { type ReactElement } from "react";
 import { FileText } from "lucide-react";
 
 import type { RenderActivityItem } from "#entities/activity";
 import { DEFAULT_TOOL_DETAIL_LEVEL, type ToolDetailLevel } from "#entities/settings";
-import { MarkdownContent } from "#shared/ai/markdown-content";
+import { parseFootnoteSources } from "#shared/ai/footnote-sources";
 import { useWidgetLabels, type WidgetLabels } from "#shared/lib/widget-labels";
 import { ActivityImages } from "#shared/ui/activity/activity-images";
 import { SourcesFold } from "#shared/ui/activity/citations";
@@ -15,7 +15,6 @@ import {
 } from "#shared/ui/error-notice";
 import { Message } from "#shared/ui/message";
 import { MessageActions } from "#shared/ui/message-actions";
-import { Reasoning, type ReasoningItem } from "#shared/ui/reasoning";
 
 import {
   projectWorkflowMessageParts,
@@ -27,6 +26,7 @@ import type {
   WorkflowApprovalDecisions,
   WorkflowChatTerminal,
 } from "../model/use-workflow-widget-chat.js";
+import { WorkflowActivityTrace } from "./activity/workflow-activity-trace.js";
 import { WorkflowToolPresentation } from "./workflow-tool-presentation.js";
 import { groupTimelineItems, type FileItem } from "./workflow-timeline-grouping.js";
 import { WorkflowPendingTimeline } from "./workflow-pending-timeline.js";
@@ -140,18 +140,21 @@ function MessageBody({
       />
     ),
   );
+  const answerText = answers.map((answer) => answer.text).join("");
+  const footnoteSources = parseFootnoteSources(answerText);
+  const visibleSources = footnoteSources.length > 0 ? footnoteSources : sources;
   const isEmpty =
     trace.length === 0 &&
     approvals.length === 0 &&
-    answers.length === 0 &&
-    sources.length === 0 &&
+    answerText.length === 0 &&
+    visibleSources.length === 0 &&
     files.length === 0;
-  const isThinking = isStreaming && !answers.some((answer) => answer.text.trim().length > 0);
+  const isThinking = isStreaming && answerText.trim().length === 0;
 
   return (
     <>
       {trace.length > 0 && (
-        <ActivityTrace
+        <WorkflowActivityTrace
           activityDurationMs={activityDurationMs}
           isStreaming={isStreaming}
           items={trace}
@@ -168,19 +171,18 @@ function MessageBody({
           onApprovalDecision={onApprovalDecision}
         />
       ))}
-      {answers.map((item) => (
+      {answerText.length > 0 && (
         <Message
-          key={item.id}
-          mode={isStreaming || item.streaming ? "streaming" : "static"}
-          role={item.role}
-          text={item.text}
+          mode={isStreaming || answers.some((answer) => answer.streaming) ? "streaming" : "static"}
+          role={role}
+          text={answerText}
         />
-      ))}
-      {sources.length > 0 && <SourcesFold sources={sources} />}
+      )}
+      {visibleSources.length > 0 && <SourcesFold sources={visibleSources} />}
       {files.map((item) => (
         <FilePresentation item={item} key={item.id} />
       ))}
-      <CompletedAnswerCopy answers={answers} isStreaming={isStreaming} role={role} />
+      <CompletedAnswerCopy answerText={answerText} isStreaming={isStreaming} role={role} />
       <EmptyAssistant isEmpty={isEmpty} isStreaming={isStreaming} role={role} />
     </>
   );
@@ -201,61 +203,16 @@ function EmptyAssistant({
 }
 
 function CompletedAnswerCopy({
-  answers,
+  answerText,
   isStreaming,
   role,
 }: {
-  readonly answers: readonly Extract<WorkflowTimelineItem, { kind: "text" }>[];
+  readonly answerText: string;
   readonly isStreaming: boolean;
   readonly role: "user" | "assistant";
 }): ReactElement | null {
-  if (role !== "assistant" || isStreaming || answers.length === 0) return null;
-  return <MessageActions copyText={answers.map((item) => item.text).join("")} />;
-}
-
-// The trace opens only while reasoning is the active output. The first answer
-// text collapses it; completed history stays closed unless the user opens it.
-function ActivityTrace({
-  activityDurationMs,
-  isStreaming,
-  items,
-  labels,
-  thinking,
-}: {
-  readonly activityDurationMs: number | undefined;
-  readonly isStreaming: boolean;
-  readonly items: readonly ReasoningItem[];
-  readonly labels: WidgetLabels;
-  readonly thinking: boolean;
-}): ReactElement {
-  const [open, setOpen] = useState(thinking);
-  useEffect(() => {
-    setOpen(thinking);
-  }, [thinking]);
-  return (
-    <Reasoning
-      items={items}
-      label={activityLabel(activityDurationMs, thinking, labels)}
-      onOpenChange={setOpen}
-      open={open}
-      renderThought={(text) => (
-        <div className="text-sm text-muted-foreground">
-          <MarkdownContent mode={isStreaming ? "streaming" : "static"}>{text}</MarkdownContent>
-        </div>
-      )}
-      thinking={thinking}
-    />
-  );
-}
-
-function activityLabel(
-  activityDurationMs: number | undefined,
-  thinking: boolean,
-  labels: WidgetLabels,
-): string {
-  if (thinking) return labels.activityThinking;
-  if (activityDurationMs === undefined) return labels.activityThoughtProcess;
-  return labels.activityThoughtForSeconds(Math.max(1, Math.ceil(activityDurationMs / 1_000)));
+  if (role !== "assistant" || isStreaming || answerText.length === 0) return null;
+  return <MessageActions copyText={answerText} />;
 }
 
 function FilePresentation({ item }: { readonly item: FileItem }): ReactElement {
@@ -277,7 +234,7 @@ function FilePresentation({ item }: { readonly item: FileItem }): ReactElement {
       data-slot="file-presentation"
       className="flex items-center gap-(--tool-detail-gap) rounded-md border border-border bg-muted p-(--tool-detail-pad)"
     >
-      <FileText className="size-4 shrink-0 text-muted-foreground" />
+      <FileText className="size-icon-sm shrink-0 text-muted-foreground" />
       <span className="min-w-0 truncate text-sm text-foreground">
         {item.filename ?? item.mediaType}
       </span>

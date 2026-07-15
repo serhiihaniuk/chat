@@ -86,7 +86,9 @@ describe("submitToolApproval", () => {
   );
 
   it("does not read a body for an unknown approval", async () => {
-    const readDecision = vi.fn(async () => ({ valid: true as const, approved: true }));
+    const readDecision = vi.fn<Parameters<typeof submitToolApproval>[2]["readDecision"]>(() =>
+      Promise.resolve({ valid: true, approved: true }),
+    );
     await expect(
       submitToolApproval(
         fakeToolApprovalDecisionStore({

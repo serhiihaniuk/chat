@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from "react";
-import type { TurnActivityEvent } from "@side-chat/chat-protocol";
+import { isRunningActivity, type TurnActivityEvent } from "@side-chat/chat-protocol";
 
 import type { WorkflowChatClient } from "#entities/workflow-chat";
+import type { WorkflowWidgetChatSessionRegistry } from "#features/workflow-chat";
 import { subscribeWorkflowActivity } from "./workflow-conversation-activity-client.js";
 import { useActivityStream } from "#features/chat";
 
@@ -11,6 +12,7 @@ type WorkflowConversationActivityOptions = Readonly<{
   isLocalDraft: boolean;
   refreshConversation: (conversationId: string) => void;
   refreshConversationCatalog: () => void;
+  sessionRegistry: WorkflowWidgetChatSessionRegistry;
   workflowChat: WorkflowChatClient;
 }>;
 
@@ -21,6 +23,7 @@ export function useWorkflowConversationActivity({
   isLocalDraft,
   refreshConversation,
   refreshConversationCatalog,
+  sessionRegistry,
   workflowChat,
 }: WorkflowConversationActivityOptions): void {
   const activityClient = useMemo(
@@ -37,6 +40,9 @@ export function useWorkflowConversationActivity({
       if (!isLocalDraft && event.conversationId === activeConversationId) {
         refreshConversation(activeConversationId);
       }
+      if (!isRunningActivity(event) && event.conversationId !== activeConversationId) {
+        void sessionRegistry.reconcileInactiveConversation(event.conversationId);
+      }
     },
     [
       activeConversationId,
@@ -44,6 +50,7 @@ export function useWorkflowConversationActivity({
       isLocalDraft,
       refreshConversation,
       refreshConversationCatalog,
+      sessionRegistry,
     ],
   );
   useActivityStream({

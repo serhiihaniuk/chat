@@ -65,7 +65,9 @@ describe.skipIf(!databaseUrl)("postgres turn state adapter (integration)", () =>
 
     await expect(state.assertOwned(auth, conversationId)).resolves.toBeUndefined();
     // A running turn makes the conversation busy to any new begin.
-    await expect(state.assertCanBegin(auth, conversationId)).rejects.toMatchObject({
+    await expect(
+      state.assertCanBegin(auth, conversationId, `${scope}_next_req`),
+    ).rejects.toMatchObject({
       code: TURN_REJECTION_CODES.BUSY,
     });
 
@@ -103,7 +105,9 @@ describe.skipIf(!databaseUrl)("postgres turn state adapter (integration)", () =>
     expect(history.map((message) => message.role)).toEqual(["user", "assistant"]);
 
     // Once terminal, the conversation admits a new turn again.
-    await expect(state.assertCanBegin(auth, conversationId)).resolves.toBeUndefined();
+    await expect(
+      state.assertCanBegin(auth, conversationId, `${scope}_next_req`),
+    ).resolves.toBeUndefined();
   });
 
   it("rejects a second concurrent begin on the same conversation as BUSY", async () => {

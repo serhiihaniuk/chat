@@ -24,6 +24,7 @@ describe("cancelTurn", () => {
     };
     const tracedExecution: TurnExecution = {
       start: (turnInput) => execution.start(turnInput),
+      resume: (runId, turnInput) => execution.resume(runId, turnInput),
       cancel: (runId) => {
         calls.push("cancel");
         return execution.cancel(runId);

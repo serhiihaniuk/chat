@@ -129,6 +129,11 @@ class CatalogCapturingTurnExecution implements TurnExecution {
     };
   }
 
+  async resume(runId: string, input: TurnExecutionInput): Promise<StartedTurnExecution> {
+    const execution = await this.start(input);
+    return { ...execution, runId };
+  }
+
   async cancel(): Promise<void> {}
 }
 

@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
 import { describe, expect, it, vi } from "vitest";
 
-import type { TurnStore } from "#application/ports/turn/turn-store";
+import { BEGIN_TURN_DISPOSITIONS, type TurnStore } from "#application/ports/turn/turn-store";
 import { TURN_TERMINAL_STATUSES, type TurnRef } from "#domain/turn/turn";
 
 import { finalizeTurn } from "./finalize-turn.js";
@@ -62,7 +62,7 @@ describe("finalizeTurn", () => {
 function turnStore(overrides: Partial<TurnStore>): TurnStore {
   return {
     assertCanBegin: () => Promise.resolve(),
-    beginTurn: () => Promise.resolve(TURN),
+    beginTurn: () => Promise.resolve({ ...TURN, disposition: BEGIN_TURN_DISPOSITIONS.CREATED }),
     bindRun: () => Promise.resolve(),
     assertRunOwned: () => Promise.resolve(),
     finalize: () => Promise.resolve(false),

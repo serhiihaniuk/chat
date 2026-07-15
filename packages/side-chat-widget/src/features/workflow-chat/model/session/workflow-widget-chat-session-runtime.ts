@@ -98,7 +98,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
       observationId: stateObservationId,
     });
     if (previousRunId && previousRunId !== activeTurn?.runId) {
-      this.terminalNotificationRunId = undefined;
+      this.notifyRunTerminal(previousRunId);
       this.context.lifecycle.onRunReconciled?.(previousRunId);
     }
     if (activeTurn && !keepCurrentEpoch) {
@@ -112,6 +112,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
     if (this.disposed) return;
     try {
       const snapshot = await readWorkflowConversationState(this.context.client);
+      this.disposeEpoch();
       this.observeSnapshot(
         snapshot.messages,
         snapshot.activeTurn,
@@ -207,6 +208,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
       onRunAccepted: this.acceptRun.bind(this, epochId),
       onStreamEnded: this.endStream.bind(this, epochId),
       onTransportDropped: this.dropTransport.bind(this, epochId),
+      onTransportReconnecting: this.reconnectTransport.bind(this, epochId),
       onTransportRecovered: this.recoverTransport.bind(this, epochId),
     });
     this.currentEpoch = {
@@ -261,6 +263,10 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
 
   private recoverTransport(epochId: string): void {
     this.dispatch({ type: "TransportRecovered", epochId });
+  }
+
+  private reconnectTransport(epochId: string): void {
+    this.dispatch({ type: "TransportReconnecting", epochId });
   }
 
   private disposeEpoch(): void {

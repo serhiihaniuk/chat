@@ -1,13 +1,32 @@
-import type {
-  ActiveConversationTurn,
-  ConversationHistoryPage,
-  ConversationStateSnapshot,
+import {
+  DEFAULT_HISTORY_PAGE_LIMIT,
+  type ActiveConversationTurn,
+  type ConversationHistoryPage,
+  type ConversationHistoryQuery,
+  type ConversationStateSnapshot,
+  type StoredConversationMessage,
 } from "#application/ports/conversation-query-store";
 import { TurnRejectedError } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
 
 import { findLatestBoundTurn, type InMemoryStoredTurn } from "./active-turns.js";
 import { asError, runNotFound } from "./errors.js";
+
+/** Mirror the Postgres backward-history cursor over one in-memory message list. */
+export function readInMemoryHistoryPage(
+  messages: readonly StoredConversationMessage[],
+  query?: ConversationHistoryQuery,
+): ConversationHistoryPage {
+  const limit = query?.limit ?? DEFAULT_HISTORY_PAGE_LIMIT;
+  const upperExclusive = Math.min(query?.beforeSequenceIndex ?? messages.length, messages.length);
+  const start = Math.max(0, upperExclusive - limit);
+  const hasMoreBefore = start > 0;
+  return {
+    messages: messages.slice(start, upperExclusive),
+    hasMoreBefore,
+    nextBeforeSequenceIndex: hasMoreBefore ? start : undefined,
+  };
+}
 
 /** Combine values captured synchronously by the in-memory query adapter. */
 export async function readInMemoryConversationState(

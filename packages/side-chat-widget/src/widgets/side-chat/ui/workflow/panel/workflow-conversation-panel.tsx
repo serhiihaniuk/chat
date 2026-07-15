@@ -39,6 +39,7 @@ type WorkflowConversationPanelProps = Readonly<{
   theme: ReturnType<typeof useWidgetTheme>;
   workflowChat: WorkflowSideChatWidgetProps["workflowChat"];
   workflowActiveTurnStorageKey: WorkflowSideChatWidgetProps["workflowActiveTurnStorageKey"];
+  workflowConversationSelectionStorageKey: WorkflowSideChatWidgetProps["workflowConversationSelectionStorageKey"];
   modelSelection: WorkflowModelSelection;
   sessionRegistry: WorkflowWidgetChatSessionRegistry;
   toolSelection: WidgetToolSelection;
@@ -58,6 +59,7 @@ export function WorkflowConversationPanel({
   theme,
   workflowChat,
   workflowActiveTurnStorageKey,
+  workflowConversationSelectionStorageKey,
   modelSelection,
   sessionRegistry,
   toolSelection,
@@ -76,7 +78,11 @@ export function WorkflowConversationPanel({
     recoveryNeedsValidation,
     selectConversation,
     startNewConversation,
-  } = useWorkflowConversationSelection(initialConversationId, workflowActiveTurnStorageKey);
+  } = useWorkflowConversationSelection(
+    initialConversationId,
+    workflowActiveTurnStorageKey,
+    workflowConversationSelectionStorageKey,
+  );
   const {
     applyActivityEvent,
     catalog,
@@ -93,6 +99,7 @@ export function WorkflowConversationPanel({
     isLocalDraft,
     refreshConversation,
     refreshConversationCatalog,
+    sessionRegistry,
     workflowChat,
   });
   const titleIsFallback = isWorkflowConversationTitleFallback(
@@ -152,15 +159,6 @@ export function WorkflowConversationPanel({
     },
     [clearTerminalRun],
   );
-  const selectPersistedConversation = useCallback(
-    (conversationId: string): void => {
-      selectConversation(conversationId);
-    },
-    [selectConversation],
-  );
-  const selectNewConversation = useCallback((): void => {
-    startNewConversation();
-  }, [startNewConversation]);
   const { refresh } = useWorkflowPanelRefresh(queryClient);
   const refreshPanel = useCallback((): void => {
     refresh();
@@ -211,9 +209,9 @@ export function WorkflowConversationPanel({
       conversations={conversationViews}
       labels={labels}
       onClose={onClose}
-      onNewConversation={selectNewConversation}
+      onNewConversation={startNewConversation}
       onRefresh={refreshPanel}
-      onSelectConversation={selectPersistedConversation}
+      onSelectConversation={selectConversation}
       renderAgentMark={renderAgentMark}
       runningConversationIds={runningConversationIds}
       selectedConversationId={activeConversationId}

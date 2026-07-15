@@ -76,23 +76,38 @@ Browser evidence via the preview workflow: refresh mid-turn and a two-tab sessio
 
 Those historical test counts prove only the superseded implementation. New completion evidence must cover stable session ownership, already-open-tab activity, non-blocking navigation, and refresh/close recovery.
 
-Still open in Step 16: retry exhaustion/manual reconnect presentation, simultaneous-send busy conflict, idle network loss, terminal-while-offline discovery, and the remaining dedicated refresh/drop cases. This slice does not close the step.
+Closed on 2026-07-15: focused transport/session tests prove bounded automatic
+reattach, status-less connection loss, manual replacement of an exhausted
+attachment, typed non-retryable HTTP failures, and terminal snapshot takeover.
+The browser suite proves empty and idle refresh, hard reload during generation,
+selection and close/reopen continuity, title refresh, idle activity loss, an
+already-open two-tab activity transition, terminal convergence, and the exact
+simultaneous-send conflict. Real-provider/Postgres verification additionally
+proved progressive streaming, refresh replay, cancellation, durable partial
+failure output, tool approval/reload, and generated titles.
 
 ## Completion checklist
 
 - [x] Idle mount and idle refresh render New chat without a history 404 or implicit existing-chat selection.
 - [x] An accepted draft turn records a tab-scoped recovery cursor before stream completion; mid-turn refresh reattaches, and terminal completion clears the cursor.
-- [ ] Failed, timed-out, and cancelled turns persist already-visible text/reasoning plus browser-safe terminal metadata; blocked output remains absent.
+- [x] Failed, timed-out, and cancelled turns persist already-visible text/reasoning plus browser-safe terminal metadata; blocked output remains absent.
 - [x] Conversation selection is independent of the URL; no widget or harness callback mutates `conversationId` query state.
-- [ ] Transport-drop presentation keeps the typed 4xx/retry boundary and manual reconnect behavior.
-- [ ] The conversation catalog plus subject-scoped activity stream expose real running ids without disabling New chat or conversation switching.
-- [ ] Dedicated browser cases prove empty-store refresh, idle refresh with existing chats, mid-turn refresh, switch/close/reopen continuity, and an already-open two-tab running-conversation flow.
-- [ ] Old recovery ladder remains consumer-free on the native path and the replacement cursor has focused lifecycle tests.
+- [x] Transport-drop presentation keeps the typed 4xx/retry boundary and manual reconnect behavior.
+- [x] The conversation catalog plus subject-scoped activity stream expose real running ids without disabling New chat or conversation switching.
+- [x] Dedicated browser cases prove empty-store refresh, idle refresh with existing chats, mid-turn refresh, switch/close/reopen continuity, and an already-open two-tab running-conversation flow.
+- [x] Old recovery ladder remains consumer-free on the native path and the replacement cursor has focused lifecycle tests.
 
 ## Handoff record
 
-Recovery/discovery wiring: the selection/cursor correction remains useful, but selected-component stream ownership and the catalog-only two-tab proof are rejected. Restore the approved session-store and activity-stream semantics before closing this step.
+Recovery/discovery wiring: the approved widget-lifetime session registry and
+subject activity stream replaced the rejected selected-component ownership and
+catalog-only two-tab proof. The selected panel subscribes to stable aggregates;
+selection and unmounting no longer cancel generation.
 
 Classification table (retryable vs fatal): retain the current typed HTTP versus status-less transport boundary and reverify it after the selection rewrite.
 
-Multi-tab evidence: the replacement case must keep both tabs open before the turn starts, observe a live activity transition, then prove explicit watcher selection, replay, Refresh, and terminal convergence. Simultaneous-send conflict remains open.
+Multi-tab evidence: both tabs are open before the turn starts; the watcher
+observes the live activity transition, selects the running conversation,
+replays it, refreshes, and converges on the same terminal transcript. A separate
+browser case proves one simultaneous send is accepted and the other receives a
+bounded busy conflict without duplicate messages.

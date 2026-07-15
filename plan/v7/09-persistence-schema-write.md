@@ -50,6 +50,27 @@ Depends on: Step 05 (interfaces agreed; may run in parallel with 06–08). Unblo
 8. missing bound Workflow run plus product `running` row → the reconciler records a safe failed terminal projection once;
 9. cancel against a terminal or missing bound run → reconcile or record cancellation and acknowledge instead of returning resource unavailable.
 
+## Strict conformance audit — 2026-07-15
+
+The audit reopened this step because `TurnStore.beginTurn` and
+`ARCHITECTURE.md` require one atomic acceptance boundary, while the PostgreSQL
+adapter called `createOrGetConversation`, `appendMessage`, and
+`startAssistantTurn` as three independent transactions. A busy race or process
+failure after the append could therefore leave a visible user message without
+an assistant turn. A replayed `requestId` could also append a different message
+before `startAssistantTurn` returned the earlier turn.
+
+The repair belongs in `packages/db`: one aggregate repository operation must
+create or resolve the owned conversation, validate exact replay identity,
+append the accepted user message, and open the assistant turn in one
+transaction. It must return whether the request created or reused the canonical
+turn so the service cannot start a second Workflow run. Completion requires
+disposable-Postgres tests for rollback after each stage, busy rejection with no
+message residue, exact replay with no duplicate rows, and mismatched replay
+rejection. The repository now implements that aggregate transaction and the
+disposable-Postgres evidence covers all four failure classes, so the audit is
+closed.
+
 ## Verification
 
 ```powershell
@@ -70,8 +91,19 @@ If the container command is unavailable, the step stays `in_review`, not `comple
 - [x] Atomic aggregate finalization + guarded terminal transition proven under replay.
 - [x] Partial unique index backing the busy check.
 - [x] Edge cases proven against a real container (see deviations for 1/6).
+- [x] Atomic aggregate begin proven for first turn, busy races, crashes, and request replay.
 
 ## Handoff record
+
+The 2026-07-15 audit invalidated only the earlier **begin** claim: those tests
+proved each repository call independently, not that accepted message plus turn
+opening shared one transaction. The replacement `beginAssistantTurn` operation
+now owns conversation resolution, exact request replay, accepted-message write,
+and running-turn creation in one transaction. Its four focused container cases
+prove simultaneous busy rejection without a losing message, mismatched replay
+rejection without mutation, rollback of a newly created conversation after a
+message conflict, and rollback when one request id races across conversations.
+Aggregate terminal finalization evidence remains valid.
 
 Scope decision: the user dropped the "keep the old app green" constraint (2026-07-11) to avoid a dual-schema coexistence. `packages/db` was reshaped in place for v7; the old app (`partner-ai-service`, `partner-ai-core`) is left non-compiling on purpose and stays only as the Step 08 parity reference until Step 20 deletes it. The v7 wing (db + service) is fully green and container-verified.
 

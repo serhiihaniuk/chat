@@ -8,6 +8,7 @@ import {
   SERVER_TOOL_APPROVAL_POLICIES,
 } from "#application/turn/tools/server-tools/server-tool-catalog";
 import { toolApprovalSnapshot } from "#testing/tool-approval-fixtures";
+import { CHAT_TURN_JOURNAL_PART_TYPES } from "../journal/chat-turn-journal.js";
 import {
   deniedToolOutput,
   TOOL_APPROVAL_DENIAL_REASONS,
@@ -32,12 +33,7 @@ vi.mock("../production/approvals/tool-approval.js", () => ({
   runToolApprovalStep: approvalStepMock,
 }));
 
-import {
-  executeGatedServerTool,
-  readServerToolSources,
-  TOOL_APPROVAL_REQUEST_STREAM_PART_TYPE,
-  writeServerToolSources,
-} from "./index.js";
+import { executeGatedServerTool, readServerToolSources, writeServerToolSources } from "./index.js";
 
 type TestServerExecute = (
   input: { issue: string },
@@ -68,7 +64,7 @@ describe("durable server-tool approval gate", () => {
     expect(execute).not.toHaveBeenCalled();
     expect(approvalChunks).toEqual([
       {
-        type: TOOL_APPROVAL_REQUEST_STREAM_PART_TYPE,
+        type: CHAT_TURN_JOURNAL_PART_TYPES.APPROVAL_REQUEST,
         approvalId: REQUESTED.approvalId,
         toolCallId: "call-1",
       },
@@ -183,6 +179,35 @@ describe("server-tool source projection", () => {
 
     expect(sources).toEqual([]);
     expect(getWritableMock).not.toHaveBeenCalled();
+  });
+
+  it("drops unsafe or unbounded model-authored source metadata", () => {
+    const definition = defineServerTool<
+      { query: string },
+      { results: readonly { title: string; url: string }[] }
+    >({
+      name: "test_search",
+      description: "Test search",
+      inputSchema: { type: "object" },
+      approvalPolicy: { kind: SERVER_TOOL_APPROVAL_POLICIES.ALWAYS },
+      validateInput: (input): input is { query: string } =>
+        typeof input === "object" && input !== null && "query" in input,
+      execute: async () => ({ results: [] }),
+      readSources: (output) =>
+        output.results.map((result) => ({ label: result.title, url: result.url })),
+    });
+
+    expect(
+      readServerToolSources(definition, {
+        results: [
+          { title: "Safe", url: "https://safe.test/article" },
+          { title: "Insecure", url: "http://unsafe.test" },
+          { title: "Script", url: "javascript:alert(1)" },
+          { title: "Credentials", url: "https://user:secret@unsafe.test" },
+          { title: "Too long", url: `https://unsafe.test/${"x".repeat(2_100)}` },
+        ],
+      }),
+    ).toEqual([{ label: "Safe", url: "https://safe.test/article" }]);
   });
 
   it("does not project a denied approval as a tool result", async () => {

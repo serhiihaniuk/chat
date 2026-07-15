@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { UIMessageChunk } from "ai";
 import type { HostContextRequest, WidgetHostBridge } from "@side-chat/host-bridge";
+import { SIDE_CHAT_ERROR_CODES, SIDE_CHAT_ERROR_VOCABULARY } from "@side-chat/stream-profile";
 
 import {
   normalizeWorkflowChatError,
@@ -195,13 +196,14 @@ describe("createWorkflowChatTransport", () => {
     ]);
   });
 
-  it("surfaces a typed busy response without retrying", async () => {
+  it("surfaces the public conflict response without automatically retrying", async () => {
+    const conflict = SIDE_CHAT_ERROR_VOCABULARY[SIDE_CHAT_ERROR_CODES.CONFLICT];
     const request = vi.fn<typeof fetch>(async () =>
       Response.json(
         {
-          code: "conversation_busy",
-          message: "A turn is already active.",
-          retryable: false,
+          code: SIDE_CHAT_ERROR_CODES.CONFLICT,
+          message: conflict.safeMessage,
+          retryable: conflict.retryable,
         },
         { status: 409 },
       ),
@@ -217,11 +219,57 @@ describe("createWorkflowChatTransport", () => {
     }
 
     expect(normalizeWorkflowChatError(thrown)).toMatchObject({
-      code: "conversation_busy",
-      message: "A turn is already active.",
-      retryable: false,
+      code: SIDE_CHAT_ERROR_CODES.CONFLICT,
+      message: conflict.safeMessage,
+      retryable: conflict.retryable,
+      status: 409,
     });
     expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps reconnecting through bounded stream failures and reports each HTTP recovery", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const transitions: string[] = [];
+    const onReconnectStarted = vi.fn<() => void>(() => {
+      transitions.push("reconnecting");
+    });
+    const onReconnectConnected = vi.fn<() => void>(() => {
+      transitions.push("connected");
+    });
+    let attempt = 0;
+    const request = vi.fn<typeof fetch>(() => {
+      attempt += 1;
+      if (attempt < 3) return Promise.resolve(failedStreamResponse());
+      return Promise.resolve(finishedResponse());
+    });
+    const client: WorkflowConversationClient = {
+      baseUrl: "https://service.example",
+      conversationId: "conversation-1",
+      fetch: request,
+      maxConsecutiveErrors: 3,
+    };
+    const transport = createWorkflowChatTransport({
+      getClient: () => client,
+      getReconnectRunId: () => "run-1",
+      onReconnectConnected,
+      onReconnectStarted,
+      onRunFinished: () => undefined,
+      onRunStarted: () => undefined,
+    });
+
+    await reconnectAndRead(transport);
+
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(onReconnectStarted).toHaveBeenCalledTimes(3);
+    expect(onReconnectConnected).toHaveBeenCalledTimes(3);
+    expect(transitions).toEqual([
+      "reconnecting",
+      "connected",
+      "reconnecting",
+      "connected",
+      "reconnecting",
+      "connected",
+    ]);
   });
 
   it("reattaches to the discovered run's stream on a cold-load reconnect", async () => {
@@ -362,6 +410,22 @@ async function readAll(stream: ReadableStream<UIMessageChunk>): Promise<UIMessag
 
 function finishedResponse(): Response {
   return streamResponse([{ type: "start", messageId: "assistant-1" }, { type: "finish" }]);
+}
+
+function failedStreamResponse(): Response {
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.error(new Error("stream disconnected"));
+      },
+    }),
+    {
+      headers: {
+        "content-type": "text/event-stream",
+        "x-vercel-ai-ui-message-stream": "v1",
+      },
+    },
+  );
 }
 
 function streamResponse(chunks: readonly (UIMessageChunk | typeof KEEPALIVE)[]): Response {

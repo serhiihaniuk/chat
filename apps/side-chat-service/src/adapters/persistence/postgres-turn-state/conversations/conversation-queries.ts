@@ -26,17 +26,14 @@ export function createPostgresConversationQueries(
       });
       const history = toHistoryPage(snapshot.messages, limit);
       const activeTurn = snapshot.activeTurn;
+      if (!activeTurn?.runId) return { history };
       return {
         history,
-        ...(activeTurn?.runId
-          ? {
-              activeTurn: {
-                turnId: activeTurn.assistantTurnId,
-                runId: activeTurn.runId,
-                status: "running" as const,
-              },
-            }
-          : {}),
+        activeTurn: {
+          turnId: activeTurn.assistantTurnId,
+          runId: activeTurn.runId,
+          status: "running",
+        },
       };
     },
     listConversations: async (auth) => {
@@ -45,12 +42,14 @@ export function createPostgresConversationQueries(
         subjectId: auth.subjectId,
         limit: 25,
       });
-      return records.map((record) => ({
-        id: record.conversationId,
-        status: record.status,
-        ...(record.titleText === undefined ? {} : { title: record.titleText }),
-        lastMessageAt: record.lastMessageAt,
-      }));
+      return records.map((record) => {
+        const summary = {
+          id: record.conversationId,
+          status: record.status,
+          lastMessageAt: record.lastMessageAt,
+        };
+        return record.titleText === undefined ? summary : { ...summary, title: record.titleText };
+      });
     },
     listActiveTurns: async (auth) => {
       const records = await repositories.listActiveAssistantTurns({
@@ -87,15 +86,17 @@ async function readHistoryPage(
   query: ConversationHistoryQuery | undefined,
 ): Promise<ConversationHistoryPage> {
   const limit = query?.limit ?? DEFAULT_HISTORY_PAGE_LIMIT;
-  const records = await repositories.readConversationHistory({
+  const request = {
     workspaceId: auth.workspaceId,
     subjectId: auth.subjectId,
     conversationId,
     limit: limit + 1,
-    ...(query?.beforeSequenceIndex === undefined
-      ? {}
-      : { beforeSequenceIndex: query.beforeSequenceIndex }),
-  });
+  };
+  const records = await repositories.readConversationHistory(
+    query?.beforeSequenceIndex === undefined
+      ? request
+      : { ...request, beforeSequenceIndex: query.beforeSequenceIndex },
+  );
   return toHistoryPage(records, limit);
 }
 
@@ -103,11 +104,11 @@ function toHistoryPage(records: readonly MessageRecord[], limit: number): Conver
   const hasMoreBefore = records.length > limit;
   const pageRecords = hasMoreBefore ? records.slice(1) : records;
   const nextBeforeSequenceIndex = hasMoreBefore ? pageRecords[0]?.sequenceIndex : undefined;
-  return {
+  const page = {
     messages: pageRecords.map(toStoredMessage),
     hasMoreBefore,
-    ...(nextBeforeSequenceIndex === undefined ? {} : { nextBeforeSequenceIndex }),
   };
+  return nextBeforeSequenceIndex === undefined ? page : { ...page, nextBeforeSequenceIndex };
 }
 
 function toStoredMessage(record: MessageRecord): StoredConversationMessage {

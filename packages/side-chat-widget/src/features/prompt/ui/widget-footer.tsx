@@ -9,6 +9,7 @@ import type { SideChatReasoningEffort as ChatReasoningEffort } from "@side-chat/
 type WidgetFooterLabels = {
   readonly placeholder: string;
   readonly send: string;
+  readonly stop: string;
 };
 
 type WidgetFooterModel = {
@@ -76,6 +77,7 @@ export const WidgetFooter = ({
       onSubmit={onSubmitMessage}
       placeholder={labels.placeholder}
       sendLabel={labels.send}
+      stopLabel={labels.stop}
       sendOnEnter={sendOnEnter}
       status={status}
       toolsMenu={

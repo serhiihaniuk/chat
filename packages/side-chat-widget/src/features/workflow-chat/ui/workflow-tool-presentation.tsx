@@ -119,7 +119,7 @@ function ApprovalPresentation({
       role="status"
       className="flex items-start gap-(--tool-detail-gap) rounded-md border border-border bg-muted p-(--tool-detail-pad)"
     >
-      <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <ShieldCheck className="mt-0.5 size-icon-sm shrink-0 text-muted-foreground" />
       <div className="flex min-w-0 flex-col gap-(--tool-detail-gap)">
         <span className="text-sm font-medium text-foreground">{item.name}</span>
         <span className="text-xs text-muted-foreground">{approvalCopy(decision, labels)}</span>

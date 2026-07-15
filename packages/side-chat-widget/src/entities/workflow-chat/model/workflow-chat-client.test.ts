@@ -110,6 +110,27 @@ describe("readWorkflowConversationState", () => {
       retryable: true,
     });
   });
+
+  it("hides unknown structured error codes and messages", async () => {
+    const client = createClient(() =>
+      Response.json(
+        {
+          code: "private_upstream_code",
+          message: "secret database and provider details",
+          retryable: true,
+        },
+        { status: 500 },
+      ),
+    );
+
+    await expect(readWorkflowConversationState(client)).rejects.toMatchObject({
+      code: "http_error",
+      message: "Chat request failed with status 500.",
+      retryable: false,
+      status: 500,
+    });
+  });
+
   it("returns the live run for reattach", async () => {
     const client = createClient(() =>
       Response.json({
@@ -403,7 +424,7 @@ describe("workflow interaction endpoints", () => {
       Promise.resolve(
         Response.json(
           {
-            code: "tool_approval_conflict",
+            code: "conflict",
             message: "private conflict",
             retryable: false,
           },
@@ -413,7 +434,7 @@ describe("workflow interaction endpoints", () => {
     );
     await expect(
       postWorkflowApprovalDecision(conflictClient, "run-1", "approval-1", true),
-    ).rejects.toMatchObject({ code: "tool_approval_conflict", status: 409 });
+    ).rejects.toMatchObject({ code: "conflict", status: 409 });
   });
 });
 

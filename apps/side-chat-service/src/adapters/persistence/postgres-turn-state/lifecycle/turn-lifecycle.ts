@@ -1,8 +1,7 @@
 import {
+  DB_REPOSITORY_ERROR_CODES,
   DbRepositoryError,
   TURN_CANCELLATION_DISPOSITIONS,
-  uniqueViolationConstraint,
-  type SidechatRepositories,
 } from "@side-chat/db";
 import { toJsonObject } from "@side-chat/shared";
 
@@ -10,19 +9,17 @@ import type { ConversationStore } from "#application/ports/turn/conversation-sto
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 import {
   CANCEL_REQUEST_DISPOSITIONS,
+  BEGIN_TURN_DISPOSITIONS,
   TURN_CLAIM_DISPOSITIONS,
-  type BeginTurnInput,
   type TurnCancellationStore,
   type TurnExecutionClaimStore,
   type TurnStore,
 } from "#application/ports/turn/turn-store";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
-import type { AuthContext } from "#domain/auth-context";
 import { TURN_MESSAGE_ROLES } from "#domain/turn/turn";
 
 import type { TurnStateContext } from "../types.js";
 
-const CONVERSATIONS_PRIMARY_KEY_CONSTRAINT = "conversations_pkey";
 const TURN_RECOVERY_GRACE_MS = 60_000;
 
 // Provenance columns are non-null, so an open turn needs some value before
@@ -76,7 +73,15 @@ const assertOwned =
 
 const assertCanBegin =
   ({ repositories }: TurnStateContext): TurnStore["assertCanBegin"] =>
-  async (auth, conversationId) => {
+  async (auth, conversationId, requestId) => {
+    const replay = await repositories.findAssistantTurnByRequest({
+      workspaceId: auth.workspaceId,
+      requestId,
+    });
+    if (replay) {
+      if (replay.subjectId === auth.subjectId && replay.conversationId === conversationId) return;
+      throw requestConflict();
+    }
     const available = await repositories.resolveConversationTurnAvailability({
       workspaceId: auth.workspaceId,
       subjectId: auth.subjectId,
@@ -92,26 +97,49 @@ const beginTurn =
   async (input) => {
     const { auth, conversationId, userMessage } = input;
     const now = new Date().toISOString();
-
-    await createConversation(repositories, auth, conversationId, now);
-    await repositories.appendMessage({
-      workspaceId: auth.workspaceId,
-      subjectId: auth.subjectId,
-      conversationId,
-      messageId: userMessage.id,
-      role: TURN_MESSAGE_ROLES.USER,
-      parts: [{ type: "text", text: userMessage.text }],
-      metadataJson: {},
-      now,
-    });
-    const turnRecord = await startTurn(repositories, input, now);
-
-    return {
-      conversationId,
-      turnId: turnRecord.assistantTurnId,
-      workspaceId: auth.workspaceId,
-      subjectId: auth.subjectId,
-    };
+    try {
+      const result = await repositories.beginAssistantTurn({
+        workspaceId: auth.workspaceId,
+        subjectId: auth.subjectId,
+        actorId: auth.subjectId,
+        requestId: input.requestId,
+        conversationId,
+        conversationKey: conversationId,
+        userMessageId: userMessage.id,
+        userMessage: {
+          messageId: userMessage.id,
+          role: TURN_MESSAGE_ROLES.USER,
+          parts: [{ type: "text", text: userMessage.text }],
+          metadataJson: {},
+        },
+        ...PENDING_PROVENANCE,
+        recoveryGraceMs: TURN_RECOVERY_GRACE_MS,
+        now,
+      });
+      return {
+        conversationId,
+        turnId: result.turn.assistantTurnId,
+        workspaceId: auth.workspaceId,
+        subjectId: auth.subjectId,
+        disposition: result.inserted
+          ? BEGIN_TURN_DISPOSITIONS.CREATED
+          : BEGIN_TURN_DISPOSITIONS.REUSED,
+        ...(result.turn.runId === undefined ? {} : { runId: result.turn.runId }),
+      };
+    } catch (error) {
+      if (!(error instanceof DbRepositoryError)) throw error;
+      if (error.code === DB_REPOSITORY_ERROR_CODES.CONVERSATION_BUSY) throw busy();
+      if (error.code === DB_REPOSITORY_ERROR_CODES.IDEMPOTENCY_CONFLICT) {
+        throw requestConflict();
+      }
+      if (error.code === DB_REPOSITORY_ERROR_CODES.CROSS_TENANT_ACCESS_DENIED) {
+        throw new TurnRejectedError(
+          TURN_REJECTION_CODES.FORBIDDEN,
+          "Conversation belongs to a different subject",
+        );
+      }
+      throw error;
+    }
   };
 
 const bindRun =
@@ -223,60 +251,14 @@ const finalize =
     return result.claimed;
   };
 
-const createConversation = async (
-  repositories: SidechatRepositories,
-  auth: AuthContext,
-  conversationId: string,
-  now: string,
-): Promise<void> => {
-  try {
-    await repositories.createOrGetConversation({
-      workspaceId: auth.workspaceId,
-      subjectId: auth.subjectId,
-      actorId: auth.subjectId,
-      conversationId,
-      conversationKey: conversationId,
-      now,
-    });
-  } catch (error) {
-    if (uniqueViolationConstraint(error) === CONVERSATIONS_PRIMARY_KEY_CONSTRAINT) {
-      throw new TurnRejectedError(
-        TURN_REJECTION_CODES.FORBIDDEN,
-        "Conversation belongs to a different subject",
-      );
-    }
-    throw error;
-  }
-};
-
-const startTurn = async (
-  repositories: SidechatRepositories,
-  input: BeginTurnInput,
-  now: string,
-) => {
-  try {
-    const started = await repositories.startAssistantTurn({
-      workspaceId: input.auth.workspaceId,
-      subjectId: input.auth.subjectId,
-      actorId: input.auth.subjectId,
-      requestId: input.requestId,
-      conversationId: input.conversationId,
-      userMessageId: input.userMessage.id,
-      ...PENDING_PROVENANCE,
-      recoveryGraceMs: TURN_RECOVERY_GRACE_MS,
-      now,
-    });
-    return started.record;
-  } catch (error) {
-    if (error instanceof DbRepositoryError && error.code === "conversation_busy") {
-      throw busy();
-    }
-    throw error;
-  }
-};
-
 const busy = (): TurnRejectedError =>
   new TurnRejectedError(TURN_REJECTION_CODES.BUSY, "Conversation already has a running turn");
+
+const requestConflict = (): TurnRejectedError =>
+  new TurnRejectedError(
+    TURN_REJECTION_CODES.REQUEST_CONFLICT,
+    "The request id was already used for a different turn request",
+  );
 
 const runNotFound = (): TurnRejectedError =>
   new TurnRejectedError(TURN_REJECTION_CODES.RUN_NOT_FOUND, "Turn run not found");

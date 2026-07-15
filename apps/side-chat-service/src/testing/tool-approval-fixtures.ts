@@ -72,8 +72,10 @@ export function fakeToolApprovalDecisionStore(
   config: FakeToolApprovalDecisionStoreConfig = {},
 ): ToolApprovalDecisionStore {
   return {
-    findOwnedApproval: config.findOwnedApproval ?? (async () => config.lookup ?? toolApprovalRef()),
+    findOwnedApproval:
+      config.findOwnedApproval ?? (() => Promise.resolve(config.lookup ?? toolApprovalRef())),
     decideApproval:
-      config.decideApproval ?? (async () => config.result ?? toolApprovalDecisionResult()),
+      config.decideApproval ??
+      (() => Promise.resolve(config.result ?? toolApprovalDecisionResult())),
   };
 }

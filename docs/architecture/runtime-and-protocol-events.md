@@ -36,8 +36,12 @@ After wake or replay, the workflow reloads and revalidates ownership, tool
 identity, input digest, current schema, and current approval policy. Approval
 enters a separately journaled idempotent execution step; denial, expiry, tool
 removal, schema drift, or policy drift becomes the native-normalizable
-`tool-output-denied` lifecycle. Approval decisions are binary; free-text reasons
-are unsupported, and raw tool input does not enter the public stream.
+`tool-output-denied` lifecycle. Approval decisions are binary and free-text
+reasons are unsupported. Native tool input is private conversation content: it
+may enter the authenticated turn stream and durable journal so client tools can
+execute and the `full` tool-detail view can replay, but it never enters activity
+notifications, approval audit fields, logs, or public error payloads. Approval
+rows bind only the input digest.
 
 ### Native cross-conversation activity
 

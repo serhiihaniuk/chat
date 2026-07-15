@@ -25,7 +25,8 @@ Not source of truth for: backend workflow or protocol definitions.
 `src/index.ts` exports one discriminated widget API. New v7 consumers pass a
 `workflowChat` configuration with `baseUrl` and an optional request-time
 `getRequestConfig` callback. The branch starts in a client-only New chat draft
-unless `initialConversationId` names a server-known conversation for that mount.
+unless active recovery, `initialConversationId`, or an explicitly configured
+tab-scoped workflow selection key names a server-known conversation.
 It validates history and keeps one widget-owned conversation session per persisted
 conversation. That session may replace its immutable, abortable stream reader
 while preserving one visible timeline and lifecycle. The reader folds
@@ -34,15 +35,21 @@ state. `WorkflowChatTransport` owns POST, replay, and cancel requests. Request
 configuration is resolved for every request so a refreshed auth token is not
 captured at mount time.
 
-Workflow conversation selection is deliberately independent of routing and idle
-browser persistence. `workflowActiveTurnStorageKey` opts one widget instance into
-a tab-scoped `sessionStorage` cursor containing only the foreground active
+Workflow conversation selection is deliberately independent of routing.
+`workflowActiveTurnStorageKey` opts one widget instance into a tab-scoped
+`sessionStorage` cursor containing only the foreground active
 conversation and run ids. The cursor is written at service acceptance, survives
 reconnect and approval pauses, and is cleared when foreground selection leaves
 that run or after the terminal snapshot handoff. On refresh the service's
 coherent conversation state must confirm the cursor before reattachment. A stale
 cursor is cleared without discarding the selected persisted conversation or its
 terminal history.
+
+`workflowConversationSelectionStorageKey` independently opts the instance into
+tab-scoped idle-selection restoration. It stores only a selected durable
+conversation id; New chat clears it, and no message, draft, tool, or run state is
+written. Active recovery wins first, then `initialConversationId`, then the stored
+selection. Durable service state remains authoritative after restoration.
 
 The authenticated workflow conversation catalog is `{ conversations,
 runningConversationIds }`. Running ids are display/activity state only: they are

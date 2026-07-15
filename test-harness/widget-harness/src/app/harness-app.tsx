@@ -173,6 +173,7 @@ const createWidgetHarnessProps = (
     return {
       workflowChat: createWorkflowServiceClient(config),
       workflowActiveTurnStorageKey: `side-chat-widget:${config.workspaceId}:workflow-active-turn`,
+      workflowConversationSelectionStorageKey: `side-chat-widget:${config.workspaceId}:workflow-conversation-selection`,
       hostBridge,
       defaultOpen: config.defaultOpen,
       defaultPanelSize: resolveHarnessPanelSize(),

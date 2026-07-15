@@ -14,7 +14,6 @@ import { useState, type ReactElement } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Check, FileText, Globe, Paperclip, Plus } from "lucide-react";
 
-import { Switch } from "#shared/ui/switch";
 import { usePortalContainer } from "#shared/ui/widget-root";
 
 const ITEM_CLASS =
@@ -150,8 +149,7 @@ function HostContextGroup({
       >
         <FileText className="size-4 shrink-0 text-muted-foreground" />
         <span className="flex-1">Include page context</span>
-        {/* The menu item owns focus and keyboard input; the switch only reflects state. */}
-        <Switch checked={enabled} tabIndex={-1} />
+        <MenuToggleIndicator checked={enabled} />
       </Menu.CheckboxItem>
     </Menu.Group>
   );
@@ -202,8 +200,7 @@ function ToolsGroup({
               <span className="truncate text-2xs text-muted-foreground">{tool.description}</span>
             ) : null}
           </span>
-          {/* Switch is presentational here — the CheckboxItem owns focus/keyboard */}
-          <Switch checked={isEnabled(tool)} tabIndex={-1} />
+          <MenuToggleIndicator checked={isEnabled(tool)} />
         </Menu.CheckboxItem>
       ))}
     </Menu.Group>
@@ -233,6 +230,27 @@ function ScopeGroup(): ReactElement {
         ))}
       </Menu.RadioGroup>
     </Menu.Group>
+  );
+}
+
+/**
+ * Switch-shaped status for a menu item, deliberately not another control.
+ *
+ * The CheckboxItem owns the accessible state and all pointer/keyboard input.
+ * Nesting Base UI Switch inside it makes the visible track intercept clicks
+ * without changing the parent item, so these spans reuse only the switch's
+ * token-driven presentation and let events reach the item.
+ */
+function MenuToggleIndicator({ checked }: { readonly checked: boolean }): ReactElement {
+  return (
+    <span
+      aria-hidden="true"
+      className="sc-switch-root"
+      data-checked={checked ? "" : undefined}
+      data-unchecked={checked ? undefined : ""}
+    >
+      <span className="sc-switch-thumb" />
+    </span>
   );
 }
 

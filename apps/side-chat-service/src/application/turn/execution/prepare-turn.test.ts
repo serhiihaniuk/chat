@@ -208,6 +208,86 @@ describe("prepareTurn", () => {
     expect(admission.released).toBe(1);
     expect(state.userMessages).toEqual([]);
   });
+
+  it("re-attaches an exact request replay without starting or binding another run", async () => {
+    const state = createState();
+    const execution = new DeterministicTurnExecution();
+
+    const first = await prepareTurn(
+      {
+        modelPolicy: selectTestModel,
+        admission: new DeterministicTurnAdmission(),
+        turns: state,
+        execution,
+      },
+      input(),
+    );
+    const replay = await prepareTurn(
+      {
+        modelPolicy: selectTestModel,
+        admission: new DeterministicTurnAdmission(),
+        turns: state,
+        execution,
+      },
+      input(),
+    );
+
+    expect(execution.started).toHaveLength(1);
+    expect(execution.resumed).toHaveLength(1);
+    expect(execution.resumed[0]?.runId).toBe(first.execution.runId);
+    expect(replay.turn).toEqual(first.turn);
+    expect(state.userMessages).toEqual([userMessage]);
+  });
+
+  it("fails closed while an accepted replay is still waiting for its run binding", async () => {
+    const state = createState();
+    const admission = new DeterministicTurnAdmission();
+    const execution = new DeterministicTurnExecution();
+    await state.beginTurn({
+      auth,
+      conversationId: input().conversationId,
+      requestId: input().requestId,
+      userMessage,
+    });
+
+    await expect(
+      prepareTurn({ modelPolicy: selectTestModel, admission, turns: state, execution }, input()),
+    ).rejects.toMatchObject({
+      code: TURN_REJECTION_CODES.RUN_NOT_READY,
+      retryAfterSeconds: 1,
+    });
+    expect(execution.started).toEqual([]);
+    expect(execution.resumed).toEqual([]);
+    expect(state.runningTurns.has(input().conversationId)).toBe(true);
+    expect(state.terminals.size).toBe(0);
+    expect(admission.released).toBe(1);
+  });
+
+  it("rejects request-id reuse with a different accepted message", async () => {
+    const state = createState();
+    const admission = new DeterministicTurnAdmission();
+    await state.beginTurn({
+      auth,
+      conversationId: input().conversationId,
+      requestId: input().requestId,
+      userMessage,
+    });
+    const differentMessage = { ...userMessage, text: "Different message" };
+
+    await expect(
+      prepareTurn(
+        {
+          modelPolicy: selectTestModel,
+          admission,
+          turns: state,
+          execution: new DeterministicTurnExecution(),
+        },
+        { ...input(), messages: [differentMessage], acceptedUserMessage: differentMessage },
+      ),
+    ).rejects.toMatchObject({ code: TURN_REJECTION_CODES.REQUEST_CONFLICT });
+    expect(state.userMessages).toEqual([userMessage]);
+    expect(admission.released).toBe(1);
+  });
 });
 
 function createState(): InMemoryTurnState {
@@ -254,9 +334,9 @@ function traceAdmission(admission: TurnAdmission, calls: string[]): TurnAdmissio
 
 function traceTurnStore(turns: TurnStore, calls: string[]): TurnStore {
   return {
-    assertCanBegin: (authContext, conversationId) => {
+    assertCanBegin: (authContext, conversationId, requestId) => {
       calls.push("preflight");
-      return turns.assertCanBegin(authContext, conversationId);
+      return turns.assertCanBegin(authContext, conversationId, requestId);
     },
     beginTurn: (beginInput) => {
       calls.push("begin-turn");
@@ -278,6 +358,7 @@ function traceExecution(execution: TurnExecution, calls: string[]): TurnExecutio
       calls.push("execution");
       return execution.start(turnInput);
     },
+    resume: (runId, turnInput) => execution.resume(runId, turnInput),
     cancel: (runId) => execution.cancel(runId),
   };
 }

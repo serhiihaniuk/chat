@@ -1,4 +1,5 @@
 import type { DiagnosticLogger } from "@side-chat/shared";
+import { Stream } from "effect";
 
 import { TURN_ACTIVITY_NOTIFY_CHANNEL } from "#schema-contract";
 import {
@@ -13,10 +14,13 @@ export const createPostgresTurnActivityNotificationSource = (
   connectionString: string,
   logger?: DiagnosticLogger,
 ): TurnActivityNotificationSource => ({
-  notifications: reconnectingListenStream<TurnActivityNotification>({
-    connectionString,
-    channel: TURN_ACTIVITY_NOTIFY_CHANNEL,
-    parse: parseTurnActivityNotification,
-    logger,
-  }),
+  openNotifications: () =>
+    Stream.toReadableStream(
+      reconnectingListenStream<TurnActivityNotification>({
+        connectionString,
+        channel: TURN_ACTIVITY_NOTIFY_CHANNEL,
+        parse: parseTurnActivityNotification,
+        logger,
+      }),
+    ),
 });

@@ -39,7 +39,6 @@ const allowed = {
     "@side-chat/db",
     "@side-chat/stream-profile",
     "ai",
-    "effect",
     "hono",
     "nitro",
     "rollup",

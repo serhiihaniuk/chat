@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   clearWorkflowActiveTurnCursor,
@@ -6,6 +6,11 @@ import {
   writeWorkflowActiveTurnCursor,
   type WorkflowActiveTurnCursor,
 } from "../workflow-recovery/workflow-active-turn-cursor.js";
+import {
+  clearWorkflowConversationSelection,
+  readWorkflowConversationSelection,
+  writeWorkflowConversationSelection,
+} from "./workflow-conversation-selection-storage.js";
 
 export const WORKFLOW_CONVERSATION_SELECTION_KIND = {
   DRAFT: "draft",
@@ -32,11 +37,17 @@ export type WorkflowConversationSelection = Readonly<{
 export function useWorkflowConversationSelection(
   initialConversationId: string | undefined,
   activeTurnStorageKey: string | undefined,
+  selectionStorageKey: string | undefined,
 ): WorkflowConversationSelection {
   const initialRecoveryCursor = readWorkflowActiveTurnCursor(activeTurnStorageKey);
+  const initialStoredConversationId = readWorkflowConversationSelection(selectionStorageKey);
   const [recoveryCursor, setRecoveryCursor] = useState(initialRecoveryCursor);
   const [selection, setSelection] = useState(
-    createInitialWorkflowConversationSelection(initialConversationId, initialRecoveryCursor),
+    createInitialWorkflowConversationSelection(
+      initialConversationId,
+      initialRecoveryCursor,
+      initialStoredConversationId,
+    ),
   );
   const [recoveryNeedsValidation, setRecoveryNeedsValidation] = useState(
     recoveryCursor !== undefined,
@@ -46,10 +57,20 @@ export function useWorkflowConversationSelection(
   selectionRef.current = selection;
   recoveryCursorRef.current = recoveryCursor;
 
-  const updateSelection = useCallback((next: WorkflowConversationSelectionState): void => {
-    selectionRef.current = next;
-    setSelection(next);
-  }, []);
+  usePersistedWorkflowConversationSelection(selection, selectionStorageKey);
+
+  const updateSelection = useCallback(
+    (next: WorkflowConversationSelectionState): void => {
+      if (next.kind === WORKFLOW_CONVERSATION_SELECTION_KIND.PERSISTED) {
+        writeWorkflowConversationSelection(selectionStorageKey, next.conversationId);
+      } else {
+        clearWorkflowConversationSelection(selectionStorageKey);
+      }
+      selectionRef.current = next;
+      setSelection(next);
+    },
+    [selectionStorageKey],
+  );
   const clearFocusedRun = useCallback((): void => {
     const cursor = recoveryCursorRef.current;
     if (!cursor) return;
@@ -125,13 +146,26 @@ export function useWorkflowConversationSelection(
   };
 }
 
+function usePersistedWorkflowConversationSelection(
+  selection: WorkflowConversationSelectionState,
+  selectionStorageKey: string | undefined,
+): void {
+  useEffect(() => {
+    if (selection.kind === WORKFLOW_CONVERSATION_SELECTION_KIND.PERSISTED) {
+      writeWorkflowConversationSelection(selectionStorageKey, selection.conversationId);
+    }
+  }, [selection, selectionStorageKey]);
+}
+
 export function createInitialWorkflowConversationSelection(
   initialConversationId: string | undefined,
   recoveryCursor: WorkflowActiveTurnCursor | undefined,
+  storedConversationId: string | undefined,
   createId: () => string = () => crypto.randomUUID(),
 ): WorkflowConversationSelectionState {
   if (recoveryCursor) return createPersistedWorkflowSelection(recoveryCursor.conversationId);
   if (initialConversationId) return createPersistedWorkflowSelection(initialConversationId);
+  if (storedConversationId) return createPersistedWorkflowSelection(storedConversationId);
   return createWorkflowDraftSelection(createId);
 }
 

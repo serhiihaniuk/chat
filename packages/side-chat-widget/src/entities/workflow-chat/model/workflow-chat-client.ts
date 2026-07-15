@@ -52,6 +52,7 @@ export type WorkflowConversationClient = WorkflowChatClient &
   }>;
 
 export const WORKFLOW_CHAT_TRANSPORT_ERROR_CODE = "transport_error";
+const WORKFLOW_CHAT_HTTP_ERROR_CODE = "http_error";
 
 /** Safe public HTTP failure returned by the workflow service boundary. */
 export class WorkflowChatHttpError extends Error {
@@ -191,7 +192,7 @@ export async function readWorkflowChatHttpError(
   return (
     payload ??
     new WorkflowChatHttpError(
-      "http_error",
+      WORKFLOW_CHAT_HTTP_ERROR_CODE,
       `Chat request failed with status ${response.status}.`,
       false,
       response.status,
@@ -216,7 +217,12 @@ function parseErrorPayload(text: string, status?: number): WorkflowChatHttpError
       const profile = SIDE_CHAT_ERROR_VOCABULARY[code];
       return new WorkflowChatHttpError(code, profile.safeMessage, profile.retryable, status);
     }
-    return new WorkflowChatHttpError(code, value["message"], value["retryable"] === true, status);
+    return new WorkflowChatHttpError(
+      WORKFLOW_CHAT_HTTP_ERROR_CODE,
+      status === undefined ? "Chat request failed." : `Chat request failed with status ${status}.`,
+      false,
+      status,
+    );
   } catch {
     return undefined;
   }

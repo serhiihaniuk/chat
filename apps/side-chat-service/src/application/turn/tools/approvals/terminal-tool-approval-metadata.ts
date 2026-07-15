@@ -12,7 +12,9 @@ export function withoutTerminalToolApprovalMetadata<Part extends Readonly<Record
   part: Part,
 ): Part {
   if (!isTerminalApprovedToolPart(part)) return part;
-  return Object.fromEntries(Object.entries(part).filter(([key]) => key !== "approval")) as Part;
+  const sanitized = { ...part };
+  Reflect.deleteProperty(sanitized, "approval");
+  return sanitized;
 }
 
 function isTerminalApprovedToolPart(part: Readonly<Record<string, unknown>>): boolean {

@@ -75,7 +75,7 @@ describe.skipIf(!configuredDatabaseUrl)("Postgres Workflow journal maintenance",
   it("prunes an old title-generation run and skips a legally held one", async () => {
     // Title runs are their own Workflow runs with no assistant_turns row. Before
     // the linkage table the prune's join skipped them entirely, so they leaked.
-    const eligibleTitle = await seedTitleRun(inspectionPool, "title-eligible", {});
+    await seedTitleRun(inspectionPool, "title-eligible", {});
     const heldTitle = await seedTitleRun(inspectionPool, "title-held", {
       legalHold: true,
     });

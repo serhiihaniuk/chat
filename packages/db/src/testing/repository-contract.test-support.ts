@@ -4,17 +4,14 @@ import {
   toAssistantMessageId,
   toMessageId,
   toTargetId,
-  toUserMessageId,
-  type ConversationId,
   type MessageRecord,
-  type StartAssistantTurnCommand,
-  type UserMessageId,
 } from "#schema-contract";
 import type { SidechatRepositories } from "#repositories/contract";
 import { DB_REPOSITORY_ERROR_CODES } from "#repositories/errors";
 import {
   actorId,
   appendUserMessage,
+  beginTurnCommand,
   closeIfNeeded,
   createConversation,
   now,
@@ -48,26 +45,6 @@ export const sidechatRepositoryContract = (
 
   // The provenance a running turn carries in v7 — exactly which model, prompt,
   // config, and content-filter version produced it.
-  const startCommand = (
-    scope: string,
-    conversationId: ConversationId,
-    userMessageId: UserMessageId,
-    requestId: string,
-  ): StartAssistantTurnCommand => ({
-    workspaceId: workspaceId(scope),
-    subjectId: subjectId(scope),
-    actorId: actorId(scope),
-    requestId,
-    conversationId,
-    userMessageId,
-    modelProvider: "fake",
-    modelId: "fake-model",
-    instructionsVersion: "instructions_v1",
-    configVersion: "config_v1",
-    contentFilterVersion: "filter_v1",
-    now,
-  });
-
   describe("sidechat repository contract", () => {
     it("proves conversation and message idempotency", async () => {
       const repositories = createRepositories();
@@ -172,34 +149,32 @@ export const sidechatRepositoryContract = (
       const scope = nextScope();
       try {
         const conversation = await createConversation(repositories, scope);
-        const userMessage = await appendUserMessage(
-          repositories,
-          scope,
-          conversation.conversationId,
-        );
-        const userMessageId = toUserMessageId(userMessage.record.messageId);
+        const command = beginTurnCommand(scope, conversation.conversationId, "request_1");
 
-        const started = await repositories.startAssistantTurn(
-          startCommand(scope, conversation.conversationId, userMessageId, "request_1"),
-        );
+        const started = await repositories.beginAssistantTurn(command);
         expect(started.inserted).toBe(true);
-        expect(started.record.status).toBe("open");
+        expect(started.turn.status).toBe("open");
 
         // Same request id: the SELECT-first path returns the running turn as an
         // idempotent replay — it must not be mistaken for a busy conversation.
-        const replay = await repositories.startAssistantTurn(
-          startCommand(scope, conversation.conversationId, userMessageId, "request_1"),
-        );
+        const replay = await repositories.beginAssistantTurn(command);
         expect(replay.inserted).toBe(false);
-        expect(replay.record.assistantTurnId).toBe(started.record.assistantTurnId);
+        expect(replay.turn.assistantTurnId).toBe(started.turn.assistantTurnId);
 
         // A different request id while the first is still running trips the
         // one-running-per-conversation partial unique index — the busy guard.
         await expect(
-          repositories.startAssistantTurn(
-            startCommand(scope, conversation.conversationId, userMessageId, "request_2"),
+          repositories.beginAssistantTurn(
+            beginTurnCommand(scope, conversation.conversationId, "request_2"),
           ),
         ).rejects.toMatchObject({ code: DB_REPOSITORY_ERROR_CODES.CONVERSATION_BUSY });
+
+        const history = await readConversationHistory(
+          repositories,
+          scope,
+          conversation.conversationId,
+        );
+        expect(history.map(textOf)).toEqual(["hello"]);
       } finally {
         await closeIfNeeded(repositories);
       }
@@ -210,22 +185,13 @@ export const sidechatRepositoryContract = (
       const scope = nextScope();
       try {
         const conversation = await createConversation(repositories, scope);
-        const userMessage = await appendUserMessage(
-          repositories,
-          scope,
-          conversation.conversationId,
-        );
-        const userMessageId = toUserMessageId(userMessage.record.messageId);
-        const turn = await repositories.startAssistantTurn(
-          startCommand(scope, conversation.conversationId, userMessageId, "request_1"),
-        );
-        const repeatedTurn = await repositories.startAssistantTurn(
-          startCommand(scope, conversation.conversationId, userMessageId, "request_1"),
-        );
+        const command = beginTurnCommand(scope, conversation.conversationId, "request_1");
+        const turn = await repositories.beginAssistantTurn(command);
+        const repeatedTurn = await repositories.beginAssistantTurn(command);
 
         expect(repeatedTurn.inserted).toBe(false);
-        expect(repeatedTurn.record.assistantTurnId).toBe(turn.record.assistantTurnId);
-        expectCanonicalOmittedFields(turn.record, [
+        expect(repeatedTurn.turn.assistantTurnId).toBe(turn.turn.assistantTurnId);
+        expectCanonicalOmittedFields(turn.turn, [
           "assistantMessageId",
           "runId",
           "finishReason",
@@ -236,7 +202,7 @@ export const sidechatRepositoryContract = (
         // A run id binds once the durable run starts; the bind is idempotent.
         const bound = await repositories.bindTurnRun({
           workspaceId: workspaceId(scope),
-          assistantTurnId: turn.record.assistantTurnId,
+          assistantTurnId: turn.turn.assistantTurnId,
           runId: "run_1",
           now,
         });
@@ -244,7 +210,7 @@ export const sidechatRepositoryContract = (
 
         const context = await repositories.recordTurnContextSnapshot({
           workspaceId: workspaceId(scope),
-          assistantTurnId: turn.record.assistantTurnId,
+          assistantTurnId: turn.turn.assistantTurnId,
           contextSchemaVersion: "host-context.v1",
           hostContextHash: "ctx_hash",
           capabilitiesHash: "cap_hash",
@@ -253,7 +219,7 @@ export const sidechatRepositoryContract = (
         });
         const usage = await repositories.recordUsage({
           workspaceId: workspaceId(scope),
-          assistantTurnId: turn.record.assistantTurnId,
+          assistantTurnId: turn.turn.assistantTurnId,
           runtimeStepIndex: 0,
           modelProvider: "fake",
           modelId: "fake-model",
@@ -267,7 +233,7 @@ export const sidechatRepositoryContract = (
         });
         const tool = await repositories.recordToolInvocation({
           workspaceId: workspaceId(scope),
-          assistantTurnId: turn.record.assistantTurnId,
+          assistantTurnId: turn.turn.assistantTurnId,
           runtimeStepIndex: 1,
           toolCallId: "tool_1",
           toolName: "lookup",
@@ -282,7 +248,7 @@ export const sidechatRepositoryContract = (
         });
         const host = await repositories.recordHostCommandResult({
           workspaceId: workspaceId(scope),
-          assistantTurnId: turn.record.assistantTurnId,
+          assistantTurnId: turn.turn.assistantTurnId,
           commandId: "command_1",
           commandType: "open_resource",
           resourceId: "doc_1",
@@ -304,7 +270,7 @@ export const sidechatRepositoryContract = (
         });
         const completed = await repositories.finalizeAssistantTurn({
           workspaceId: workspaceId(scope),
-          assistantTurnId: turn.record.assistantTurnId,
+          assistantTurnId: turn.turn.assistantTurnId,
           status: "completed",
           assistantMessage: {
             messageId: toAssistantMessageId(`${conversation.conversationId}:assistant`),
@@ -325,7 +291,7 @@ export const sidechatRepositoryContract = (
         // the folded usage stays put and `claimed` is false.
         const replayFinalize = await repositories.finalizeAssistantTurn({
           workspaceId: workspaceId(scope),
-          assistantTurnId: turn.record.assistantTurnId,
+          assistantTurnId: turn.turn.assistantTurnId,
           status: "failed",
           errorCode: "should_not_apply",
           usage: ZERO_USAGE,

@@ -70,8 +70,17 @@ for (const file of sourceFiles) {
   const layer = file.slice(sourceRoot.length).split("/")[0];
   const imports = importSpecifiers(source);
 
+  checkPlainTypeScriptBoundary(file, imports);
   checkLayerImports(file, layer, imports);
   checkPhysicalWorkflowBoundary(file, layer, source, imports);
+}
+
+function checkPlainTypeScriptBoundary(file, imports) {
+  for (const specifier of imports) {
+    if (specifier === "effect" || specifier.startsWith("effect/")) {
+      report(file, `v7 service must not import Effect dependency ${specifier}`);
+    }
+  }
 }
 
 checkProductionGraph();

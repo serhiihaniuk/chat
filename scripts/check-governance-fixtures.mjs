@@ -443,6 +443,19 @@ expectFailure(
 );
 
 expectFailure(
+  "service Effect boundary fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/application/bad.ts",
+      "import { Effect } from 'effect';\nexport const bad = Effect.succeed(1);\n",
+    );
+  },
+  "v7 service must not import Effect dependency effect",
+);
+
+expectFailure(
   "service workflow directive placement fixture",
   "check-side-chat-service-architecture.mjs",
   (root) => {

@@ -91,17 +91,17 @@ export function WorkflowChatSession({
       toolSelection.enabledToolNames,
     ],
   );
+  const lifecycle = useMemo(
+    () => ({ onRunAccepted, onRunReconciled, onRunTerminal }),
+    [onRunAccepted, onRunReconciled, onRunTerminal],
+  );
   const chat = useWorkflowWidgetChat({
     activeTurn,
     client: sessionClient,
     hostBridge,
     includeHostContext: hostContextSelection.enabled,
     initialMessages,
-    lifecycle: {
-      onRunAccepted,
-      onRunReconciled,
-      onRunTerminal,
-    },
+    lifecycle,
     sessionRegistry,
     stateObservationId,
   });

@@ -6,6 +6,7 @@ import {
   TOOL_APPROVAL_LOOKUP,
   type ToolApprovalDecisionStore,
 } from "#application/ports/turn/tools/tool-approval-store";
+import type { ResumeToolApproval } from "#application/turn/tools/approvals/submit-tool-approval";
 import { createServiceTestHarness } from "#composition/route/testing-harness/service-test-harness";
 import { fakeToolApprovalDecisionStore, toolApprovalRef } from "#testing/tool-approval-fixtures";
 
@@ -13,7 +14,7 @@ const approval = toolApprovalRef();
 
 describe("tool approval route", () => {
   it("returns an idempotent acknowledgement for a binary decision", async () => {
-    const resume = vi.fn(async () => false);
+    const resume = vi.fn<ResumeToolApproval>(async () => false);
     const harness = await createServiceTestHarness({
       toolApprovals: fakeToolApprovalDecisionStore(),
       resumeToolApproval: resume,

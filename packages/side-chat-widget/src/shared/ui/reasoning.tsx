@@ -49,10 +49,12 @@ export function Reasoning({
   return (
     <Collapsible.Root open={open} onOpenChange={onOpenChange}>
       <Collapsible.Trigger className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Brain className="size-4" />
+        <Brain className="size-icon-sm" />
         {/* Own state: shimmer the label while still thinking. */}
         <span className={cn(thinking && "animate-pulse")}>{label}</span>
-        <ChevronDown className={cn("size-4 transition-transform ease-out", open && "rotate-180")} />
+        <ChevronDown
+          className={cn("size-icon-sm transition-transform ease-out", open && "rotate-180")}
+        />
       </Collapsible.Trigger>
       <Collapsible.Panel className="sc-collapsible-panel ml-2">
         <div className="flex flex-col gap-2.5 py-2 pl-3.5">
