@@ -1,0 +1,27 @@
+import { describe, expect, it } from "vitest";
+
+import { toServerToolCatalog } from "../server-tool-catalog.js";
+import { MOCK_WEB_SEARCH_TOOL_NAME } from "./mock-web-search-tool.js";
+import { REGISTERED_SERVER_TOOLS, selectRegisteredServerTools } from "./registered-server-tools.js";
+
+describe("registered server tools", () => {
+  it("drives both execution selection and the public picker catalog", () => {
+    const selected = selectRegisteredServerTools([MOCK_WEB_SEARCH_TOOL_NAME]);
+
+    expect(selected).toEqual(REGISTERED_SERVER_TOOLS);
+    expect(toServerToolCatalog(selected)).toEqual([
+      {
+        name: MOCK_WEB_SEARCH_TOOL_NAME,
+        label: "Mock web search",
+        description: "Search deterministic fixture data for recent or external information.",
+        defaultEnabled: true,
+      },
+    ]);
+  });
+
+  it("fails closed for an unregistered deployment selection", () => {
+    expect(() => selectRegisteredServerTools(["missing_tool"])).toThrow(
+      "Server tool is not registered: missing_tool",
+    );
+  });
+});

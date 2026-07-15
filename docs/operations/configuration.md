@@ -27,8 +27,7 @@ defineSideChatConfig({
     availableModels: [
       {
         id: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
-        contextWindowTokens:
-          OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
+        contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
         reasoning: {
           defaultEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
           efforts: [
@@ -60,7 +59,7 @@ defineSideChatConfig({
 
 Azure keeps credentials, endpoint, and API version in `models.connection`, but each `availableModels` entry owns its deployment name. The adapter therefore resolves `modelId` to the selected model's deployment instead of treating one deployment as provider-wide. The scripted variant lists only request-selectable scripted behaviors; its separate title model stays visible under `conversationTitle`.
 
-`serverTools` is the deployment's selected list of registered server-tool names. Boot rejects duplicates and names absent from the registered executor catalog. The filtered definitions are the only tools published by `/api/tools` and the only server tools installed in the Workflow agent; a per-turn `enabledToolNames` request may narrow that list but cannot widen it. Production currently declares an honest empty list.
+`serverTools` is the deployment's selected list of registered server-tool names. Boot rejects duplicates and names absent from the registered executor catalog. The filtered definitions are the only tools published by `/api/tools` and the only server tools installed in the Workflow agent; the widget therefore discovers every deployment-selected tool through `/api/tools` and renders it in the `+` menu without a second browser registry. A per-turn `enabledToolNames` request may narrow that list but cannot widen it. The OpenAI and Azure deployments expose the approval-gated `mock_web_search` fixture; the scripted test deployment remains empty unless a test injects a tool explicitly.
 
 `hostContext.enabled` is deployment policy, not a UI default. Authenticated `/api/capabilities` publishes it to the widget. When false, the `+` menu cannot offer **Include page context** and `/api/chat` rejects any request that still supplies `hostContext`. When true, the option still requires a host-registered provider and explicit user opt-in; enabled configuration alone never causes collection.
 

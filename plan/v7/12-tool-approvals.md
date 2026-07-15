@@ -75,7 +75,7 @@ npm run lint:custom
 
 ## Completion checklist
 
-- [x] Gated inventory wired from Step 01 (currently empty in production; `jira.create_issue` remains test-only).
+- [x] Gated inventory wired from Step 01 (`mock_web_search` is the first production-registered fixture; `jira.create_issue` remains test-only).
 - [x] Durable execution gate precedes every gated side effect.
 - [x] Native approval part shapes drive the stream; no shadow approval protocol.
 - [x] Endpoint authorization, audit, expiry, replay, and idempotency complete.
@@ -84,7 +84,7 @@ npm run lint:custom
 
 ## Handoff record
 
-Gated tools and policy functions: `application/turn/tools/server-tools/registered-server-tools.ts` and `server-tool-catalog.ts`; production inventory intentionally empty
+Gated tools and policy functions: `application/turn/tools/server-tools/registered-server-tools.ts`, its `registry/` implementations, and `server-tool-catalog.ts`; production registers the always-gated `mock_web_search` fixture
 
 Execution-gate and hook modules: `workflows/server-tools/index.ts`, `workflows/tool-approvals/index.ts`, and `workflows/production/server-tools/execute-server-tool.ts`
 

@@ -8,6 +8,7 @@ import {
   type SideChatConfig,
 } from "./src/config/declaration/side-chat-config.js";
 import { AZURE_PROVIDER } from "./src/config/providers/azure-provider-config.js";
+import { MOCK_WEB_SEARCH_TOOL_NAME } from "./src/application/turn/tools/server-tools/registered-server-tools.js";
 
 const config: SideChatConfig = defineSideChatConfig({
   models: {
@@ -36,7 +37,7 @@ const config: SideChatConfig = defineSideChatConfig({
     modelId: AZURE_PROVIDER.MODELS.GPT_4O.MODEL_ID,
     timeoutMs: 10_000,
   },
-  serverTools: [],
+  serverTools: [MOCK_WEB_SEARCH_TOOL_NAME],
   hostContext: {
     enabled: true,
     maxSerializedBytes: 16_384,

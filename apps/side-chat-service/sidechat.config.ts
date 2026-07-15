@@ -8,6 +8,7 @@ import {
   type SideChatConfig,
 } from "./src/config/declaration/side-chat-config.js";
 import { OPENAI_PROVIDER } from "./src/config/providers/openai-provider-config.js";
+import { MOCK_WEB_SEARCH_TOOL_NAME } from "./src/application/turn/tools/server-tools/registered-server-tools.js";
 
 /** Production defaults remain readable here; secrets resolve only during boot. */
 const config: SideChatConfig = defineSideChatConfig({
@@ -38,7 +39,7 @@ const config: SideChatConfig = defineSideChatConfig({
     modelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
     timeoutMs: 10_000,
   },
-  serverTools: [],
+  serverTools: [MOCK_WEB_SEARCH_TOOL_NAME],
   hostContext: {
     enabled: true,
     maxSerializedBytes: 16_384,
