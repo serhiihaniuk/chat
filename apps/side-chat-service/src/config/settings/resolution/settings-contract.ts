@@ -23,6 +23,11 @@ export type Settings = Readonly<{
     providerMs: number;
     clientToolMs: number;
   }>;
+  capacity: Readonly<{
+    maxActiveTurns: number;
+    queueSize: number;
+    queueTimeoutMs: number;
+  }>;
   agent: Readonly<{
     instructions: string;
     maxSteps: number;
@@ -38,6 +43,8 @@ export type Settings = Readonly<{
         serviceName: string;
       }>;
   workflow: Readonly<{
+    workerConcurrency: number;
+    maxPoolSize: number;
     journalPruneAfterDays: number;
     journalSweepIntervalMs: number;
     journalClass: WorkflowJournalClass;

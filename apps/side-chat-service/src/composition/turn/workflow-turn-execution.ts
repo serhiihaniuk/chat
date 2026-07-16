@@ -104,6 +104,9 @@ function toWorkflowInput(settings: Settings, input: TurnExecutionInput): ChatTur
     clientToolTimeoutMs: settings.timeouts.clientToolMs,
     messages: input.messages.map(toSerializableMessage),
     clientTools: input.clientTools,
+    ...(input.clientToolCapabilityDigest === undefined
+      ? {}
+      : { clientToolCapabilityDigest: input.clientToolCapabilityDigest }),
   };
   const withReasoning =
     input.reasoningEffort === undefined

@@ -5,6 +5,7 @@ import {
   readObject,
   readOptionalString,
   readRequiredBoolean,
+  readRequiredNonNegativeInteger,
   readRequiredPositiveInteger,
   readRequiredCatalogValue,
   readRequiredString,
@@ -29,11 +30,29 @@ export function readSettings(candidate: unknown, issues: SettingsIssue[]): Setti
     hostContext: readHostContext(root["hostContext"], issues),
     auth: deployment.auth,
     timeouts: readTimeouts(root["timeouts"], issues),
+    capacity: readCapacity(root["capacity"], issues),
     agent: readAgent(root["agent"], issues),
     persistence: readPersistence(root["persistence"], issues),
     keepalive: readKeepalive(root["keepalive"], issues),
     telemetry: readTelemetry(root["telemetry"], issues),
     workflow: readWorkflow(root["workflow"], issues),
+  };
+}
+
+function readCapacity(candidate: unknown, issues: SettingsIssue[]): Settings["capacity"] {
+  const value = readObject(candidate, "capacity", issues);
+  return {
+    maxActiveTurns: readRequiredPositiveInteger(
+      value["maxActiveTurns"],
+      "capacity.maxActiveTurns",
+      issues,
+    ),
+    queueSize: readRequiredNonNegativeInteger(value["queueSize"], "capacity.queueSize", issues),
+    queueTimeoutMs: readRequiredPositiveInteger(
+      value["queueTimeoutMs"],
+      "capacity.queueTimeoutMs",
+      issues,
+    ),
   };
 }
 
@@ -140,6 +159,12 @@ function readTelemetry(candidate: unknown, issues: SettingsIssue[]): Settings["t
 function readWorkflow(candidate: unknown, issues: SettingsIssue[]): Settings["workflow"] {
   const value = readObject(candidate, "workflow", issues);
   return {
+    workerConcurrency: readRequiredPositiveInteger(
+      value["workerConcurrency"],
+      "workflow.workerConcurrency",
+      issues,
+    ),
+    maxPoolSize: readRequiredPositiveInteger(value["maxPoolSize"], "workflow.maxPoolSize", issues),
     journalPruneAfterDays: readRequiredPositiveInteger(
       value["journalPruneAfterDays"],
       "workflow.journalPruneAfterDays",

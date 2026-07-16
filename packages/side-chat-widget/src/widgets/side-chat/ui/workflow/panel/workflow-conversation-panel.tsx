@@ -115,21 +115,23 @@ export function WorkflowConversationPanel({
     discoverySettled: state.isSuccess,
     needsValidation: recoveryNeedsValidation,
   });
+  const clientToolCapability = recovery.clientToolCapability;
   useWorkflowRecoverySynchronization({
     activeConversationId,
     discardInvalidRecovery,
     focusActiveRun,
     recovery,
+    clientToolCapability,
   });
   const handleRunAccepted = useCallback(
-    (runId: string): void => {
+    (runId: string, clientToolCapability: string): void => {
       rememberTitleRefreshCandidate(
         titleRefreshCandidates.current,
         activeConversationId,
         isLocalDraft,
         titleIsFallback,
       );
-      acceptedRun(activeConversationId, runId);
+      acceptedRun(activeConversationId, runId, clientToolCapability);
       refreshConversationCatalog();
     },
     [acceptedRun, activeConversationId, isLocalDraft, refreshConversationCatalog, titleIsFallback],
@@ -182,6 +184,7 @@ export function WorkflowConversationPanel({
     session: (
       <WorkflowChatSession
         activeTurn={isLocalDraft ? undefined : recovery.activeTurn}
+        clientToolCapability={clientToolCapability}
         hostBridge={hostBridge}
         hostContextSelection={hostContextSelection}
         initialMessages={isLocalDraft ? [] : (state.data?.snapshot.messages ?? [])}
@@ -224,11 +227,13 @@ export function WorkflowConversationPanel({
 
 function useWorkflowRecoverySynchronization({
   activeConversationId,
+  clientToolCapability,
   discardInvalidRecovery,
   focusActiveRun,
   recovery,
 }: {
   readonly activeConversationId: string;
+  readonly clientToolCapability: string | undefined;
   readonly discardInvalidRecovery: ReturnType<
     typeof useWorkflowConversationSelection
   >["discardInvalidRecovery"];
@@ -240,9 +245,9 @@ function useWorkflowRecoverySynchronization({
   }, [discardInvalidRecovery, recovery.invalidCursor]);
   useEffect(() => {
     if (recovery.activeTurn) {
-      focusActiveRun(activeConversationId, recovery.activeTurn.runId);
+      focusActiveRun(activeConversationId, recovery.activeTurn.runId, clientToolCapability);
     }
-  }, [activeConversationId, focusActiveRun, recovery.activeTurn]);
+  }, [activeConversationId, clientToolCapability, focusActiveRun, recovery.activeTurn]);
 }
 
 function toConversationViews(

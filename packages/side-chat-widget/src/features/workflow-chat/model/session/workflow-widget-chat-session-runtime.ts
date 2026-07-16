@@ -5,6 +5,7 @@ import {
   type WorkflowUIMessage,
 } from "#entities/workflow-chat";
 import { readWorkflowClientToolCalls } from "../client-tools/workflow-client-tool-callback.js";
+import { createWorkflowClientToolCapability } from "../client-tools/authority/workflow-client-tool-capability.js";
 import {
   createWorkflowWidgetChatEngine,
   type WorkflowWidgetChatAttachmentMode,
@@ -20,6 +21,9 @@ import {
 import {
   findLastWorkflowAssistantIndex,
   hasPendingWorkflowInteraction,
+  contextReconnectAttachment,
+  reconnectAttachmentFor,
+  sendAttachment,
   toWorkflowWidgetChatRuntimeContext,
   workflowWidgetChatSnapshotKey,
   type WorkflowWidgetAttachmentEpoch,
@@ -103,7 +107,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
     }
     if (activeTurn && !keepCurrentEpoch) {
       this.terminalNotificationRunId = undefined;
-      void this.startEpoch({ kind: "reconnect", runId: activeTurn.runId });
+      void this.startEpoch(contextReconnectAttachment(activeTurn.runId, this.context));
     }
     if (activeTurn) requestWorkflowWidgetCancellation(this.effectContext(), activeTurn.runId);
   };
@@ -142,11 +146,13 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
     const assistantMessageId = snapshot.messages[assistantIndex]?.id;
     const messages = snapshot.messages.slice(0, assistantIndex);
     this.dispatch({ type: "RetryStarted", messages });
-    await this.startEpoch({
-      kind: "send",
-      messageId: assistantMessageId,
-      trigger: "regenerate-message",
-    });
+    await this.startEpoch(
+      sendAttachment(
+        assistantMessageId,
+        "regenerate-message",
+        createWorkflowClientToolCapability(),
+      ),
+    );
   };
 
   readonly stop = (): void => {
@@ -165,11 +171,9 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
       parts: [{ type: "text", text }],
     };
     this.dispatch({ type: "OptimisticMessageAdded", message });
-    await this.startEpoch({
-      kind: "send",
-      messageId: message.id,
-      trigger: "submit-message",
-    });
+    await this.startEpoch(
+      sendAttachment(message.id, "submit-message", createWorkflowClientToolCapability()),
+    );
   };
 
   readonly subscribe = (listener: () => void): (() => void) => this.store.subscribe(listener);
@@ -190,7 +194,10 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
       isDisposed: () => this.disposed,
       isEpochActive: () => this.currentEpoch !== undefined,
       readSnapshot: this.store.getSnapshot,
-      reconnect: (runId) => void this.startEpoch({ kind: "reconnect", runId }),
+      reconnect: (runId, clientToolCapability) =>
+        void this.startEpoch(
+          reconnectAttachmentFor(runId, clientToolCapability, this.currentEpoch, this.context),
+        ),
     };
   }
 
@@ -212,6 +219,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
       onTransportRecovered: this.recoverTransport.bind(this, epochId),
     });
     this.currentEpoch = {
+      clientToolCapability: mode.clientToolCapability,
       engine,
       epochId,
       runId: mode.kind === "reconnect" ? mode.runId : undefined,
@@ -228,18 +236,20 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
   private acceptMessage(epochId: string, message: WorkflowUIMessage): void {
     if (!this.isCurrentEpoch(epochId)) return;
     this.dispatch({ type: "PartReceived", epochId, message });
+    const clientToolCapability = this.currentEpoch?.clientToolCapability;
+    if (!clientToolCapability) return;
     for (const toolCall of readWorkflowClientToolCalls(message)) {
-      void dispatchWorkflowWidgetClientTool(this.effectContext(), toolCall);
+      void dispatchWorkflowWidgetClientTool(this.effectContext(), toolCall, clientToolCapability);
     }
   }
 
-  private acceptRun(epochId: string, runId: string): void {
+  private acceptRun(epochId: string, runId: string, clientToolCapability: string): void {
     const epoch = this.currentEpoch;
     if (this.disposed || epoch?.epochId !== epochId) return;
     epoch.runId = runId;
     this.terminalNotificationRunId = undefined;
     this.dispatch({ type: "RunAccepted", epochId, runId });
-    this.context.lifecycle.onRunAccepted?.(runId);
+    this.context.lifecycle.onRunAccepted?.(runId, clientToolCapability);
     requestWorkflowWidgetCancellation(this.effectContext(), runId);
   }
 

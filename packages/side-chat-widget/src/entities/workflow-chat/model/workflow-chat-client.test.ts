@@ -385,13 +385,10 @@ describe("workflow interaction endpoints", () => {
         : Promise.resolve(Response.json({ accepted: true, state: "settled" }));
     });
 
+    const output = { status: "applied", resultCode: "opened" } as const;
     await expect(
-      postWorkflowClientToolOutput(client, "run-1", "call-1", {
-        status: "applied",
-        resultCode: "opened",
-      }),
+      postWorkflowClientToolOutput(client, "run-1", "call-1", output, "a".repeat(64)),
     ).resolves.toBeUndefined();
-
     expect(requests).toHaveLength(2);
     expect(requests[0]).toMatchObject({
       url: "https://service.example/api/chat/run-1/tools/call-1/output",

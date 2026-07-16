@@ -10,6 +10,8 @@ export const SERVICE_ENV_KEYS = {
   CONFIG_NAME: "SIDECHAT_CONFIG",
   WORKFLOW_TARGET_WORLD: "WORKFLOW_TARGET_WORLD",
   WORKFLOW_POSTGRES_URL: "WORKFLOW_POSTGRES_URL",
+  WORKFLOW_POSTGRES_WORKER_CONCURRENCY: "WORKFLOW_POSTGRES_WORKER_CONCURRENCY",
+  WORKFLOW_POSTGRES_MAX_POOL_SIZE: "WORKFLOW_POSTGRES_MAX_POOL_SIZE",
   WORKFLOW_LOCAL_DATA_DIR: "WORKFLOW_LOCAL_DATA_DIR",
   WORKFLOW_LOCAL_BASE_URL: "WORKFLOW_LOCAL_BASE_URL",
   SIDECHAT_DATABASE_URL: "SIDECHAT_DATABASE_URL",
@@ -49,6 +51,7 @@ export const ENV_VALUE_TYPES = { STRING: "string", NUMBER: "number" } as const;
 export type EnvReference = {
   readonly kind: typeof ENV_REFERENCE_KINDS.ENV;
   readonly key: string;
+  readonly description: string;
   readonly valueType: (typeof ENV_VALUE_TYPES)[keyof typeof ENV_VALUE_TYPES];
   readonly required: boolean;
   readonly secret: boolean;
@@ -56,19 +59,21 @@ export type EnvReference = {
 };
 
 type EnvOptions<T> = {
+  readonly description: string;
   readonly required?: boolean;
   readonly defaultValue?: T;
 };
 
 type ReadEnv = {
-  (key: string, options?: EnvOptions<string>): EnvReference;
-  readonly secret: (key: string, options?: EnvOptions<string>) => EnvReference;
-  readonly number: (key: string, options?: EnvOptions<number>) => EnvReference;
+  (key: string, options: EnvOptions<string>): EnvReference;
+  readonly secret: (key: string, options: EnvOptions<string>) => EnvReference;
+  readonly number: (key: string, options: EnvOptions<number>) => EnvReference;
 };
 
-const stringReference = (key: string, options: EnvOptions<string> = {}): EnvReference =>
+const stringReference = (key: string, options: EnvOptions<string>): EnvReference =>
   createEnvReference(
     key,
+    options.description,
     ENV_VALUE_TYPES.STRING,
     options.required ?? false,
     false,
@@ -76,17 +81,19 @@ const stringReference = (key: string, options: EnvOptions<string> = {}): EnvRefe
   );
 
 export const readEnv: ReadEnv = Object.assign(stringReference, {
-  secret: (key: string, options: EnvOptions<string> = {}): EnvReference =>
+  secret: (key: string, options: EnvOptions<string>): EnvReference =>
     createEnvReference(
       key,
+      options.description,
       ENV_VALUE_TYPES.STRING,
       options.required ?? true,
       true,
       options.defaultValue,
     ),
-  number: (key: string, options: EnvOptions<number> = {}): EnvReference =>
+  number: (key: string, options: EnvOptions<number>): EnvReference =>
     createEnvReference(
       key,
+      options.description,
       ENV_VALUE_TYPES.NUMBER,
       options.required ?? false,
       false,
@@ -122,6 +129,11 @@ export interface SideChatConfig {
     readonly providerMs: ConfigValue<number>;
     readonly clientToolMs: ConfigValue<number>;
   };
+  readonly capacity: {
+    readonly maxActiveTurns: ConfigValue<number>;
+    readonly queueSize: ConfigValue<number>;
+    readonly queueTimeoutMs: ConfigValue<number>;
+  };
   readonly agent: {
     readonly instructions: ConfigValue<string>;
     readonly maxSteps: ConfigValue<number>;
@@ -142,6 +154,8 @@ export interface SideChatConfig {
         readonly serviceName: ConfigValue<string>;
       };
   readonly workflow: {
+    readonly workerConcurrency: ConfigValue<number>;
+    readonly maxPoolSize: ConfigValue<number>;
     readonly journalPruneAfterDays: ConfigValue<number>;
     readonly journalSweepIntervalMs: ConfigValue<number>;
     readonly journalClass: WorkflowJournalClass;
@@ -154,17 +168,29 @@ export const defineSideChatConfig = <const Config extends SideChatConfig>(config
 
 function createEnvReference(
   key: string,
+  description: string,
   valueType: EnvReference["valueType"],
   required: boolean,
   secret: boolean,
   defaultValue: string | number | undefined,
 ): EnvReference {
+  if (description.trim().length === 0) {
+    throw new TypeError(`Environment reference ${key} requires a description`);
+  }
   if (defaultValue === undefined) {
-    return { kind: ENV_REFERENCE_KINDS.ENV, key, valueType, required, secret };
+    return {
+      kind: ENV_REFERENCE_KINDS.ENV,
+      key,
+      description,
+      valueType,
+      required,
+      secret,
+    };
   }
   return {
     kind: ENV_REFERENCE_KINDS.ENV,
     key,
+    description,
     valueType,
     required,
     secret,

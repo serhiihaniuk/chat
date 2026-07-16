@@ -13,17 +13,20 @@ describe("chat stream response", () => {
     const source = new ReadableStream<UIMessageChunk>({
       start: (controller) => controllerReady.resolve(controller),
     });
+    const onKeepalive = vi.fn();
     const response = createChatStreamResponse({
       stream: source,
       runId: "run-1",
       keepaliveIntervalMs: 100,
       outboundTransforms: [],
+      onKeepalive,
     });
     if (!response.body) throw new Error("Expected a streaming response body");
     const reader = response.body.getReader();
     const idleRead = reader.read();
     await vi.advanceTimersByTimeAsync(100);
     expect(new TextDecoder().decode((await idleRead).value)).toBe(": hb\n\n");
+    expect(onKeepalive).toHaveBeenCalledOnce();
 
     const sourceController = await controllerReady.promise;
     sourceController.enqueue({ type: "start", messageId: "assistant-1" });

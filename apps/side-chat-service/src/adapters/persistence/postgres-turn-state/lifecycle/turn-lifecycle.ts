@@ -79,7 +79,9 @@ const assertCanBegin =
       requestId,
     });
     if (replay) {
-      if (replay.subjectId === auth.subjectId && replay.conversationId === conversationId) return;
+      if (replay.subjectId === auth.subjectId && replay.conversationId === conversationId) {
+        return BEGIN_TURN_DISPOSITIONS.REUSED;
+      }
       throw requestConflict();
     }
     const available = await repositories.resolveConversationTurnAvailability({
@@ -90,6 +92,7 @@ const assertCanBegin =
       recoveryGraceMs: TURN_RECOVERY_GRACE_MS,
     });
     if (!available) throw busy();
+    return BEGIN_TURN_DISPOSITIONS.CREATED;
   };
 
 const beginTurn =

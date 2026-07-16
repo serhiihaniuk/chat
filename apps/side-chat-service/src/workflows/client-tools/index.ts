@@ -1,5 +1,5 @@
 import { dynamicTool, jsonSchema, type ToolSet } from "ai";
-import { createHook, sleep } from "workflow";
+import { createHook } from "workflow";
 import {
   HookNotFoundError,
   RunExpiredError,
@@ -18,6 +18,8 @@ import {
   runClientToolDispatchStep,
   type ClientToolResultEnvelope,
 } from "../production/client-tool-dispatch.js";
+import { WORKFLOW_CLOCK, type WorkflowClock } from "../clock/workflow-clock.js";
+import { waitForAbort } from "../wait/abort-wait.js";
 
 export { preserveDynamicClientToolIdentity } from "./dynamic-identity.js";
 
@@ -46,6 +48,7 @@ const ABORT_OUTPUT = {
 
 type ClientToolRuntimeOptions = Readonly<{
   definitions: readonly ClientToolDefinition[];
+  clientToolCapabilityDigest: string | undefined;
   databaseUrl: string | undefined;
   workspaceId: string;
   turnId: string;
@@ -55,6 +58,14 @@ type ClientToolRuntimeOptions = Readonly<{
 }>;
 
 type PersistedClientToolIdentity = ClientToolDispatchIdentity & Readonly<{ databaseUrl: string }>;
+type ClientToolResultHook = ReturnType<typeof createHook<ClientToolResultEnvelope>>;
+type ResumeClientToolResult = (token: string, output: ClientToolResultEnvelope) => Promise<unknown>;
+
+export type ClientToolWorkflowDependencies = Readonly<{
+  createResultHook: (token: string) => ClientToolResultHook;
+  runDispatchStep: typeof runClientToolDispatchStep;
+  clock: WorkflowClock;
+}>;
 
 export function clientToolResultHookToken(runId: string, toolCallId: string): string {
   return `tool:${runId}:${toolCallId}`;
@@ -65,9 +76,10 @@ export async function resumeClientToolResult(
   runId: string,
   toolCallId: string,
   output: ClientToolResultEnvelope,
+  resumeResult: ResumeClientToolResult = (token, result) => resumeHook(token, result),
 ): Promise<boolean> {
   try {
-    await resumeHook(clientToolResultHookToken(runId, toolCallId), output);
+    await resumeResult(clientToolResultHookToken(runId, toolCallId), output);
     return true;
   } catch (error) {
     // A durable result can outlive its wait — the hook is gone, or journal pruning
@@ -99,6 +111,7 @@ export function createClientTools(options: ClientToolRuntimeOptions): ToolSet {
             databaseUrl,
             toolCallId: execution.toolCallId,
             toolName: definition.name,
+            clientToolCapabilityDigest: requireClientToolCapabilityDigest(options),
           }),
       }),
     ]),
@@ -113,9 +126,23 @@ function requireDatabase(options: ClientToolRuntimeOptions): string {
   return options.databaseUrl;
 }
 
+function requireClientToolCapabilityDigest(options: ClientToolRuntimeOptions): string {
+  if (options.clientToolCapabilityDigest !== undefined) return options.clientToolCapabilityDigest;
+  throw new Error("Client tools require originating-tab authority");
+}
+
 export async function executeClientTool(
-  request: Omit<ClientToolRuntimeOptions, "definitions" | "databaseUrl"> &
-    Readonly<{ databaseUrl: string; toolCallId: string; toolName: string }>,
+  request: Omit<
+    ClientToolRuntimeOptions,
+    "definitions" | "databaseUrl" | "clientToolCapabilityDigest"
+  > &
+    Readonly<{
+      clientToolCapabilityDigest: string;
+      databaseUrl: string;
+      toolCallId: string;
+      toolName: string;
+    }>,
+  dependencies?: ClientToolWorkflowDependencies,
 ): Promise<unknown> {
   const identity: ClientToolDispatchIdentity = {
     workspaceId: request.workspaceId,
@@ -123,17 +150,25 @@ export async function executeClientTool(
     toolCallId: request.toolCallId,
   };
   const persistedIdentity = { ...identity, databaseUrl: request.databaseUrl };
-  const dispatch = await runClientToolDispatchStep({
-    operation: "create",
-    databaseUrl: request.databaseUrl,
-    dispatch: { ...identity, toolName: request.toolName },
-  });
+  const dispatch = await runDispatch(
+    {
+      operation: "create",
+      databaseUrl: request.databaseUrl,
+      dispatch: {
+        ...identity,
+        toolName: request.toolName,
+        clientToolCapabilityDigest: request.clientToolCapabilityDigest,
+      },
+    },
+    dependencies,
+  );
   const existingOutput = clientToolOutput(dispatch);
   if (existingOutput !== undefined) return existingOutput;
 
-  const resultHook = createHook<ClientToolResultEnvelope>({
-    token: clientToolResultHookToken(request.runId, request.toolCallId),
-  });
+  const resultHook = createResultHook(
+    clientToolResultHookToken(request.runId, request.toolCallId),
+    dependencies,
+  );
   try {
     const conflict = await resultHook.getConflict();
     if (conflict !== null) {
@@ -142,13 +177,14 @@ export async function executeClientTool(
 
     // Registration suspends durably. Re-read afterwards to close the window in
     // which the result commits before the hook token becomes visible.
-    const registeredOutput = clientToolOutput(await readDispatch(persistedIdentity));
+    const registeredOutput = clientToolOutput(await readDispatch(persistedIdentity, dependencies));
     if (registeredOutput !== undefined) return registeredOutput;
 
     return await waitForClientTool({
       request,
       identity: persistedIdentity,
       resultHook,
+      dependencies,
     });
   } finally {
     resultHook.dispose();
@@ -158,22 +194,24 @@ export async function executeClientTool(
 async function waitForClientTool(options: {
   readonly request: Readonly<{ timeoutMs: number; abortSignal: AbortSignal }>;
   readonly identity: PersistedClientToolIdentity;
-  readonly resultHook: ReturnType<typeof createHook<ClientToolResultEnvelope>>;
+  readonly resultHook: ClientToolResultHook;
+  readonly dependencies: ClientToolWorkflowDependencies | undefined;
 }): Promise<unknown> {
   const abortWait = waitForAbort(options.request.abortSignal);
   try {
+    const clock = options.dependencies?.clock ?? WORKFLOW_CLOCK;
     const winner = await Promise.race([
       Promise.resolve(options.resultHook).then(() => WAIT_OUTCOMES.RESULT),
-      sleep(`${options.request.timeoutMs}ms`).then(() => WAIT_OUTCOMES.TIMEOUT),
+      clock.wait(options.request.timeoutMs).then(() => WAIT_OUTCOMES.TIMEOUT),
       abortWait.promise,
     ]);
     if (winner === WAIT_OUTCOMES.RESULT) {
-      return requireClientToolOutput(await readDispatch(options.identity));
+      return requireClientToolOutput(await readDispatch(options.identity, options.dependencies));
     }
     const dispatch =
       winner === WAIT_OUTCOMES.ABORT
-        ? await settleDispatch("abort", options.identity, ABORT_OUTPUT)
-        : await settleDispatch("timeout", options.identity, TIMEOUT_OUTPUT);
+        ? await settleDispatch("abort", options.identity, ABORT_OUTPUT, options.dependencies)
+        : await settleDispatch("timeout", options.identity, TIMEOUT_OUTPUT, options.dependencies);
     return requireClientToolOutput(dispatch);
   } finally {
     abortWait.dispose();
@@ -195,25 +233,49 @@ function requireClientToolOutput(dispatch: ClientToolDispatchSnapshot | undefine
 
 function readDispatch(
   identity: PersistedClientToolIdentity,
+  dependencies: ClientToolWorkflowDependencies | undefined,
 ): Promise<ClientToolDispatchSnapshot | undefined> {
-  return runClientToolDispatchStep({
-    operation: "read",
-    databaseUrl: identity.databaseUrl,
-    dispatch: toDispatchIdentity(identity),
-  });
+  return runDispatch(
+    {
+      operation: "read",
+      databaseUrl: identity.databaseUrl,
+      dispatch: toDispatchIdentity(identity),
+    },
+    dependencies,
+  );
 }
 
 function settleDispatch(
   operation: "timeout" | "abort",
   identity: PersistedClientToolIdentity,
   output: ClientToolOutputEnvelope,
+  dependencies: ClientToolWorkflowDependencies | undefined,
 ): Promise<ClientToolDispatchSnapshot | undefined> {
-  return runClientToolDispatchStep({
-    operation,
-    databaseUrl: identity.databaseUrl,
-    dispatch: toDispatchIdentity(identity),
-    output,
-  });
+  return runDispatch(
+    {
+      operation,
+      databaseUrl: identity.databaseUrl,
+      dispatch: toDispatchIdentity(identity),
+      output,
+    },
+    dependencies,
+  );
+}
+
+function runDispatch(
+  command: Parameters<typeof runClientToolDispatchStep>[0],
+  dependencies: ClientToolWorkflowDependencies | undefined,
+): Promise<ClientToolDispatchSnapshot | undefined> {
+  if (dependencies !== undefined) return dependencies.runDispatchStep(command);
+  return runClientToolDispatchStep(command);
+}
+
+function createResultHook(
+  token: string,
+  dependencies: ClientToolWorkflowDependencies | undefined,
+): ClientToolResultHook {
+  if (dependencies !== undefined) return dependencies.createResultHook(token);
+  return createHook<ClientToolResultEnvelope>({ token });
 }
 
 function toDispatchIdentity(identity: PersistedClientToolIdentity): ClientToolDispatchIdentity {
@@ -221,22 +283,5 @@ function toDispatchIdentity(identity: PersistedClientToolIdentity): ClientToolDi
     workspaceId: identity.workspaceId,
     turnId: identity.turnId,
     toolCallId: identity.toolCallId,
-  };
-}
-
-function waitForAbort(signal: AbortSignal): {
-  readonly promise: Promise<typeof WAIT_OUTCOMES.ABORT>;
-  readonly dispose: () => void;
-} {
-  let resolveAbort: ((outcome: typeof WAIT_OUTCOMES.ABORT) => void) | undefined;
-  const promise = new Promise<typeof WAIT_OUTCOMES.ABORT>((resolve) => {
-    resolveAbort = resolve;
-  });
-  const onAbort = () => resolveAbort?.(WAIT_OUTCOMES.ABORT);
-  if (signal.aborted) onAbort();
-  else signal.addEventListener("abort", onAbort, { once: true });
-  return {
-    promise,
-    dispose: () => signal.removeEventListener("abort", onAbort),
   };
 }

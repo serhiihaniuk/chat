@@ -1,47 +1,5 @@
-/**
- * The single source of truth for Side Chat glossary terms in the docs site.
- *
- * Mirrors the canonical `docs/domain/vocabulary.md`. Both the `<Term>` hover
- * card and the `<Glossary>` page render from this list, and the auto-link rehype
- * plugin (source.config.ts) wraps the first prose mention of any `match` phrase.
- *
- * This module is pure data (no React) so it can be imported by the build-time
- * config and by browser components alike.
- */
-
-export type GlossaryCategoryId = "basics" | "ai" | "turn" | "events" | "identity" | "packages";
-
-export interface GlossaryCategory {
-  id: GlossaryCategoryId;
-  title: string;
-  blurb: string;
-}
-
-export interface GlossaryTerm {
-  /** Slug used as the anchor on the Vocabulary page and the `<Term id>` key. */
-  id: string;
-  /** Canonical display name. */
-  term: string;
-  /** One-line, plain-English meaning. */
-  definition: string;
-  category: GlossaryCategoryId;
-  /** Where the term is defined in code (path, optionally with the symbol). */
-  code?: string;
-  /**
-   * Phrases the auto-link plugin may wrap on first prose mention. Omit for terms
-   * that are too generic to match safely or that only appear inside code spans.
-   */
-  match?: string[];
-}
-
-export const glossaryCategories: readonly GlossaryCategory[] = [
-  { id: "basics", title: "AI & LLM basics", blurb: "General language-model vocabulary — the words you need before reading the code." },
-  { id: "ai", title: "AI concepts", blurb: "The product shape, the model knobs, and the context the assistant runs on." },
-  { id: "turn", title: "Turn lifecycle", blurb: "One user message produces one assistant turn, run on a server-owned fiber." },
-  { id: "events", title: "Protocol & runtime events", blurb: "Three event vocabularies, never conflated, each lower than the last." },
-  { id: "identity", title: "Identity & authority", blurb: "Authority is proven and fail-closed before any persistence or model work." },
-  { id: "packages", title: "Packages & boundaries", blurb: "Four layers, dependencies inward: Browser → Service → Core → Runtime." },
-];
+/** Pure glossary data mirrored from the canonical `docs/domain/vocabulary.md`. */
+import type { GlossaryTerm } from "./glossary/schema";
 
 export const glossary: readonly GlossaryTerm[] = [
   // ── AI & LLM basics ────────────────────────────────────────────────────────
@@ -199,7 +157,7 @@ export const glossary: readonly GlossaryTerm[] = [
     term: "Conversation title",
     definition: "Display label generated once after the first successful exchange, when config enables it.",
     category: "ai",
-    code: "packages/partner-ai-core/src/ports/conversation-title-generation.ts",
+    code: "apps/side-chat-service/src/application/conversations/generate-conversation-title.ts",
   },
   {
     id: "auxiliary-model-job",
@@ -285,6 +243,38 @@ export const glossary: readonly GlossaryTerm[] = [
     category: "turn",
     code: "packages/ai-runtime-contract/src/runtime-ids.ts (AssistantTurnId)",
     match: ["assistant turn"],
+  },
+  {
+    id: "workflow-run",
+    term: "Workflow run",
+    definition: "The replacement service's durable execution instance for one assistant turn, identified by runId.",
+    category: "turn",
+    code: "apps/side-chat-service/src/workflows/production/chat-turn.ts",
+    match: ["workflow run"],
+  },
+  {
+    id: "workflow-journal",
+    term: "Workflow journal",
+    definition: "Workflow-owned model-call parts used for live delivery, replay, and recoverable terminal projection.",
+    category: "turn",
+    code: "apps/side-chat-service/src/workflows/journal/chat-turn-journal.ts",
+    match: ["workflow journal"],
+  },
+  {
+    id: "client-tool",
+    term: "Client tool",
+    definition: "A model-callable browser action with a durable dispatch and Workflow result hook.",
+    category: "turn",
+    code: "docs/architecture/client-tools.md",
+    match: ["client tool", "client-tool"],
+  },
+  {
+    id: "tool-approval",
+    term: "Tool approval",
+    definition: "A durable authorized decision required before an approval-gated server tool executes.",
+    category: "turn",
+    code: "docs/architecture/tool-approvals.md",
+    match: ["tool approval", "tool-approval"],
   },
   {
     id: "stream-chat-turn",
@@ -388,6 +378,22 @@ export const glossary: readonly GlossaryTerm[] = [
     category: "events",
     code: "packages/agent-runtime/.../ai-sdk/streaming/stream-part-mapper.ts (mapAiSdkStreamPart)",
     match: ["AI SDK stream part"],
+  },
+  {
+    id: "ui-message-chunk",
+    term: "UIMessageChunk",
+    definition: "A replacement browser stream part converted once from the Workflow journal.",
+    category: "events",
+    code: "apps/side-chat-service/src/workflows/journal/chat-turn-ui-stream.ts",
+    match: ["UIMessageChunk", "UI message chunk"],
+  },
+  {
+    id: "stream-profile",
+    term: "Stream profile",
+    definition: "The shared browser-safe vocabulary for native finish reasons, safe errors, and metadata.",
+    category: "events",
+    code: "packages/stream-profile/",
+    match: ["stream profile"],
   },
   {
     id: "runtime-event",
@@ -582,9 +588,16 @@ export const glossary: readonly GlossaryTerm[] = [
   {
     id: "partner-ai-service",
     term: "apps/partner-ai-service",
-    definition: "The deployable Hono composition root. The only app — not a demo or host app.",
+    definition: "The legacy deployable Hono composition root retained for comparison until cutover.",
     category: "packages",
     code: "apps/partner-ai-service/",
+  },
+  {
+    id: "side-chat-service",
+    term: "apps/side-chat-service",
+    definition: "The replacement Hono, AI SDK 7, and Workflow backend with app-local hexagonal layers.",
+    category: "packages",
+    code: "apps/side-chat-service/",
   },
   {
     id: "partner-ai-core",
@@ -596,9 +609,16 @@ export const glossary: readonly GlossaryTerm[] = [
   {
     id: "agent-runtime",
     term: "packages/agent-runtime",
-    definition: "The Runtime layer: the only home for ai and @ai-sdk/*; runs one prepared turn.",
+    definition: "The legacy Runtime layer and legacy home for ai and provider SDKs.",
     category: "packages",
     code: "packages/agent-runtime/",
+  },
+  {
+    id: "stream-profile-package",
+    term: "packages/stream-profile",
+    definition: "The replacement browser-service contract for native stream metadata and safe outcomes.",
+    category: "packages",
+    code: "packages/stream-profile/",
   },
   {
     id: "chat-protocol",
@@ -718,21 +738,3 @@ export const glossary: readonly GlossaryTerm[] = [
     code: "packages/side-chat-widget/src/shared/ai/",
   },
 ];
-
-const byId = new Map(glossary.map((entry) => [entry.id, entry]));
-
-export function findGlossaryTerm(id: string): GlossaryTerm | undefined {
-  return byId.get(id);
-}
-
-export function glossaryByCategory(category: GlossaryCategoryId): readonly GlossaryTerm[] {
-  return glossary.filter((entry) => entry.category === category);
-}
-
-/**
- * Auto-link targets, longest phrase first so "turn activity event" wins over
- * "activity event". Each entry maps one match phrase to its term id.
- */
-export const autoLinkTargets: readonly { phrase: string; id: string }[] = glossary
-  .flatMap((entry) => (entry.match ?? []).map((phrase) => ({ phrase, id: entry.id })))
-  .sort((a, b) => b.phrase.length - a.phrase.length);

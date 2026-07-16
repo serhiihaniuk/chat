@@ -48,6 +48,7 @@ CREATE TABLE "sidechat"."client_tool_dispatches" (
 	"workspace_id" text NOT NULL,
 	"tool_call_id" text NOT NULL,
 	"tool_name" text NOT NULL,
+	"client_tool_capability_digest" text NOT NULL,
 	"state" text NOT NULL,
 	"output_json" jsonb,
 	"dispatched_at" timestamp with time zone NOT NULL,

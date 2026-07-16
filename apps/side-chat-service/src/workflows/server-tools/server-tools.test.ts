@@ -1,4 +1,3 @@
-import type { createHook, getWritable, sleep } from "workflow";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { runToolApprovalStep } from "../production/approvals/tool-approval.js";
@@ -15,25 +14,17 @@ import {
 } from "../tool-approvals/approval-output.js";
 import { isWorkflowRecord } from "../tool-approvals/workflow-value-guards.js";
 
-const { approvalStepMock, createHookMock, disposeHookMock, getWritableMock, sleepMock } =
-  vi.hoisted(() => ({
-    approvalStepMock: vi.fn<typeof runToolApprovalStep>(),
-    createHookMock: vi.fn<typeof createHook>(),
-    disposeHookMock: vi.fn<() => void>(),
-    getWritableMock: vi.fn<typeof getWritable>(),
-    sleepMock: vi.fn<typeof sleep>(),
-  }));
+import {
+  executeGatedServerTool,
+  readServerToolSources,
+  writeServerToolSourcesTo,
+  type ApprovalGateRuntime,
+} from "./index.js";
 
-vi.mock("workflow", () => ({
-  createHook: createHookMock,
-  getWritable: getWritableMock,
-  sleep: sleepMock,
-}));
-vi.mock("../production/approvals/tool-approval.js", () => ({
-  runToolApprovalStep: approvalStepMock,
-}));
-
-import { executeGatedServerTool, readServerToolSources, writeServerToolSources } from "./index.js";
+const approvalStepMock = vi.fn<typeof runToolApprovalStep>();
+const createHookMock = vi.fn<ApprovalGateRuntime["createApprovalHook"]>();
+const disposeHookMock = vi.fn<() => void>();
+const sleepMock = vi.fn<(milliseconds: number) => Promise<void>>();
 
 type TestServerExecute = (
   input: { issue: string },
@@ -47,7 +38,6 @@ describe("durable server-tool approval gate", () => {
     approvalStepMock.mockReset();
     createHookMock.mockReset();
     disposeHookMock.mockReset();
-    getWritableMock.mockReset();
     sleepMock.mockReset();
   });
 
@@ -56,9 +46,9 @@ describe("durable server-tool approval gate", () => {
     createHookMock.mockReturnValue(pendingHook());
     sleepMock.mockReturnValue(new Promise(() => undefined));
     const execute = vi.fn<TestServerExecute>(async () => ({ created: true }));
-    const { request, approvalChunks, dependencies } = approvalRequest(execute);
+    const { request, approvalChunks, dependencies, runtime } = approvalRequest(execute);
 
-    const waiting = executeGatedServerTool(request, dependencies);
+    const waiting = executeGatedServerTool(request, dependencies, runtime);
     await vi.waitFor(() => expect(approvalStepMock).toHaveBeenCalledTimes(2));
 
     expect(execute).not.toHaveBeenCalled();
@@ -73,16 +63,17 @@ describe("durable server-tool approval gate", () => {
   });
 
   it("closes the decision-before-hook-registration race and executes once", async () => {
-    approvalStepMock
-      .mockResolvedValueOnce(REQUESTED)
-      .mockResolvedValueOnce(
-        toolApprovalSnapshot({ state: TOOL_APPROVAL_STATES.APPROVED, approved: true }),
-      );
+    approvalStepMock.mockResolvedValueOnce(REQUESTED).mockResolvedValueOnce(
+      toolApprovalSnapshot({
+        state: TOOL_APPROVAL_STATES.APPROVED,
+        approved: true,
+      }),
+    );
     createHookMock.mockReturnValue(pendingHook());
     const execute = vi.fn<TestServerExecute>(async () => ({ created: true }));
 
-    const { request, dependencies } = approvalRequest(execute);
-    await expect(executeGatedServerTool(request, dependencies)).resolves.toEqual({
+    const { request, dependencies, runtime } = approvalRequest(execute);
+    await expect(executeGatedServerTool(request, dependencies, runtime)).resolves.toEqual({
       created: true,
     });
     expect(execute).toHaveBeenCalledOnce();
@@ -96,8 +87,8 @@ describe("durable server-tool approval gate", () => {
       approvalStepMock.mockResolvedValueOnce(toolApprovalSnapshot({ state }));
       const execute = vi.fn<TestServerExecute>(async () => ({ created: true }));
 
-      const { request, dependencies } = approvalRequest(execute);
-      await expect(executeGatedServerTool(request, dependencies)).resolves.toEqual({
+      const { request, dependencies, runtime } = approvalRequest(execute);
+      await expect(executeGatedServerTool(request, dependencies, runtime)).resolves.toEqual({
         type: "execution-denied",
         reason:
           state === TOOL_APPROVAL_STATES.EXPIRED
@@ -110,19 +101,13 @@ describe("durable server-tool approval gate", () => {
 });
 
 describe("server-tool source projection", () => {
-  beforeEach(() => {
-    getWritableMock.mockReset();
-  });
-
   it("writes tool-owned URLs as durable native source parts", async () => {
     const sourceChunks: unknown[] = [];
-    getWritableMock.mockReturnValue(
-      new WritableStream({
-        write(chunk) {
-          sourceChunks.push(chunk);
-        },
-      }),
-    );
+    const writable = new WritableStream({
+      write(chunk) {
+        sourceChunks.push(chunk);
+      },
+    });
     const definition = defineServerTool<
       { query: string },
       { results: readonly { title: string; url: string }[] }
@@ -135,7 +120,10 @@ describe("server-tool source projection", () => {
         typeof input === "object" && input !== null && "query" in input,
       execute: async () => ({ results: [] }),
       readSources: (output) =>
-        output.results.map((result) => ({ label: result.title, url: result.url })),
+        output.results.map((result) => ({
+          label: result.title,
+          url: result.url,
+        })),
     });
 
     const sources = readServerToolSources(definition, {
@@ -144,7 +132,7 @@ describe("server-tool source projection", () => {
         { title: "Second source", url: "https://second.test" },
       ],
     });
-    await writeServerToolSources(sources, "call-1");
+    await writeServerToolSourcesTo(sources, "call-1", writable);
 
     expect(sourceChunks).toEqual([
       {
@@ -164,7 +152,7 @@ describe("server-tool source projection", () => {
     ]);
   });
 
-  it("does not open the workflow stream when a tool exposes no sources", async () => {
+  it("returns no sources when a tool exposes no source projection", async () => {
     const definition = defineServerTool<{ query: string }, { ok: boolean }>({
       name: "test_tool",
       description: "Test tool",
@@ -178,7 +166,6 @@ describe("server-tool source projection", () => {
     const sources = readServerToolSources(definition, { ok: true });
 
     expect(sources).toEqual([]);
-    expect(getWritableMock).not.toHaveBeenCalled();
   });
 
   it("drops unsafe or unbounded model-authored source metadata", () => {
@@ -194,7 +181,10 @@ describe("server-tool source projection", () => {
         typeof input === "object" && input !== null && "query" in input,
       execute: async () => ({ results: [] }),
       readSources: (output) =>
-        output.results.map((result) => ({ label: result.title, url: result.url })),
+        output.results.map((result) => ({
+          label: result.title,
+          url: result.url,
+        })),
     });
 
     expect(
@@ -204,7 +194,10 @@ describe("server-tool source projection", () => {
           { title: "Insecure", url: "http://unsafe.test" },
           { title: "Script", url: "javascript:alert(1)" },
           { title: "Credentials", url: "https://user:secret@unsafe.test" },
-          { title: "Too long", url: `https://unsafe.test/${"x".repeat(2_100)}` },
+          {
+            title: "Too long",
+            url: `https://unsafe.test/${"x".repeat(2_100)}`,
+          },
         ],
       }),
     ).toEqual([{ label: "Safe", url: "https://safe.test/article" }]);
@@ -230,7 +223,6 @@ describe("server-tool source projection", () => {
 
     expect(sources).toEqual([]);
     expect(readSources).not.toHaveBeenCalled();
-    expect(getWritableMock).not.toHaveBeenCalled();
   });
 });
 
@@ -241,7 +233,6 @@ function approvalRequest(execute: ReturnType<typeof vi.fn<TestServerExecute>>) {
       approvalChunks.push(chunk);
     },
   });
-  getWritableMock.mockReturnValue(writable);
   return {
     approvalChunks,
     dependencies: {
@@ -251,6 +242,23 @@ function approvalRequest(execute: ReturnType<typeof vi.fn<TestServerExecute>>) {
         return execute(command.input, { executionKey: command.executionKey });
       },
     },
+    runtime: {
+      createApprovalHook: createHookMock,
+      writeApprovalRequest: async (approvalId: string, toolCallId: string) => {
+        const writer = writable.getWriter();
+        try {
+          await writer.write({
+            type: CHAT_TURN_JOURNAL_PART_TYPES.APPROVAL_REQUEST,
+            approvalId,
+            toolCallId,
+          });
+        } finally {
+          writer.releaseLock();
+        }
+        return true;
+      },
+      clock: { now: () => Date.parse(REQUESTED.requestedAt), wait: sleepMock },
+    } satisfies ApprovalGateRuntime,
     request: {
       toolName: REQUESTED.toolName,
       input: { issue: "Investigate" },
@@ -274,8 +282,8 @@ function isIssueInput(value: unknown): value is { issue: string } {
   return isWorkflowRecord(value) && "issue" in value && typeof value["issue"] === "string";
 }
 
-function pendingHook(): ReturnType<typeof createHook> {
-  return Object.assign(new Promise<unknown>(() => undefined), {
+function pendingHook(): ReturnType<ApprovalGateRuntime["createApprovalHook"]> {
+  return Object.assign(new Promise<true>(() => undefined), {
     token: "approval:run-1:approval-call-1",
     getConflict: vi.fn<() => Promise<null>>().mockResolvedValue(null),
     dispose: disposeHookMock,

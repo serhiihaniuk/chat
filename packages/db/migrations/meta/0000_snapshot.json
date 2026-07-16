@@ -1,5 +1,5 @@
 {
-  "id": "84bb7b49-205e-4d38-a7b8-fa435256db4d",
+  "id": "7f198be6-4ca9-4ad6-8c1d-d87101d085d8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -447,6 +447,12 @@
         },
         "tool_name": {
           "name": "tool_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_tool_capability_digest": {
+          "name": "client_tool_capability_digest",
           "type": "text",
           "primaryKey": false,
           "notNull": true

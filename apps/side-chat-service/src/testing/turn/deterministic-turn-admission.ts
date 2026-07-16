@@ -9,7 +9,9 @@ export class DeterministicTurnAdmission implements TurnAdmission {
     let released = false;
     return Promise.resolve({
       release: () => {
-        if (released) return Promise.resolve();
+        if (released) {
+          return Promise.reject(new Error("Turn admission lease was released more than once"));
+        }
         released = true;
         this.released += 1;
         return Promise.resolve();

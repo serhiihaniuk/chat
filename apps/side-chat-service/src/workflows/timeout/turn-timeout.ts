@@ -1,4 +1,4 @@
-import { sleep } from "workflow";
+import { WORKFLOW_CLOCK, type WorkflowClock } from "../clock/workflow-clock.js";
 
 const TIMEOUT_WAIT = {
   ELAPSED: "elapsed",
@@ -17,7 +17,10 @@ export interface SuspendableTurnTimeout {
  * provider deadline; releasing the final suspension starts a fresh model-call
  * window before the agent continues.
  */
-export function createSuspendableTurnTimeout(timeoutMs: number): SuspendableTurnTimeout {
+export function createSuspendableTurnTimeout(
+  timeoutMs: number,
+  clock: WorkflowClock = WORKFLOW_CLOCK,
+): SuspendableTurnTimeout {
   let suspensionCount = 0;
   let change = deferredChange();
 
@@ -44,7 +47,7 @@ export function createSuspendableTurnTimeout(timeoutMs: number): SuspendableTurn
       for (;;) {
         while (suspensionCount > 0) await change.promise;
         const outcome = await Promise.race([
-          sleep(`${timeoutMs}ms`).then(() => TIMEOUT_WAIT.ELAPSED),
+          clock.wait(timeoutMs).then(() => TIMEOUT_WAIT.ELAPSED),
           change.promise.then(() => TIMEOUT_WAIT.ACTIVITY_CHANGED),
         ]);
         if (outcome === TIMEOUT_WAIT.ELAPSED && suspensionCount === 0) return;
@@ -53,7 +56,10 @@ export function createSuspendableTurnTimeout(timeoutMs: number): SuspendableTurn
   };
 }
 
-function deferredChange(): Readonly<{ promise: Promise<void>; resolve: () => void }> {
+function deferredChange(): Readonly<{
+  promise: Promise<void>;
+  resolve: () => void;
+}> {
   let resolveChange: (() => void) | undefined;
   const promise = new Promise<void>((resolve) => {
     resolveChange = resolve;

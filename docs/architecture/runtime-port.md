@@ -1,8 +1,19 @@
 # The Runtime Port
 
 Read this when: you need another agent in the picture — delegating one task to a specialist, a new provider, a custom loop, or a whole external engine (Python/LangGraph, a hosted platform) — and want to know where it plugs in.
-Source of truth for: the `AiRuntimePort` contract, an implementation's obligations, the four integration levels (including agent-as-tool delegation), and the remote-engine adapter pattern.
-Not source of truth for: why engines are replaceable ([ADR 0005](../adr/0005-runtime-port-replaceable-engines.md)), the shipped AI-SDK engine ([ADR 0006](../adr/0006-ai-sdk-runtime.md)), or the event vocabulary ([runtime-and-protocol-events.md](runtime-and-protocol-events.md)).
+Source of truth for: the legacy Effect wing's `AiRuntimePort` contract, an implementation's obligations, the four legacy integration levels, and the remote-engine adapter pattern.
+Not source of truth for: the replacement Workflow substrate ([workflow-substrate.md](workflow-substrate.md)), why the legacy engine is replaceable ([ADR 0005](../adr/0005-runtime-port-replaceable-engines.md)), or the event vocabulary ([runtime-and-protocol-events.md](runtime-and-protocol-events.md)).
+
+## Migration status
+
+`AiRuntimePort` is the engine seam only for `apps/partner-ai-service`. The
+replacement `apps/side-chat-service` deliberately removed that abstraction under
+ADR 0014: application policy depends on app-local ports, while `WorkflowAgent`
+and AI SDK types stay inside the Workflow bundle. Read
+[workflow-substrate.md](workflow-substrate.md) for the replacement boundary.
+This page remains a legacy comparison and remote-engine recipe until Step 20
+deletes the old wing; it must not be used to add an `AiRuntimePort` to the new
+service.
 
 Product core never talks to a model, an SDK, or an agent framework. It talks to
 one port, defined in the SDK-free contract package

@@ -1,5 +1,5 @@
 import { dynamicTool, jsonSchema, type ToolSet } from "ai";
-import { createHook, getWritable, sleep } from "workflow";
+import { createHook, getWritable } from "workflow";
 
 import {
   TOOL_APPROVAL_STATES,
@@ -10,6 +10,7 @@ import {
   requiresServerToolApproval,
   type ServerToolDefinition,
 } from "#application/turn/tools/server-tools/server-tool-catalog";
+import { WORKFLOW_CLOCK, type WorkflowClock } from "../clock/workflow-clock.js";
 import type { SuspendableTurnTimeout } from "../timeout/turn-timeout.js";
 import {
   CHAT_TURN_JOURNAL_PART_TYPES,
@@ -26,8 +27,13 @@ import {
   type ApprovedServerToolExecutionCommand,
 } from "../production/server-tools/execute-server-tool.js";
 import { readServerToolSources, writeServerToolSources } from "./server-tool-sources.js";
+import { waitForAbort } from "../wait/abort-wait.js";
 
-export { readServerToolSources, writeServerToolSources } from "./server-tool-sources.js";
+export {
+  readServerToolSources,
+  writeServerToolSources,
+  writeServerToolSourcesTo,
+} from "./server-tool-sources.js";
 
 export const TOOL_APPROVAL_TIMEOUT_MS = 24 * 60 * 60 * 1_000;
 export type ToolApprovalStepRunner = typeof runToolApprovalStep;
@@ -38,6 +44,14 @@ export type ApprovedServerToolStepRunner = (
 export type ApprovalGateDependencies = Readonly<{
   runApprovalStep: ToolApprovalStepRunner;
   runExecutionStep: ApprovedServerToolStepRunner;
+}>;
+
+type ApprovalHook = ReturnType<typeof createHook<true>>;
+
+export type ApprovalGateRuntime = Readonly<{
+  createApprovalHook: (token: string) => ApprovalHook;
+  writeApprovalRequest: (approvalId: string, toolCallId: string) => Promise<true>;
+  clock: WorkflowClock;
 }>;
 
 const DEFAULT_APPROVAL_GATE_DEPENDENCIES: ApprovalGateDependencies = {
@@ -108,6 +122,7 @@ export async function executeGatedServerTool<Input extends ToolApprovalInput>(
       toolCallId: string;
     }>,
   dependencies: ApprovalGateDependencies = DEFAULT_APPROVAL_GATE_DEPENDENCIES,
+  runtime?: ApprovalGateRuntime,
 ): Promise<unknown> {
   const approvalId = `approval-${request.toolCallId}`;
   const persisted = await dependencies.runApprovalStep({
@@ -122,11 +137,12 @@ export async function executeGatedServerTool<Input extends ToolApprovalInput>(
   if (terminal !== undefined) return resolveApproval(request, terminal, dependencies);
 
   const timeoutSuspension = request.providerTimeout.suspend();
-  const approvalHook = createHook<true>({
-    token: toolApprovalHookToken(request.runId, approvalId),
-  });
+  const approvalHook = createApprovalHook(
+    toolApprovalHookToken(request.runId, approvalId),
+    runtime,
+  );
   try {
-    await writeApprovalRequest(approvalId, request.toolCallId);
+    await writeApprovalRequestWithRuntime(approvalId, request.toolCallId, runtime);
     const conflict = await approvalHook.getConflict();
     if (conflict !== null) {
       throw new Error(`Tool-approval hook token is already owned by run ${conflict.runId}`);
@@ -136,7 +152,7 @@ export async function executeGatedServerTool<Input extends ToolApprovalInput>(
     if (registeredTerminal !== undefined) {
       return resolveApproval(request, registeredTerminal, dependencies);
     }
-    return await waitForApproval(request, registered, approvalHook, dependencies);
+    return await waitForApproval(request, registered, approvalHook, dependencies, runtime);
   } finally {
     approvalHook.dispose();
     timeoutSuspension.release();
@@ -146,15 +162,17 @@ export async function executeGatedServerTool<Input extends ToolApprovalInput>(
 async function waitForApproval<Input extends ToolApprovalInput>(
   request: Parameters<typeof executeGatedServerTool<Input>>[0],
   approval: ToolApprovalSnapshot,
-  approvalHook: ReturnType<typeof createHook<true>>,
+  approvalHook: ApprovalHook,
   dependencies: ApprovalGateDependencies,
+  runtime: ApprovalGateRuntime | undefined,
 ): Promise<unknown> {
   const abortWait = waitForAbort(request.abortSignal);
   try {
-    const remainingMs = Math.max(Date.parse(approval.expiresAt) - Date.now(), 0);
+    const clock = runtime?.clock ?? WORKFLOW_CLOCK;
+    const remainingMs = Math.max(Date.parse(approval.expiresAt) - clock.now(), 0);
     const winner = await Promise.race([
       Promise.resolve(approvalHook).then(() => "decision" as const),
-      sleep(`${remainingMs}ms`).then(() => "expiry" as const),
+      clock.wait(remainingMs).then(() => "expiry" as const),
       abortWait.promise,
     ]);
     if (winner === "abort") return deniedToolOutput(TOOL_APPROVAL_DENIAL_REASONS.CANCELLED);
@@ -173,6 +191,20 @@ async function waitForApproval<Input extends ToolApprovalInput>(
   } finally {
     abortWait.dispose();
   }
+}
+
+function createApprovalHook(token: string, runtime: ApprovalGateRuntime | undefined): ApprovalHook {
+  if (runtime !== undefined) return runtime.createApprovalHook(token);
+  return createHook<true>({ token });
+}
+
+function writeApprovalRequestWithRuntime(
+  approvalId: string,
+  toolCallId: string,
+  runtime: ApprovalGateRuntime | undefined,
+): Promise<true> {
+  if (runtime !== undefined) return runtime.writeApprovalRequest(approvalId, toolCallId);
+  return writeApprovalRequest(approvalId, toolCallId);
 }
 
 async function readApproval<Input extends ToolApprovalInput>(
@@ -256,20 +288,6 @@ async function writeApprovalRequest(approvalId: string, toolCallId: string): Pro
 
 function executionKey(turnId: string, toolCallId: string, digest: string): string {
   return `${turnId}:${toolCallId}:${digest}`;
-}
-
-function waitForAbort(signal: AbortSignal) {
-  let resolveAbort: ((outcome: "abort") => void) | undefined;
-  const promise = new Promise<"abort">((resolve) => {
-    resolveAbort = resolve;
-  });
-  const onAbort = () => resolveAbort?.("abort");
-  if (signal.aborted) onAbort();
-  else signal.addEventListener("abort", onAbort, { once: true });
-  return {
-    promise,
-    dispose: () => signal.removeEventListener("abort", onAbort),
-  };
 }
 
 function isJsonValue(value: unknown): value is ToolApprovalInput {

@@ -82,6 +82,7 @@ describe("createWorkflowTurnExecution", () => {
 
     await execution.start({
       ...TURN_INPUT,
+      clientToolCapabilityDigest: "a".repeat(64),
       clientTools,
       enabledToolNames: ["server_tool"],
     });
@@ -93,6 +94,7 @@ describe("createWorkflowTurnExecution", () => {
         conversationId: TURN_INPUT.conversationId,
         providerTimeoutMs: settings.timeouts.providerMs,
         clientToolTimeoutMs: settings.timeouts.clientToolMs,
+        clientToolCapabilityDigest: "a".repeat(64),
         clientTools,
         enabledToolNames: ["server_tool"],
         reasoningEffort: TURN_INPUT.reasoningEffort,

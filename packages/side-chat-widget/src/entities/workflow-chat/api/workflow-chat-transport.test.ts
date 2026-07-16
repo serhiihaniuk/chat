@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { UIMessageChunk } from "ai";
 import type { HostContextRequest, WidgetHostBridge } from "@side-chat/host-bridge";
-import { SIDE_CHAT_ERROR_CODES, SIDE_CHAT_ERROR_VOCABULARY } from "@side-chat/stream-profile";
+import {
+  SIDE_CHAT_CLIENT_TOOL_CAPABILITY,
+  SIDE_CHAT_ERROR_CODES,
+  SIDE_CHAT_ERROR_VOCABULARY,
+} from "@side-chat/stream-profile";
 
 import {
   normalizeWorkflowChatError,
@@ -18,6 +22,11 @@ const USER_MESSAGE: WorkflowUIMessage = {
   id: "user-1",
   role: "user",
   parts: [{ type: "text", text: "Hello" }],
+};
+const CLIENT_TOOL: WorkflowClientToolDefinition = {
+  name: "open_resource",
+  description: "Open a host resource.",
+  inputSchema: { type: "object" },
 };
 
 describe("createWorkflowChatTransport", () => {
@@ -75,34 +84,24 @@ describe("createWorkflowChatTransport", () => {
 
     expect(authorization).toEqual(["Bearer first", "Bearer refreshed"]);
   });
-
   it("includes the current native client-tool catalog in the workflow envelope", async () => {
     let requestBody: unknown;
+    let clientToolCapability: string | null = null;
     const request = vi.fn<typeof fetch>(async (_input, init) => {
       requestBody = JSON.parse(String(init?.body));
+      clientToolCapability = new Headers(init?.headers).get(
+        SIDE_CHAT_CLIENT_TOOL_CAPABILITY.HEADER,
+      );
       return finishedResponse();
     });
-    const transport = createTransport({ fetch: request }, () => [
-      {
-        name: "open_resource",
-        description: "Open a host resource.",
-        inputSchema: { type: "object" },
-      },
-    ]);
+    const transport = createTransport({ fetch: request }, () => [CLIENT_TOOL]);
 
     await sendAndRead(transport, [USER_MESSAGE]);
 
-    expect(requestBody).toEqual(
-      expect.objectContaining({
-        clientTools: [
-          {
-            name: "open_resource",
-            description: "Open a host resource.",
-            inputSchema: { type: "object" },
-          },
-        ],
-      }),
-    );
+    expect(requestBody).toMatchObject({
+      clientTools: [CLIENT_TOOL],
+    });
+    expect(clientToolCapability).toBe("a".repeat(64));
   });
 
   it("collects one fresh correlated host-context snapshot for each send and regeneration", async () => {
@@ -352,6 +351,7 @@ function createTransport(
     ...overrides,
   };
   return createWorkflowChatTransport({
+    clientToolCapability: "a".repeat(64),
     getClient: () => client,
     getClientTools,
     getHostContext,

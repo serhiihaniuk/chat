@@ -18,6 +18,7 @@ export type WidgetHarnessConfig = {
   readonly apiBaseUrl: string;
   readonly authToken: string;
   readonly defaultOpen: boolean;
+  readonly clientToolsEnabled: boolean;
   readonly openControl: WidgetHarnessOpenControl;
   readonly scenario: WidgetHarnessScenario;
   readonly workspaceId: string;
@@ -34,6 +35,7 @@ export const parseWidgetHarnessConfig = (search: string): WidgetHarnessConfig =>
     mode,
     apiBaseUrl: params.get("apiBaseUrl") ?? DEFAULT_API_BASE_URL,
     authToken: params.get("authToken") ?? DEFAULT_AUTH_TOKEN,
+    clientToolsEnabled: params.get("clientTools") !== "false",
     defaultOpen: parseDefaultOpen(params.get("open"), params.get("defaultOpen")),
     openControl: parseOpenControl(params.get("openControl")),
     scenario: parseScenario(params.get("scenario")),

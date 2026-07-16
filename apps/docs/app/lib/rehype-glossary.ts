@@ -4,7 +4,7 @@
  * time, walking the tree in document order, so "first mention per page" is
  * deterministic. Skips code, links, headings, and existing <Term> elements.
  */
-import { autoLinkTargets } from "../data/glossary";
+import { autoLinkTargets } from "../data/glossary/lookup";
 
 interface HastNode {
   type: string;

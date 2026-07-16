@@ -9,8 +9,11 @@ import {
 import type { ResumeClientTool } from "#application/turn/tools/submit-client-tool-output";
 import { createServiceTestHarness } from "#composition/route/testing-harness/service-test-harness";
 
+import { digestClientToolCapability } from "./authority/client-tool-capability.js";
+
 const RUN_ID = "run-1";
 const TOOL_CALL_ID = "call-1";
+const CLIENT_TOOL_CAPABILITY = "a".repeat(64);
 const DISPATCH = {
   workspaceId: "local-workspace",
   turnId: "turn-1",
@@ -19,6 +22,52 @@ const DISPATCH = {
 } as const;
 
 describe("client-tool output route", () => {
+  it("hides a missing originating-tab capability before dispatch lookup", async () => {
+    const findOwned = vi.fn<ClientToolDispatchStore["findOwned"]>();
+    const harness = await createServiceTestHarness({
+      clientToolDispatches: { findOwned, submit: vi.fn<ClientToolDispatchStore["submit"]>() },
+    });
+    try {
+      const response = await harness.request(outputRoute(RUN_ID, TOOL_CALL_ID), {
+        method: "POST",
+        body: JSON.stringify({ output: "private" }),
+      });
+
+      expect(response.status).toBe(HTTP_ERROR.NOT_FOUND.STATUS);
+      expect(findOwned).not.toHaveBeenCalled();
+    } finally {
+      await harness.close();
+    }
+  });
+
+  it("hides a wrong capability before handling a malformed private body", async () => {
+    const privateSentinel = "PRIVATE_MALFORMED_OUTPUT";
+    const submit = vi.fn<ClientToolDispatchStore["submit"]>();
+    const findOwned = vi.fn<ClientToolDispatchStore["findOwned"]>(
+      async (_auth, _runId, _toolCallId, capabilityDigest) =>
+        capabilityDigest === digestClientToolCapability(CLIENT_TOOL_CAPABILITY)
+          ? DISPATCH
+          : CLIENT_TOOL_DISPATCH_LOOKUP.NOT_FOUND,
+    );
+    const harness = await createServiceTestHarness({
+      clientToolDispatches: { findOwned, submit },
+    });
+    try {
+      const response = await harness.request(
+        outputRoute(RUN_ID, TOOL_CALL_ID),
+        outputRequest(privateSentinel, false, "b".repeat(64)),
+      );
+      const responseText = await response.text();
+
+      expect(response.status).toBe(HTTP_ERROR.NOT_FOUND.STATUS);
+      expect(responseText).not.toContain(privateSentinel);
+      expect(findOwned).toHaveBeenCalledOnce();
+      expect(submit).not.toHaveBeenCalled();
+    } finally {
+      await harness.close();
+    }
+  });
+
   it("settles without echoing the private payload", async () => {
     const privateSentinel = "PRIVATE_CLIENT_TOOL_OUTPUT_SENTINEL";
     const submit = acceptedSubmit();
@@ -28,10 +77,10 @@ describe("client-tool output route", () => {
       resumeClientTool,
     });
     try {
-      const response = await harness.request(outputRoute(RUN_ID, TOOL_CALL_ID), {
-        method: "POST",
-        body: JSON.stringify({ output: { value: privateSentinel } }),
-      });
+      const response = await harness.request(
+        outputRoute(RUN_ID, TOOL_CALL_ID),
+        outputRequest({ output: { value: privateSentinel } }),
+      );
       const responseText = await response.text();
       expect(response.status).toBe(200);
       expect(responseText).not.toContain(privateSentinel);
@@ -54,10 +103,10 @@ describe("client-tool output route", () => {
       resumeClientTool: async () => true,
     });
     try {
-      const response = await harness.request(outputRoute(RUN_ID, TOOL_CALL_ID), {
-        method: "POST",
-        body: "not-json",
-      });
+      const response = await harness.request(
+        outputRoute(RUN_ID, TOOL_CALL_ID),
+        outputRequest("not-json", false),
+      );
       expect(response.status).toBe(200);
       expect(submit.mock.calls[0]?.[1]).toBe("failed");
       expect(submit.mock.calls[0]?.[2]).toEqual({
@@ -77,10 +126,10 @@ describe("client-tool output route", () => {
       },
     });
     try {
-      const response = await harness.request(outputRoute("unknown-run", "guessed-call"), {
-        method: "POST",
-        body: JSON.stringify({ output: "secret" }),
-      });
+      const response = await harness.request(
+        outputRoute("unknown-run", "guessed-call"),
+        outputRequest({ output: "secret" }),
+      );
       expect(response.status).toBe(HTTP_ERROR.NOT_FOUND.STATUS);
       expect(submit).not.toHaveBeenCalled();
     } finally {
@@ -96,10 +145,10 @@ describe("client-tool output route", () => {
       },
     });
     try {
-      const response = await harness.request(outputRoute(RUN_ID, "call-racing"), {
-        method: "POST",
-        body: JSON.stringify({ output: "result" }),
-      });
+      const response = await harness.request(
+        outputRoute(RUN_ID, "call-racing"),
+        outputRequest({ output: "result" }),
+      );
       expect(response.status).toBe(HTTP_ERROR.CONFLICT.STATUS);
       expect(response.headers.get(HTTP_HEADERS.RETRY_AFTER)).toBe("1");
       expect(await response.json()).toMatchObject({
@@ -120,10 +169,10 @@ describe("client-tool output route", () => {
       resumeClientTool: async () => false,
     });
     try {
-      const response = await harness.request(outputRoute(RUN_ID, TOOL_CALL_ID), {
-        method: "POST",
-        body: JSON.stringify({ output: "result" }),
-      });
+      const response = await harness.request(
+        outputRoute(RUN_ID, TOOL_CALL_ID),
+        outputRequest({ output: "result" }),
+      );
       expect(response.status).toBe(HTTP_ERROR.CONFLICT.STATUS);
       expect(response.headers.get(HTTP_HEADERS.RETRY_AFTER)).toBe("1");
     } finally {
@@ -143,10 +192,10 @@ describe("client-tool output route", () => {
       resumeClientTool,
     });
     try {
-      const response = await harness.request(outputRoute(RUN_ID, TOOL_CALL_ID), {
-        method: "POST",
-        body: JSON.stringify({ output: { value: "resent" } }),
-      });
+      const response = await harness.request(
+        outputRoute(RUN_ID, TOOL_CALL_ID),
+        outputRequest({ output: { value: "resent" } }),
+      );
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({
         runId: RUN_ID,
@@ -174,4 +223,16 @@ function outputRoute(runId: string, toolCallId: string): string {
     ":toolCallId",
     toolCallId,
   );
+}
+
+function outputRequest(
+  body: unknown,
+  serialize = true,
+  clientToolCapability = CLIENT_TOOL_CAPABILITY,
+): RequestInit {
+  return {
+    method: "POST",
+    headers: { [HTTP_HEADERS.CLIENT_TOOL_CAPABILITY]: clientToolCapability },
+    body: serialize ? JSON.stringify(body) : String(body),
+  };
 }

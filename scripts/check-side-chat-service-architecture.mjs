@@ -31,6 +31,27 @@ const allowedWorkflowDependencies = new Set([
   // owns their public metadata vocabulary; it is not an outer implementation.
   "@side-chat/stream-profile",
 ]);
+const allowedApplicationDependencies = new Set([
+  "ai",
+  // The application port carries the Workflow-serializable AI SDK model type.
+  // Concrete provider packages remain adapter-private.
+  "@ai-sdk/provider",
+  "@side-chat/chat-protocol",
+  "@side-chat/shared",
+  "@side-chat/stream-profile",
+]);
+// Compatibility has its own non-production HTTP adapter. Keep its workflow
+// access explicit so ordinary adapters cannot grow workflow dependencies.
+const adapterWorkflowBoundaryImports = new Set([
+  `${sourceRoot}adapters/http/compatibility-app.ts::#workflows/testing/compatibility-turn`,
+  `${sourceRoot}adapters/http/compatibility-app.ts::#workflows/testing/chat-turn`,
+  `${sourceRoot}adapters/http/compatibility-app.ts::#workflows/testing/probes/wrapper-approval-gate`,
+]);
+// This seed value is shared by local production composition. Other files in a
+// testing-named folder remain testing-only and cannot enter the production graph.
+const allowedProductionTestingDependencies = new Set([
+  `${sourceRoot}composition/route/testing-harness/local-chat-fixture.ts`,
+]);
 const errors = [];
 const sourceFiles = listSourceFiles(root).filter(
   (file) => file.startsWith(sourceRoot) || allowedCatalogInputs.has(file),
@@ -49,7 +70,7 @@ const layerImportRules = {
     message: "config subsystem imports outward dependency",
   },
   adapters: {
-    violates: (_file, specifier) => isAdapterBoundaryViolation(specifier),
+    violates: (file, specifier) => isAdapterBoundaryViolation(file, specifier),
     message: "adapter imports another outer implementation",
   },
   workflows: {
@@ -146,13 +167,19 @@ function checkProductionGraph() {
 }
 
 function isTestingOnlyProductionDependency(file) {
-  return (
-    file.startsWith(`${sourceRoot}testing/`) ||
+  if (allowedProductionTestingDependencies.has(file)) return false;
+  if (
     file === `${sourceRoot}composition/route/testing.ts` ||
     file === `${sourceRoot}composition/route/testing-entry.ts` ||
     file === `${sourceRoot}composition/workflow/testing.ts` ||
-    file === `${sourceRoot}adapters/http/compatibility-app.ts` ||
-    file.startsWith(`${sourceRoot}workflows/testing/`)
+    file === `${sourceRoot}adapters/http/compatibility-app.ts`
+  ) {
+    return true;
+  }
+
+  const directorySegments = file.slice(sourceRoot.length).split("/").slice(0, -1);
+  return directorySegments.some(
+    (segment) => segment === "testing" || segment.startsWith("testing-"),
   );
 }
 
@@ -191,19 +218,9 @@ function isLocalTo(specifier, layer) {
 }
 
 function isApplicationOutwardImport(specifier) {
-  return (
-    specifier.startsWith("#adapters/") ||
-    specifier.startsWith("#composition/") ||
-    specifier.startsWith("#config/") ||
-    specifier.startsWith("#testing/") ||
-    specifier.startsWith("#workflows/") ||
-    specifier === "hono" ||
-    specifier === "workflow" ||
-    specifier.startsWith("workflow/") ||
-    specifier.startsWith("@ai-sdk/workflow") ||
-    specifier.startsWith("@workflow/") ||
-    specifier.startsWith("node:")
-  );
+  if (specifier.startsWith(".")) return false;
+  if (specifier.startsWith("#application/") || specifier.startsWith("#domain/")) return false;
+  return !allowedApplicationDependencies.has(specifier);
 }
 
 function isConfigImport(file, specifier) {
@@ -219,13 +236,26 @@ function resolveRelativeTypeScriptPath(file, specifier) {
   return posix.normalize(posix.join(posix.dirname(file), specifier)).replace(/\.(?:m?js)$/u, ".ts");
 }
 
-function isAdapterBoundaryViolation(specifier) {
-  return (
+function isAdapterBoundaryViolation(file, specifier) {
+  if (specifier.startsWith("#workflows/")) {
+    return !adapterWorkflowBoundaryImports.has(`${file}::${specifier}`);
+  }
+  if (
     specifier.startsWith("#adapters/") ||
     specifier.startsWith("#composition/") ||
     specifier.startsWith("#config/") ||
     specifier.startsWith("#testing/")
-  );
+  ) {
+    return true;
+  }
+  if (!specifier.startsWith(".")) return false;
+
+  const importedFile = resolveRelativeTypeScriptPath(file, specifier);
+  if (!importedFile.startsWith(`${sourceRoot}adapters/`)) return false;
+
+  const importerAdapter = file.slice(`${sourceRoot}adapters/`.length).split("/")[0];
+  const importedAdapter = importedFile.slice(`${sourceRoot}adapters/`.length).split("/")[0];
+  return importerAdapter !== importedAdapter;
 }
 
 function isWorkflowBoundaryViolation(file, specifier) {

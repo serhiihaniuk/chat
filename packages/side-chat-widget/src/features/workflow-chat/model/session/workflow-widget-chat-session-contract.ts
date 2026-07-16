@@ -9,7 +9,7 @@ import type { WorkflowApprovalDecisionHandler } from "../approval/workflow-appro
 import type { WorkflowWidgetChatState } from "./reducer/workflow-widget-chat-reducer.js";
 
 export type WorkflowWidgetChatLifecycle = Readonly<{
-  onRunAccepted?: ((runId: string) => void) | undefined;
+  onRunAccepted?: ((runId: string, clientToolCapability: string) => void) | undefined;
   onRunReconciled?: ((runId: string) => void) | undefined;
   onRunTerminal?: ((runId: string) => void) | undefined;
 }>;
@@ -19,6 +19,7 @@ export type WorkflowWidgetChatSessionSnapshot = WorkflowWidgetChatState;
 export type WorkflowWidgetChatSessionContext = Readonly<{
   activeTurn?: WorkflowActiveTurn | undefined;
   client: WorkflowConversationClient;
+  clientToolCapability?: string | undefined;
   hostBridge?: WidgetHostBridge | undefined;
   includeHostContext: boolean;
   initialMessages: readonly WorkflowUIMessage[];

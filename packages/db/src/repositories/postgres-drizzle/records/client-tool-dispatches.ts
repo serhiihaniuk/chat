@@ -31,6 +31,7 @@ export const createPostgresDrizzleClientToolDispatchRepository = ({
         workspaceId: command.workspaceId,
         toolCallId: command.toolCallId,
         toolName: command.toolName,
+        clientToolCapabilityDigest: command.clientToolCapabilityDigest,
         state: "dispatched",
         dispatchedAt: command.now,
       })
@@ -46,10 +47,13 @@ export const createPostgresDrizzleClientToolDispatchRepository = ({
       DB_REPOSITORY_ERROR_CODES.RECORD_NOT_FOUND,
       "Client-tool dispatch conflict did not return the existing row.",
     );
-    if (record.toolName !== command.toolName) {
+    if (
+      record.toolName !== command.toolName ||
+      record.clientToolCapabilityDigest !== command.clientToolCapabilityDigest
+    ) {
       throw new DbRepositoryError(
         DB_REPOSITORY_ERROR_CODES.INVALID_TRANSITION,
-        "A replayed client-tool call cannot change the tool name.",
+        "A replayed client-tool call cannot change its tool or originating-tab authority.",
       );
     }
     return result(record, false);

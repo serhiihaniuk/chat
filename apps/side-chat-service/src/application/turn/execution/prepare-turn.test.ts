@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
-import type { TurnStore } from "#application/ports/turn/turn-store";
+import { BEGIN_TURN_DISPOSITIONS, type TurnStore } from "#application/ports/turn/turn-store";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
-import type { TurnExecution } from "#application/ports/turn/turn-execution";
+import type { TurnExecution, TurnExecutionTerminal } from "#application/ports/turn/turn-execution";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { TurnModelPolicy } from "#application/turn/turn-model-policy";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
@@ -178,11 +178,49 @@ describe("prepareTurn", () => {
     });
   });
 
+  it("holds admission to terminal when binding an already-started run fails", async () => {
+    const state = createState();
+    const admission = new DeterministicTurnAdmission();
+    const terminal = Promise.withResolvers<TurnExecutionTerminal>();
+    const cancel = vi.fn<(runId: string) => Promise<void>>().mockResolvedValue(undefined);
+    const execution: TurnExecution = {
+      start: () =>
+        Promise.resolve({
+          runId: "run-started",
+          stream: new ReadableStream({ start: (controller) => controller.close() }),
+          terminal: terminal.promise,
+        }),
+      resume: () => Promise.reject(new Error("resume not expected")),
+      cancel,
+    };
+    const turns: TurnStore = {
+      assertCanBegin: (owner, conversationId, requestId) =>
+        state.assertCanBegin(owner, conversationId, requestId),
+      beginTurn: (beginInput) => state.beginTurn(beginInput),
+      bindRun: () => Promise.reject(new Error("bind failed")),
+      assertRunOwned: (owner, conversationId, runId) =>
+        state.assertRunOwned(owner, conversationId, runId),
+      finalize: (turn, record) => state.finalize(turn, record),
+    };
+
+    await expect(
+      prepareTurn({ modelPolicy: selectTestModel, admission, turns, execution }, input()),
+    ).rejects.toThrow("bind failed");
+    expect(cancel).toHaveBeenCalledWith("run-started");
+    expect(admission.released).toBe(0);
+
+    terminal.resolve({ status: TURN_TERMINAL_STATUSES.CANCELLED, stepUsage: [] });
+    await terminal.promise;
+    await Promise.resolve();
+
+    expect(admission.released).toBe(1);
+  });
+
   it("releases admission when an atomic begin loses the idle race", async () => {
     const state = createState();
     const admission = new DeterministicTurnAdmission();
     const turns: TurnStore = {
-      assertCanBegin: () => Promise.resolve(),
+      assertCanBegin: () => Promise.resolve(BEGIN_TURN_DISPOSITIONS.CREATED),
       beginTurn: () =>
         Promise.reject(
           new TurnRejectedError(TURN_REJECTION_CODES.BUSY, "Conversation became busy"),
@@ -212,6 +250,7 @@ describe("prepareTurn", () => {
   it("re-attaches an exact request replay without starting or binding another run", async () => {
     const state = createState();
     const execution = new DeterministicTurnExecution();
+    const replayAdmission = new DeterministicTurnAdmission();
 
     const first = await prepareTurn(
       {
@@ -225,7 +264,7 @@ describe("prepareTurn", () => {
     const replay = await prepareTurn(
       {
         modelPolicy: selectTestModel,
-        admission: new DeterministicTurnAdmission(),
+        admission: replayAdmission,
         turns: state,
         execution,
       },
@@ -237,6 +276,43 @@ describe("prepareTurn", () => {
     expect(execution.resumed[0]?.runId).toBe(first.execution.runId);
     expect(replay.turn).toEqual(first.turn);
     expect(state.userMessages).toEqual([userMessage]);
+    expect(replayAdmission.admitted).toBe(0);
+  });
+
+  it("releases a reservation when atomic begin discovers a replay after preflight", async () => {
+    const state = createState();
+    const existing = await state.beginTurn({
+      auth,
+      conversationId: input().conversationId,
+      requestId: input().requestId,
+      userMessage,
+    });
+    await state.bindRun(existing, "run-existing");
+    const admission = new DeterministicTurnAdmission();
+    const turns: TurnStore = {
+      assertCanBegin: () => Promise.resolve(BEGIN_TURN_DISPOSITIONS.CREATED),
+      beginTurn: (beginInput) => state.beginTurn(beginInput),
+      bindRun: (turn, runId) => state.bindRun(turn, runId),
+      assertRunOwned: (owner, conversationId, runId) =>
+        state.assertRunOwned(owner, conversationId, runId),
+      finalize: (turn, record) => state.finalize(turn, record),
+    };
+
+    const prepared = await prepareTurn(
+      {
+        modelPolicy: selectTestModel,
+        admission,
+        turns,
+        execution: new DeterministicTurnExecution(),
+      },
+      input(),
+    );
+
+    expect(prepared.execution.runId).toBe("run-existing");
+    expect(admission.admitted).toBe(1);
+    expect(admission.released).toBe(1);
+    await prepared.admission.release();
+    expect(admission.released).toBe(1);
   });
 
   it("fails closed while an accepted replay is still waiting for its run binding", async () => {
@@ -260,7 +336,8 @@ describe("prepareTurn", () => {
     expect(execution.resumed).toEqual([]);
     expect(state.runningTurns.has(input().conversationId)).toBe(true);
     expect(state.terminals.size).toBe(0);
-    expect(admission.released).toBe(1);
+    expect(admission.admitted).toBe(0);
+    expect(admission.released).toBe(0);
   });
 
   it("rejects request-id reuse with a different accepted message", async () => {
@@ -286,7 +363,8 @@ describe("prepareTurn", () => {
       ),
     ).rejects.toMatchObject({ code: TURN_REJECTION_CODES.REQUEST_CONFLICT });
     expect(state.userMessages).toEqual([userMessage]);
-    expect(admission.released).toBe(1);
+    expect(admission.admitted).toBe(0);
+    expect(admission.released).toBe(0);
   });
 });
 

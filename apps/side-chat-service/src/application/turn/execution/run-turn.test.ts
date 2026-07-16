@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
 import type { TurnStore } from "#application/ports/turn/turn-store";
+import type { TelemetryRecord } from "#application/ports/telemetry-sink";
 import type {
   StartedTurnExecution,
   TurnExecution,
@@ -143,6 +144,38 @@ describe("runTurn", () => {
         expect.objectContaining({ title: "Deployment risk review" }),
       ]),
     );
+  });
+
+  it.each([
+    [TURN_TERMINAL_STATUSES.FAILED, undefined, "failed"],
+    [TURN_TERMINAL_STATUSES.CANCELLED, undefined, "cancelled"],
+    [TURN_TERMINAL_STATUSES.FAILED, TURN_EXECUTION_ERROR_CODES.PROVIDER_TIMEOUT, "timed_out"],
+  ] as const)("records the %s terminal outcome without identifiers", async (status, code, tag) => {
+    const records: TelemetryRecord[] = [];
+    const harness = createHarness(
+      Promise.resolve({
+        status,
+        stepUsage: [],
+        ...(code === undefined ? {} : { safeErrorCode: code }),
+      }),
+    );
+    const running = await runTurn(
+      {
+        ...harness.dependencies,
+        telemetry: { record: (record) => void records.push(record) },
+      },
+      turnInput(),
+    );
+
+    await running.stream.getReader().read();
+
+    expect(records).toEqual([
+      {
+        type: "turn.terminal",
+        labels: { operation: "turn", outcomeTag: tag },
+        count: 1,
+      },
+    ]);
   });
 });
 

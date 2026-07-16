@@ -60,6 +60,27 @@ describe("workflow journal sweeper", () => {
     expect(attempt).toBe(2);
     await part.close();
   });
+
+  it("reports measured row bytes and the number of pruned runs", async () => {
+    const telemetry = createCollectingTelemetrySink();
+    const settings = testSettings();
+    const part = await startWorkflowJournalSweeper(
+      settings,
+      {
+        validateSchema: () => Promise.resolve(),
+        sweep: () =>
+          Promise.resolve({ ...emptyResult(), selectedRuns: 2, prunedRuns: 2, prunedBytes: 4_096 }),
+      },
+      telemetry,
+    );
+
+    expect(telemetry.records).toContainEqual({
+      type: "workflow.journal_prune",
+      count: 2,
+      bytes: 4_096,
+    });
+    await part.close();
+  });
 });
 
 function testSettings() {
@@ -81,6 +102,7 @@ function emptyResult(): WorkflowJournalSweepResult {
     selectedRuns: 0,
     archivedRuns: 0,
     prunedRuns: 0,
+    prunedBytes: 0,
     deletedRows: { events: 0, steps: 0, hooks: 0, waits: 0, streamChunks: 0, runs: 0 },
   };
 }

@@ -1,5 +1,8 @@
+import { SIDE_CHAT_CLIENT_TOOL_CAPABILITY } from "@side-chat/stream-profile";
+
 export const HTTP_HEADERS = {
   AUTHORIZATION: "authorization",
+  CLIENT_TOOL_CAPABILITY: SIDE_CHAT_CLIENT_TOOL_CAPABILITY.HEADER,
   REQUEST_ID: "x-request-id",
   RETRY_AFTER: "retry-after",
   WORKFLOW_RUN_ID: "x-workflow-run-id",

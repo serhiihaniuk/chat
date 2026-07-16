@@ -44,11 +44,13 @@ export async function dispatchWorkflowClientTool({
   hostBridge,
   runId,
   toolCall,
+  clientToolCapability,
 }: {
   readonly client: WorkflowChatClient;
   readonly hostBridge: WidgetHostBridge | undefined;
   readonly runId: string | undefined;
   readonly toolCall: WorkflowClientToolCall;
+  readonly clientToolCapability: string;
 }): Promise<WorkflowClientToolDispatchOutcome> {
   const hostToolCall: HostToolCall = {
     toolCallId: toolCall.toolCallId,
@@ -59,7 +61,13 @@ export async function dispatchWorkflowClientTool({
   if (!runId) return { result, outputPosted: false };
 
   try {
-    await postWorkflowClientToolOutput(client, runId, toolCall.toolCallId, result);
+    await postWorkflowClientToolOutput(
+      client,
+      runId,
+      toolCall.toolCallId,
+      result,
+      clientToolCapability,
+    );
     return { result, outputPosted: true };
   } catch {
     return { result, outputPosted: false };

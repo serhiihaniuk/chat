@@ -61,7 +61,7 @@ describe("finalizeTurn", () => {
 
 function turnStore(overrides: Partial<TurnStore>): TurnStore {
   return {
-    assertCanBegin: () => Promise.resolve(),
+    assertCanBegin: () => Promise.resolve(BEGIN_TURN_DISPOSITIONS.CREATED),
     beginTurn: () => Promise.resolve({ ...TURN, disposition: BEGIN_TURN_DISPOSITIONS.CREATED }),
     bindRun: () => Promise.resolve(),
     assertRunOwned: () => Promise.resolve(),

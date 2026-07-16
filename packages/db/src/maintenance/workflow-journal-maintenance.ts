@@ -1,13 +1,14 @@
 import { Pool, type PoolClient, type PoolConfig, type QueryResultRow } from "pg";
 
-import {
-  assertPinnedWorkflowJournalSchema,
-  PINNED_WORKFLOW_TABLE_NAMES,
-} from "./workflow-journal-schema.js";
+import { PINNED_WORKFLOW_TABLE_NAMES } from "./workflow-journal-schema.js";
 import {
   readWorkflowJournalSnapshot,
   type WorkflowJournalSnapshot,
 } from "./workflow-journal-archive.js";
+import {
+  readOldestNonterminalRun,
+  validatePinnedSchema,
+} from "./inspection/workflow-journal-inspection.js";
 
 export type { WorkflowJournalRow, WorkflowJournalSnapshot } from "./workflow-journal-archive.js";
 
@@ -39,6 +40,8 @@ export type WorkflowJournalSweepResult = Readonly<{
   selectedRuns: number;
   archivedRuns: number;
   prunedRuns: number;
+  /** Sum of `pg_column_size` for the journal rows deleted by this sweep. */
+  prunedBytes: number;
   deletedRows: Readonly<{
     events: number;
     steps: number;
@@ -49,9 +52,16 @@ export type WorkflowJournalSweepResult = Readonly<{
   }>;
 }>;
 
+/** Content-free process-wide age metadata for the oldest active Workflow run. */
+export type OldestNonterminalWorkflowRun = Readonly<{
+  startedAt: Date;
+  ageMs: number;
+}>;
+
 export type WorkflowJournalMaintenance = Readonly<{
   validateSchema: () => Promise<void>;
   sweep: (options: WorkflowJournalSweepOptions) => Promise<WorkflowJournalSweepResult>;
+  oldestNonterminalRun: (now: Date) => Promise<OldestNonterminalWorkflowRun | undefined>;
   close: () => Promise<void>;
 }>;
 
@@ -61,48 +71,22 @@ export function createPostgresWorkflowJournalMaintenance(options: {
   readonly pool?: PoolConfig | undefined;
   readonly archive?: ArchiveWorkflowJournal | undefined;
 }): WorkflowJournalMaintenance {
-  const pool = new Pool({ ...options.pool, connectionString: options.connectionString });
+  const pool = new Pool({
+    ...options.pool,
+    connectionString: options.connectionString,
+  });
   const validateSchema = () => validatePinnedSchema(pool);
   return {
     validateSchema,
     sweep: (sweepOptions) => runSweep(pool, sweepOptions, options.archive),
+    oldestNonterminalRun: (now) => readOldestNonterminalRun(pool, now),
     close: () => pool.end(),
   };
 }
 
-type Queryable = Readonly<{
-  query: PoolClient["query"];
-}>;
-
-type SchemaColumnRow = QueryResultRow & Readonly<{ table_name: string; column_name: string }>;
-type EnumLabelRow = QueryResultRow & Readonly<{ enumlabel: string }>;
 type LockRow = QueryResultRow & Readonly<{ acquired: boolean }>;
 type RunIdRow = QueryResultRow & Readonly<{ run_id: string }>;
-
-async function validatePinnedSchema(queryable: Queryable): Promise<void> {
-  const columns = await queryable.query<SchemaColumnRow>(
-    `select table_name, column_name
-       from information_schema.columns
-      where table_schema = 'workflow'
-        and table_name = any($1::text[])
-      order by table_name, column_name`,
-    [PINNED_WORKFLOW_TABLE_NAMES],
-  );
-  const statuses = await queryable.query<EnumLabelRow>(
-    `select enum_value.enumlabel
-       from pg_type enum_type
-       join pg_namespace namespace on namespace.oid = enum_type.typnamespace
-       join pg_enum enum_value on enum_value.enumtypid = enum_type.oid
-      where namespace.nspname = 'workflow'
-        and enum_type.typname = 'status'
-      order by enum_value.enumsortorder`,
-  );
-
-  assertPinnedWorkflowJournalSchema({
-    tables: groupColumns(columns.rows),
-    runStatuses: statuses.rows.map((row) => row.enumlabel),
-  });
-}
+type ByteCountRow = QueryResultRow & Readonly<{ bytes: string }>;
 
 async function runSweep(
   pool: Pool,
@@ -122,6 +106,7 @@ async function runSweep(
 
     const runIds = await selectEligibleRunIds(client, options);
     const archivedRuns = await archiveRuns(client, runIds, archive);
+    const prunedBytes = await measureJournalRows(client, runIds);
     const deletedRows = await deleteRuns(client, runIds);
     await client.query("commit");
     return {
@@ -129,6 +114,7 @@ async function runSweep(
       selectedRuns: runIds.length,
       archivedRuns,
       prunedRuns: deletedRows.runs,
+      prunedBytes,
       deletedRows,
     };
   } catch (error) {
@@ -199,6 +185,44 @@ async function archiveRuns(
   return runIds.length;
 }
 
+async function measureJournalRows(client: PoolClient, runIds: readonly string[]): Promise<number> {
+  if (runIds.length === 0) return 0;
+  const result = await client.query<ByteCountRow>(
+    `select coalesce(sum(journal_row.byte_count), 0)::text as bytes
+       from (
+         select pg_column_size(workflow_run.*)::bigint as byte_count
+           from workflow.workflow_runs workflow_run
+          where workflow_run.id = any($1::text[])
+         union all
+         select pg_column_size(workflow_event.*)::bigint
+           from workflow.workflow_events workflow_event
+          where workflow_event.run_id = any($1::text[])
+         union all
+         select pg_column_size(workflow_step.*)::bigint
+           from workflow.workflow_steps workflow_step
+          where workflow_step.run_id = any($1::text[])
+         union all
+         select pg_column_size(workflow_hook.*)::bigint
+           from workflow.workflow_hooks workflow_hook
+          where workflow_hook.run_id = any($1::text[])
+         union all
+         select pg_column_size(workflow_wait.*)::bigint
+           from workflow.workflow_waits workflow_wait
+          where workflow_wait.run_id = any($1::text[])
+         union all
+         select pg_column_size(stream_chunk.*)::bigint
+           from workflow.workflow_stream_chunks stream_chunk
+          where stream_chunk.run_id = any($1::text[])
+       ) journal_row`,
+    [runIds],
+  );
+  const bytes = Number(result.rows[0]?.bytes ?? 0);
+  if (!Number.isSafeInteger(bytes) || bytes < 0) {
+    throw new RangeError("Workflow journal byte count must be a non-negative safe integer.");
+  }
+  return bytes;
+}
+
 async function deleteRuns(client: PoolClient, runIds: readonly string[]) {
   if (runIds.length === 0) return emptyDeletedRows();
   const streamChunks = await deleteChildren(client, "workflow_stream_chunks", runIds);
@@ -209,7 +233,14 @@ async function deleteRuns(client: PoolClient, runIds: readonly string[]) {
   const runs = await client.query("delete from workflow.workflow_runs where id = any($1::text[])", [
     runIds,
   ]);
-  return { events, steps, hooks, waits, streamChunks, runs: runs.rowCount ?? 0 };
+  return {
+    events,
+    steps,
+    hooks,
+    waits,
+    streamChunks,
+    runs: runs.rowCount ?? 0,
+  };
 }
 
 async function deleteChildren(
@@ -222,18 +253,6 @@ async function deleteChildren(
     [runIds],
   );
   return result.rowCount ?? 0;
-}
-
-function groupColumns(
-  rows: readonly SchemaColumnRow[],
-): Readonly<Record<string, readonly string[]>> {
-  const tables: Record<string, string[]> = {};
-  for (const row of rows) {
-    const columns = tables[row.table_name] ?? [];
-    columns.push(row.column_name);
-    tables[row.table_name] = columns;
-  }
-  return tables;
 }
 
 function uniqueRunIds(rows: readonly RunIdRow[]): readonly string[] {
@@ -259,6 +278,7 @@ function emptyResult(lockAcquired: boolean): WorkflowJournalSweepResult {
     selectedRuns: 0,
     archivedRuns: 0,
     prunedRuns: 0,
+    prunedBytes: 0,
     deletedRows: emptyDeletedRows(),
   };
 }

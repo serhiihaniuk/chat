@@ -39,6 +39,16 @@ export function readRequiredPositiveInteger(
   return 0;
 }
 
+export function readRequiredNonNegativeInteger(
+  value: unknown,
+  path: string,
+  issues: SettingsIssue[],
+): number {
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) return value;
+  issues.push({ path, message: "must be a non-negative integer" });
+  return 0;
+}
+
 export function readRequiredBoolean(
   value: unknown,
   path: string,

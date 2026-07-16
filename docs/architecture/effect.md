@@ -11,6 +11,11 @@ Effect lives only in the server engine room, gate-enforced, so how much you
 need depends on what you are changing. Start with the mental model; then jump
 to your role.
 
+This page describes the legacy `apps/partner-ai-service` wing and its inner
+packages. The replacement `apps/side-chat-service` is intentionally
+Effect-free under ADR 0014; it uses plain TypeScript plus the durable Workflow
+substrate documented in [workflow-substrate.md](workflow-substrate.md).
+
 ## The mental model in five ideas
 
 **1. An Effect is a description, not a running thing.** `Effect.tryPromise(() =>
@@ -61,6 +66,7 @@ combinators carry the repo's hardest guarantees:
 | --------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------- |
 | `partner-ai-core`, `agent-runtime`, service inbound/composition | Yes — the home                                                   | —                                             |
 | `packages/db`                                                   | Only the notification streams; repositories are plain `async`    | package convention                            |
+| `apps/side-chat-service`                                        | **Banned**; plain TypeScript plus Workflow                       | `check-side-chat-service-architecture`        |
 | `ai-runtime-contract`                                           | Types on the port signatures only                                | —                                             |
 | `side-chat-widget`, `chat-protocol`, `host-bridge`, `shared`    | **Banned**                                                       | `check-boundaries`, `check-dependency-policy` |
 | Transport edges (routes, SSE)                                   | Conversion point: `Effect.runPromise`, `Stream.toReadableStream` | review + `check-outbound-rules`               |

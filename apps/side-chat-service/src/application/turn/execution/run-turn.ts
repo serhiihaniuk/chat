@@ -8,6 +8,8 @@ import type {
   StartedTurnExecution,
   TurnExecutionTerminal,
 } from "#application/ports/turn/turn-execution";
+import type { TelemetrySink } from "#application/ports/telemetry-sink";
+import { recordTelemetrySafely } from "#application/telemetry/record-telemetry-safely";
 import { TURN_EXECUTION_ERROR_CODES, TURN_TERMINAL_STATUSES } from "#domain/turn/turn";
 
 import { finalizeTurn, type FinalizeTurnDependencies } from "../finalization/finalize-turn.js";
@@ -29,6 +31,7 @@ export type RunTurnDependencies = PrepareTurnDependencies &
      * itself. Durable Postgres leaves that to the workflow, so this is absent.
      */
     routeFinalization?: FinalizeTurnDependencies | undefined;
+    telemetry?: Pick<TelemetrySink, "record"> | undefined;
   }>;
 
 export type RunningTurn = Readonly<{
@@ -59,11 +62,26 @@ function finalizePreparedTurn(
   input: PrepareTurnInput,
 ): Promise<void> {
   return terminalOutcome(prepared.execution).then(async (terminal) => {
+    recordTelemetrySafely(dependencies.telemetry ?? NOOP_TELEMETRY, {
+      type: "turn.terminal",
+      labels: { operation: "turn", outcomeTag: terminalOutcomeTag(terminal) },
+      count: 1,
+    });
     const completed = await releaseWithFinalization(dependencies, prepared, terminal);
     if (completed) {
       launchTitleGeneration(dependencies, input, terminal.assistantMessage);
     }
   });
+}
+
+const NOOP_TELEMETRY: Pick<TelemetrySink, "record"> = {
+  record: () => undefined,
+};
+
+function terminalOutcomeTag(terminal: TurnExecutionTerminal): string {
+  return terminal.safeErrorCode === TURN_EXECUTION_ERROR_CODES.PROVIDER_TIMEOUT
+    ? "timed_out"
+    : terminal.status;
 }
 
 /**

@@ -138,20 +138,24 @@ describe("createWorkflowTurnReplay", () => {
       start(controller) {
         controller.enqueue({ type: "start-step" });
         controller.enqueue({ type: "text-start", id: "text-1" });
-        controller.enqueue({ type: "text-delta", id: "text-1", delta: "partial reply" });
+        controller.enqueue({
+          type: "text-delta",
+          id: "text-1",
+          delta: "partial reply",
+        });
       },
     });
     const reader = source.pipeThrough(normalizeClientToolReplay()).getReader();
 
-    await expect(readWithTimeout(reader, 250)).resolves.toEqual({
+    await expect(reader.read()).resolves.toEqual({
       done: false,
       value: { type: "start-step" },
     });
-    await expect(readWithTimeout(reader, 250)).resolves.toEqual({
+    await expect(reader.read()).resolves.toEqual({
       done: false,
       value: { type: "text-start", id: "text-1" },
     });
-    await expect(readWithTimeout(reader, 250)).resolves.toEqual({
+    await expect(reader.read()).resolves.toEqual({
       done: false,
       value: { type: "text-delta", id: "text-1", delta: "partial reply" },
     });
@@ -193,21 +197,4 @@ async function readAll(stream: ReadableStream<UIMessageChunk>): Promise<UIMessag
   const output: UIMessageChunk[] = [];
   for await (const chunk of stream) output.push(chunk);
   return output;
-}
-
-async function readWithTimeout<T>(
-  reader: ReadableStreamDefaultReader<T>,
-  timeoutMs: number,
-): Promise<ReadableStreamReadResult<T>> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      reader.read(),
-      new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error("Stream chunk did not arrive")), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
 }

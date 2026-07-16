@@ -44,6 +44,7 @@ export function WorkflowChatSession({
   hostBridge,
   hostContextSelection,
   activeTurn,
+  clientToolCapability,
   onRunAccepted,
   onRunReconciled,
   onRunTerminal,
@@ -64,7 +65,8 @@ export function WorkflowChatSession({
   readonly hostBridge: WorkflowSideChatWidgetProps["hostBridge"];
   readonly hostContextSelection: WorkflowHostContextSelection;
   readonly activeTurn: WorkflowActiveTurn | undefined;
-  readonly onRunAccepted: (runId: string) => void;
+  readonly clientToolCapability: string | undefined;
+  readonly onRunAccepted: (runId: string, clientToolCapability: string) => void;
   readonly onRunReconciled: (runId: string) => void;
   readonly onRunTerminal: (runId: string) => void;
   readonly quickActions: NonNullable<WorkflowSideChatWidgetProps["quickActions"]>;
@@ -98,6 +100,7 @@ export function WorkflowChatSession({
   const chat = useWorkflowWidgetChat({
     activeTurn,
     client: sessionClient,
+    clientToolCapability,
     hostBridge,
     includeHostContext: hostContextSelection.enabled,
     initialMessages,

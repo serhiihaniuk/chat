@@ -2,6 +2,7 @@ import type { ChatModelPreference } from "@side-chat/chat-protocol";
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
 import { useMemo, useRef, useState, type MutableRefObject } from "react";
 
+import { WIDGET_STATUSES } from "#entities/chat";
 import { runStatusToWidgetStatus } from "./run/widget-run-state.js";
 import {
   readWidgetConversationStore,
@@ -121,7 +122,7 @@ export const useWidgetChat = ({
 
   const visibleRun = runVisible ? run : undefined;
   const conversations = conversationsQuery.data ?? [];
-  const status = visibleRun ? runStatusToWidgetStatus(visibleRun.status) : "idle";
+  const status = visibleRun ? runStatusToWidgetStatus(visibleRun.status) : WIDGET_STATUSES.IDLE;
   const visibleMessages = useVisibleMessagesWithCarriedActivity(
     visibleRun,
     historyMessages,

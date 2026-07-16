@@ -33,7 +33,15 @@ export async function writeServerToolSources(
 ): Promise<void> {
   "use step";
 
-  const writable = getWritable<ChatTurnJournalPart>();
+  return writeServerToolSourcesTo(sources, toolCallId, getWritable());
+}
+
+/** Write projected sources through an already-owned journal stream. */
+export async function writeServerToolSourcesTo(
+  sources: readonly ServerToolSource[],
+  toolCallId: string,
+  writable: WritableStream<ChatTurnJournalPart>,
+): Promise<void> {
   const writer = writable.getWriter();
   try {
     for (const [index, source] of sources.entries()) {

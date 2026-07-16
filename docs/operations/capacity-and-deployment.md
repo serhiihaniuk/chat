@@ -1,119 +1,70 @@
 # Capacity And Deployment
 
-Read this when: you are sizing, scaling, or operating Side Chat instances — or deciding what data grows and what disappears.
-Source of truth for: the multi-instance model, SSE connection budgets, and the retention reality of every table.
-Not source of truth for: the streaming decision itself ([ADR 0007](../adr/0007-connection-bound-streaming.md)), crash recovery mechanics ([ADR 0008](../adr/0008-crash-recovery-lease-sweep.md)), config knobs ([configuration.md](configuration.md)), or database tooling ([database.md](database.md)).
+Read this when: you are sizing, scaling, or operating the replacement Side Chat service.
+Source of truth for: admission limits, Workflow worker and Postgres pool alignment, and replica-level capacity.
+Not source of truth for: individual config declarations ([configuration.md](configuration.md)), database lifecycle and retention ([database.md](database.md)), or turn ordering ([../architecture/assistant-turn.md](../architecture/assistant-turn.md)).
 
-## The instance model
+## Capacity model
 
-Instances are **turn-independent** (ADR 0007): any instance can serve the next
-turn because all context is read from the database. Only the _live stream_ is
-instance-bound, and that binding is physical — the connection that starts the
-turn (`POST /chat/runs`) is served by the instance that runs it. No sticky
-routing, no shared event bus, no instance discovery.
+Side Chat combines two distinct controls:
 
-What crosses instances rides three small Postgres `LISTEN/NOTIFY` channels —
-`turn_cancel`, `turn_activity`, and `host_command_result` — each a poke with
-ids, never event bodies, and each backed by durable state plus a poll so a
-lost signal costs latency, never correctness. Each instance holds **three
-dedicated LISTEN connections** outside the query pool; budget them when
-sizing Postgres `max_connections` alongside the per-instance query pool.
+- The service owns a per-process ingress gate. It admits a bounded number of turns, waits in a bounded FIFO queue, and rejects overload before durable turn creation.
+- The Postgres Workflow world owns durable job queueing, retries, redelivery, suspension, and resume. Its concurrency covers workflow and step jobs; it is not a provider-only limit.
 
-A request that lands on the wrong instance fails fast, and the widget handles
-it: a resume for a running turn owned elsewhere is `409 stream_unavailable`
-(the widget polls status until terminal); a finished turn whose buffer is gone
-is `404 replay_expired` (the widget reads history). Rolling restarts are
-therefore safe: in-flight turns on the retiring instance either finalize on
-graceful shutdown or are terminalized by any survivor's reaper sweep.
+Do not add a second durable lease or retry system around Workflow. A process-local admission reservation remains held until its durable turn reaches a terminal outcome. Workflow may release its own worker slot while that turn is suspended.
 
-## SSE connection budgets
+The default replacement settings are:
 
-Each open widget holds up to two long-lived SSE connections per instance: the
-live turn stream (only while a turn runs) and the `/chat/activity` lifecycle
-stream (whenever the panel is open). Size Node's open-socket expectations from
-concurrent open panels, not from user counts. The stream itself is cheap: the
-250 ms delta coalescer caps events at ~4/s per turn, and the streaming hot path
-does zero database writes.
+| Setting                      |  Default | Meaning                                                       |
+| ---------------------------- | -------: | ------------------------------------------------------------- |
+| `capacity.maxActiveTurns`    |     `16` | Maximum admitted, non-terminal turns in one service process.  |
+| `capacity.queueSize`         |     `32` | Maximum requests waiting for local admission.                 |
+| `capacity.queueTimeoutMs`    |  `5_000` | Maximum local admission wait.                                 |
+| `workflow.workerConcurrency` |     `50` | Maximum concurrent jobs run by one Postgres Workflow worker.  |
+| `workflow.maxPoolSize`       | required | Maximum Postgres connections available to the Workflow world. |
 
-Both streams write an SSE comment heartbeat (`: hb`) every
-`SIDECHAT_SSE_HEARTBEAT_MS` (default 20 s), so an idle stream keeps bytes flowing
-under a proxy or load-balancer idle timeout. Keep that idle timeout above the
-heartbeat interval — the default clears the common ALB 60 s — rather than above
-the longest silent pause. The heartbeat is a comment the protocol decoder drops,
-so it never appears as an event.
+Queue-full and queue-timeout outcomes map to HTTP `503` with `Retry-After: 5`. Admission occurs before the durable turn write, so rejected requests leave no turn residue.
 
-## What grows forever (by design)
+`timeouts.queueMs` is unrelated to admission. It bounds Workflow readiness during startup; `capacity.queueTimeoutMs` bounds an individual request's admission wait.
 
-Nothing is ever cleaned. There is deliberately no retention machinery — the
-review decision was to document the growth, not to build cleanup nobody has
-needed yet:
+## Required headroom
 
-| Table                    | Grows by                                    |
-| ------------------------ | ------------------------------------------- |
-| `assistant_turns`        | 1 row per turn                              |
-| `messages`               | 2 rows per turn (user + assistant)          |
-| `usage_records`          | 1 row per runtime step (≥1 per turn)        |
-| `turn_context_snapshots` | 1 row per turn                              |
-| `audit_events`           | 1 row per audited action                    |
-| `host_command_results`   | 1 row per host command a model call emitted |
+Boot validation enforces both sizing relationships:
 
-Rough scale: at 10,000 turns/day that is ~3.6 M turn rows (and ~7.3 M message
-rows) per year — comfortably ordinary Postgres volume, but plan storage and
-index growth accordingly. If a deployment ever needs retention, it is a policy
-decision for the adopter, not a framework default.
+```text
+workflow.workerConcurrency >= capacity.maxActiveTurns + 4
+workflow.maxPoolSize >= max(10, workflow.workerConcurrency + 2)
+```
 
-**The hot reads stay bounded as these tables grow.** The queries that run per
-request or per connection do not scan the whole history:
+The fixed four-worker margin leaves room for Workflow resume, timeout, and maintenance work when admitted turns are busy. The two-connection pool margin follows the Postgres World sizing requirement. With the default worker concurrency, set the pool to at least `52`.
 
-- The activity snapshot, the per-turn concurrency guard, the resume lookup, and
-  the reaper/cancel sweeps all read only _running_ turns, served by a **partial
-  index** (`assistant_turns_running_lookup_idx … WHERE status = 'running'`) whose
-  size tracks live concurrency, not the row count.
-- History and the append `max(sequence_index)` ride the `(conversation_id,
-sequence_index)` unique index (scanned backwards for `DESC`); there is no
-  second same-columns index adding write cost.
-- `readUsageSummary` sums within a workspace on `usage_records_workspace_idx`
-  instead of full-scanning the table.
-- The sidebar conversation list reads a subject's newest conversations through
-  `conversations_workspace_subject_recent_idx` as a top-N scan, not a sort of the
-  subject's whole (unbounded) set.
+Set the Workflow values with `WORKFLOW_POSTGRES_WORKER_CONCURRENCY` and required `WORKFLOW_POSTGRES_MAX_POOL_SIZE`. The pool variable has no application fallback because Postgres World would otherwise retain the `pg` default of `10`; invalid or missing production sizing fails boot instead of running with hidden contention.
 
-## Retention: what an adopter must build
+## Replica sizing
 
-No automatic pruning ships. When a deployment decides to cap growth, two
-standard approaches fit:
+Admission is intentionally local to each service process. With `R` replicas, the configured upper bound is:
 
-- **Time partitioning** — range-partition the append-only tables (`assistant_turns`,
-  `messages`, `usage_records`, `audit_events`, `turn_context_snapshots`,
-  `host_command_results`) by month on their timestamp and drop old partitions.
-  Detaching a partition is instant and index-free, unlike a bulk `DELETE`.
-- **Scheduled delete** — a periodic job deleting rows past a cutoff. Every foreign
-  key is `ON DELETE no action`, so a delete must remove children before parents:
-  `usage_records` / `turn_context_snapshots` / `tool_invocations` /
-  `host_command_results` → `assistant_turns` → `messages` → `conversations`.
-  Batch by id range and `VACUUM` so a large purge does not bloat the tables.
+```text
+global admitted turns <= R * capacity.maxActiveTurns
+global queued requests <= R * capacity.queueSize
+```
 
-One scaling threshold to watch: `readUsageSummary` aggregates a workspace's
-`usage_records` live. The workspace index keeps that bounded to the workspace's
-rows, but past ~10^7 rows the per-call `SUM` gets slow — introduce a rollup
-(a materialized per-workspace running total updated on write) at that point
-rather than widening the index.
+Load balancing can make the instantaneous distribution uneven, so these are fleet ceilings rather than fair per-user quotas. Exact provider-wide or cross-replica partitions require a separately approved distributed design or an upstream named Workflow queue.
 
-## What deliberately disappears
+Budget Postgres connections per replica from both the product database pool and the Workflow pool. Keep the Workflow pool at or above the validated formula, then multiply by the maximum simultaneously running service processes during rolling deploys. Include deployment overlap, maintenance clients, and database administration headroom in `max_connections`.
 
-The in-flight transport buffer lives only in the owning instance's registry.
-Its replay cursor, SSE frames, and incremental text deltas disappear when the
-turn is swept or the process exits. The durable assistant message remains the
-source for the final answer.
+## SSE and durable state
 
-When `history.turnActivity` is enabled (the default), finalization also stores
-the completed activity trace in assistant-message metadata. History can then
-rebuild reasoning, tool, and host-command rows after a reload. This snapshot is
-turn history, not a replayable transport log: it cannot resume an in-flight SSE
-stream or recover the original event cursor.
+Open widgets and active turns hold HTTP/SSE connections, but connection count does not define generation capacity. Size socket and proxy limits from concurrent open panels and active streams. Size provider and database budgets from admitted turns, Workflow concurrency, and measured step behavior.
+
+Workflow journal data and product conversation data are durable Postgres state. Follow [database.md](database.md) for schema ownership, maintenance, and retention. Do not infer retention policy from admission settings.
 
 ## Verify
 
-```sh
-npm run verify
+Run the focused capacity and configuration checks before the broader service gate:
+
+```powershell
+npm test -- apps/side-chat-service/src/adapters/capacity
+npm test -- apps/side-chat-service/src/config/settings/resolve-settings.test.ts
+npm run typecheck
 ```

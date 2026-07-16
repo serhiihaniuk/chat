@@ -1,7 +1,9 @@
 import { parseJsonRecord } from "@side-chat/shared";
+import { SIDE_CHAT_CLIENT_TOOL_CAPABILITY } from "@side-chat/stream-profile";
 
 /** Minimal identity needed to find one accepted workflow turn after a same-tab refresh. */
 export type WorkflowActiveTurnCursor = Readonly<{
+  clientToolCapability?: string | undefined;
   conversationId: string;
   runId: string;
 }>;
@@ -65,11 +67,22 @@ function resolveSessionStorage(): Storage | undefined {
 function parseCursor(raw: string): WorkflowActiveTurnCursor | undefined {
   const value = parseJsonRecord(raw);
   const conversationId = value?.["conversationId"];
+  const clientToolCapability = value?.["clientToolCapability"];
   const runId = value?.["runId"];
   if (!isNonEmptyString(conversationId) || !isNonEmptyString(runId)) return undefined;
-  return { conversationId, runId };
+  if (clientToolCapability === undefined) return { conversationId, runId };
+  if (!isClientToolCapability(clientToolCapability)) return undefined;
+  return { clientToolCapability, conversationId, runId };
 }
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function isClientToolCapability(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length === SIDE_CHAT_CLIENT_TOOL_CAPABILITY.HEX_LENGTH &&
+    /^[0-9a-f]+$/u.test(value)
+  );
 }

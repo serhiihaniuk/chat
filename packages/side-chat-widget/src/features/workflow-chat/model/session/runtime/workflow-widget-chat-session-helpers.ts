@@ -1,5 +1,8 @@
 import type { WorkflowActiveTurn, WorkflowUIMessage } from "#entities/workflow-chat";
-import type { WorkflowWidgetChatEngine } from "../engine/workflow-widget-chat-engine.js";
+import type {
+  WorkflowWidgetChatAttachmentMode,
+  WorkflowWidgetChatEngine,
+} from "../engine/workflow-widget-chat-engine.js";
 import type {
   WorkflowWidgetChatSessionContext,
   WorkflowWidgetChatSessionSnapshot,
@@ -11,10 +14,44 @@ export type WorkflowWidgetChatRuntimeContext = Omit<
 >;
 
 export type WorkflowWidgetAttachmentEpoch = {
+  readonly clientToolCapability: string | undefined;
   readonly engine: WorkflowWidgetChatEngine;
   readonly epochId: string;
   runId: string | undefined;
 };
+
+export function reconnectAttachment(
+  runId: string,
+  clientToolCapability: string | undefined,
+): WorkflowWidgetChatAttachmentMode {
+  return { clientToolCapability, kind: "reconnect", runId };
+}
+
+export function contextReconnectAttachment(
+  runId: string,
+  context: WorkflowWidgetChatRuntimeContext,
+): WorkflowWidgetChatAttachmentMode {
+  return reconnectAttachment(runId, context.clientToolCapability);
+}
+
+export function sendAttachment(
+  messageId: string | undefined,
+  trigger: "regenerate-message" | "submit-message",
+  clientToolCapability: string,
+): WorkflowWidgetChatAttachmentMode {
+  return { clientToolCapability, kind: "send", messageId, trigger };
+}
+
+export function reconnectAttachmentFor(
+  runId: string,
+  requestedCapability: string | undefined,
+  epoch: WorkflowWidgetAttachmentEpoch | undefined,
+  context: WorkflowWidgetChatRuntimeContext,
+): WorkflowWidgetChatAttachmentMode {
+  const capability =
+    requestedCapability ?? epoch?.clientToolCapability ?? context.clientToolCapability;
+  return reconnectAttachment(runId, capability);
+}
 
 export function toWorkflowWidgetChatRuntimeContext(
   context: WorkflowWidgetChatSessionContext,
@@ -22,6 +59,7 @@ export function toWorkflowWidgetChatRuntimeContext(
   return {
     activeTurn: context.activeTurn,
     client: context.client,
+    clientToolCapability: context.clientToolCapability,
     hostBridge: context.hostBridge,
     includeHostContext: context.includeHostContext,
     lifecycle: context.lifecycle,

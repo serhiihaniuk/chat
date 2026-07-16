@@ -4,6 +4,7 @@ import type { WorkflowActiveTurnCursor } from "./workflow-active-turn-cursor.js"
 
 export type WorkflowRecoveryValidation = Readonly<{
   activeTurn: WorkflowActiveTurn | undefined;
+  clientToolCapability: string | undefined;
   invalidCursor: WorkflowActiveTurnCursor | undefined;
   isPending: boolean;
 }>;
@@ -24,23 +25,41 @@ export function resolveWorkflowRecoveryValidation({
   discoverySettled: boolean;
   needsValidation: boolean;
 }>): WorkflowRecoveryValidation {
-  if (!needsValidation || cursor?.conversationId !== activeConversationId) {
-    return resolved(activeTurn ?? undefined);
+  const cursorCapability = capabilityForActiveTurn(cursor, activeTurn);
+  if (!needsValidation || cursor === undefined || cursor.conversationId !== activeConversationId) {
+    return resolved(activeTurn ?? undefined, cursorCapability);
   }
-  if (discoveryFailed) return resolved(undefined);
+  if (discoveryFailed) return resolved(undefined, undefined);
   if (!discoverySettled) return pending(undefined);
-  if (activeTurn?.runId === cursor.runId) return resolved(activeTurn);
+  if (activeTurn?.runId === cursor.runId) return resolved(activeTurn, cursor.clientToolCapability);
   return {
     activeTurn: activeTurn ?? undefined,
+    clientToolCapability: undefined,
     invalidCursor: cursor,
     isPending: false,
   };
 }
 
-function resolved(activeTurn: WorkflowActiveTurn | undefined): WorkflowRecoveryValidation {
-  return { activeTurn, invalidCursor: undefined, isPending: false };
+function capabilityForActiveTurn(
+  cursor: WorkflowActiveTurnCursor | undefined,
+  activeTurn: WorkflowActiveTurn | null | undefined,
+): string | undefined {
+  if (cursor?.runId !== activeTurn?.runId) return undefined;
+  return cursor?.clientToolCapability;
+}
+
+function resolved(
+  activeTurn: WorkflowActiveTurn | undefined,
+  clientToolCapability: string | undefined,
+): WorkflowRecoveryValidation {
+  return { activeTurn, clientToolCapability, invalidCursor: undefined, isPending: false };
 }
 
 function pending(invalidCursor: WorkflowActiveTurnCursor | undefined): WorkflowRecoveryValidation {
-  return { activeTurn: undefined, invalidCursor, isPending: true };
+  return {
+    activeTurn: undefined,
+    clientToolCapability: undefined,
+    invalidCursor,
+    isPending: true,
+  };
 }

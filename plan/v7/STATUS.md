@@ -44,8 +44,8 @@ Evidence: [`evidence/02-workflow-cancellation-reexamination.md`](./evidence/02-w
 | [15 Widget interactions](./15-widget-interactions.md)                                   | `complete`    | Codex      | 11, 12, 13, 14 | tool/approval round trips; dedupe; browser evidence                                                                                       |
 | [16 Recovery + multi-tab](./16-widget-recovery-multitab.md)                             | `complete`    | Codex      | 07, 10, 13, 15 | Stable session registry; refresh/replay; typed reconnect; partial terminal history; activity-backed two-tab and simultaneous-send proof   |
 | [16a Widget parity verification](./16a-widget-parity-verification.md)                   | `complete`    | Codex      | 14, 15, 16     | Real-provider-first parity pass; generated titles; approvals/tools/sources; token-owned presentation; full replacement-stack verification |
-| [17 Admission + capacity](./17-admission-capacity.md)                                   | `not_started` | unassigned | 05, 11         | bounded admission; no-residue rejection; suspension policy; stress                                                                        |
-| [18 Telemetry completion](./18-telemetry-completion.md)                                 | `not_started` | unassigned | 08, 11, 12, 17 | inventory; bounded labels; privacy sentinels; stuck-run alarm                                                                             |
+| [17 Admission + capacity](./17-admission-capacity.md)                                   | `complete`    | Codex      | 05, 11         | bounded admission; no-residue rejection; engine-owned suspension; originating-tab authority                                               |
+| [18 Telemetry completion](./18-telemetry-completion.md)                                 | `complete`    | Codex      | 08, 11, 12, 17 | SDK/service inventory; bounded labels; privacy sentinels; exact prune bytes; stuck-run alarm                                              |
 | [19 Shutdown + lifecycle smoke](./19-shutdown-lifecycle-smoke.md)                       | `not_started` | unassigned | 16, 17, 18     | bounded shutdown; compatibility suite rerun; lifecycle smoke                                                                              |
 | [20 Cutover + deletion](./20-cutover-and-deletion.md)                                   | `not_started` | unassigned | 19             | consumers cut over; inventory deleted; searches clean                                                                                     |
 | [21 Governance, docs, final gate](./21-governance-docs-final-gate.md)                   | `not_started` | unassigned | 20             | rules/fixtures; docs current; full pinned gate                                                                                            |
@@ -53,6 +53,19 @@ Evidence: [`evidence/02-workflow-cancellation-reexamination.md`](./evidence/02-w
 ## Execution log
 
 Newest first.
+
+Closure (2026-07-16): Step 18 is complete. The pinned AI SDK lifecycle bridge
+now maps content-free operation, step, model, and tool records into a fail-open
+sink. Service-owned signals cover capacity, terminal outcomes, browser tools,
+approvals, reconnect/keepalive/scrub behavior, persistence drift and pruning,
+and the oldest non-terminal Workflow run. Labels are restricted to five bounded
+keys, sentinel tests reject private content, pruning reports exact selected-row
+bytes, and the stuck alarm never exposes identifiers or deletes runs. Evidence:
+replacement service 401 passed / 12 skipped; focused telemetry and maintenance
+suites; service and DB TypeScript; full custom governance. Root TypeScript
+remains red only in the retained legacy service scheduled for Step 20 deletion.
+
+Closure (2026-07-16): Step 17 is complete. Side Chat now applies bounded FIFO admission before durable writes, keeps accepted reservations through terminal completion, exposes Step 18 counters, and validates Workflow worker/pool headroom without recreating Workflow's durable queue or suspension machinery. A run-scoped originating-tab capability now prevents watcher tabs from executing or settling another tab's client tool; only its digest crosses the durable boundary. Evidence: 25 saturated deterministic batches / 500 admissions with exact FIFO and zero leaked permits; service 379 passed / 12 skipped, widget 430/430, DB unit 26/26; affected service, widget, DB, and stream-profile TypeScript projects; custom governance. Root build and Oxlint remain blocked only by the retained legacy `apps/partner-ai-service` contract drift recorded for cutover.
 
 Closure (2026-07-15): Steps 09, 16, and 16a are complete. PostgreSQL now owns
 one atomic accepted-message plus running-turn transaction. The widget keeps live

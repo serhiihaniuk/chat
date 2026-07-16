@@ -3,31 +3,24 @@ import {
   RunExpiredError,
   WorkflowRunNotFoundError,
 } from "workflow/internal/errors";
-import type { createHook, sleep } from "workflow";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { runClientToolDispatchStep } from "../production/client-tool-dispatch.js";
+import {
+  executeClientTool,
+  resumeClientToolResult,
+  type ClientToolWorkflowDependencies,
+} from "./index.js";
 
-const { createHookMock, dispatchStepMock, disposeHookMock, resumeHookMock } = vi.hoisted(() => ({
-  createHookMock: vi.fn<typeof createHook>(),
-  dispatchStepMock: vi.fn<typeof runClientToolDispatchStep>(),
-  disposeHookMock: vi.fn<() => void>(),
-  resumeHookMock: vi.fn<(token: string, payload: unknown) => Promise<unknown>>(),
-}));
+const createHookMock = vi.fn<ClientToolWorkflowDependencies["createResultHook"]>();
+const dispatchStepMock = vi.fn<typeof runClientToolDispatchStep>();
+const disposeHookMock = vi.fn<() => void>();
+const resumeHookMock = vi.fn<(token: string, payload: unknown) => Promise<unknown>>();
+const neverWait = () => new Promise<void>(() => undefined);
+const CLIENT_TOOL_CAPABILITY_DIGEST = "a".repeat(64);
 
-vi.mock("workflow", () => ({
-  createHook: createHookMock,
-  sleep: vi.fn<typeof sleep>(),
-}));
-vi.mock("workflow/api", () => ({ resumeHook: resumeHookMock }));
-vi.mock("../production/client-tool-dispatch.js", () => ({
-  runClientToolDispatchStep: dispatchStepMock,
-}));
-
-import { executeClientTool, resumeClientToolResult } from "./index.js";
-
-function createHookTestDouble(): ReturnType<typeof createHook> {
-  return Object.assign(new Promise<unknown>(() => undefined), {
+function createHookTestDouble(): ReturnType<ClientToolWorkflowDependencies["createResultHook"]> {
+  return Object.assign(new Promise<{ value: { opened: boolean } }>(() => undefined), {
     token: "tool:run-1:call-1",
     getConflict: vi.fn<() => Promise<null>>().mockResolvedValue(null),
     dispose: disposeHookMock,
@@ -43,7 +36,7 @@ describe("resumeClientToolResult", () => {
     resumeHookMock.mockRejectedValueOnce(new HookNotFoundError("tool:run-1:call-1"));
 
     await expect(
-      resumeClientToolResult("run-1", "call-1", { value: { opened: true } }),
+      resumeClientToolResult("run-1", "call-1", { value: { opened: true } }, resumeHookMock),
     ).resolves.toBe(false);
   });
 
@@ -51,7 +44,7 @@ describe("resumeClientToolResult", () => {
     resumeHookMock.mockRejectedValueOnce(new WorkflowRunNotFoundError("run-1"));
 
     await expect(
-      resumeClientToolResult("run-1", "call-1", { value: { opened: true } }),
+      resumeClientToolResult("run-1", "call-1", { value: { opened: true } }, resumeHookMock),
     ).resolves.toBe(false);
   });
 
@@ -61,7 +54,7 @@ describe("resumeClientToolResult", () => {
     );
 
     await expect(
-      resumeClientToolResult("run-1", "call-1", { value: { opened: true } }),
+      resumeClientToolResult("run-1", "call-1", { value: { opened: true } }, resumeHookMock),
     ).resolves.toBe(false);
   });
 
@@ -70,7 +63,7 @@ describe("resumeClientToolResult", () => {
     resumeHookMock.mockRejectedValueOnce(failure);
 
     await expect(
-      resumeClientToolResult("run-1", "call-1", { value: { opened: true } }),
+      resumeClientToolResult("run-1", "call-1", { value: { opened: true } }, resumeHookMock),
     ).rejects.toBe(failure);
   });
 });
@@ -90,16 +83,24 @@ describe("executeClientTool", () => {
     createHookMock.mockReturnValue(createHookTestDouble());
 
     await expect(
-      executeClientTool({
-        databaseUrl: "postgres://test",
-        workspaceId: "workspace-1",
-        turnId: "turn-1",
-        runId: "run-1",
-        timeoutMs: 30_000,
-        abortSignal: new AbortController().signal,
-        toolCallId: "call-1",
-        toolName: "open_file",
-      }),
+      executeClientTool(
+        {
+          databaseUrl: "postgres://test",
+          workspaceId: "workspace-1",
+          turnId: "turn-1",
+          runId: "run-1",
+          timeoutMs: 30_000,
+          abortSignal: new AbortController().signal,
+          clientToolCapabilityDigest: CLIENT_TOOL_CAPABILITY_DIGEST,
+          toolCallId: "call-1",
+          toolName: "open_file",
+        },
+        {
+          createResultHook: createHookMock,
+          runDispatchStep: dispatchStepMock,
+          clock: { now: () => 0, wait: neverWait },
+        },
+      ),
     ).resolves.toEqual({ opened: true });
 
     expect(dispatchStepMock).toHaveBeenNthCalledWith(1, {
@@ -110,6 +111,7 @@ describe("executeClientTool", () => {
         turnId: "turn-1",
         toolCallId: "call-1",
         toolName: "open_file",
+        clientToolCapabilityDigest: CLIENT_TOOL_CAPABILITY_DIGEST,
       },
     });
     expect(dispatchStepMock).toHaveBeenNthCalledWith(2, {

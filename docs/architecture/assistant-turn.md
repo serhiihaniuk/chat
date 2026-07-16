@@ -65,6 +65,14 @@ and binds its run id. An unavailable model or reasoning effort therefore
 rejects before `assertCanBegin`, admission, persistence, or execution has any
 observable effect.
 
+For a new request, admission is a per-service-process FIFO bound acquired before
+the durable write and held until the turn reaches a terminal outcome. A full or
+expired queue returns `503` with `Retry-After`; an aborted request is removed
+from the queue without consuming capacity or leaving turn residue. The
+read-only preflight identifies an exact request replay so reattachment does not
+acquire a second reservation. Workflow, not the route lease, owns durable job
+queueing and worker-slot release while hooks are suspended.
+
 Optional host context is validated at the replacement HTTP boundary against the
 deployment's explicit size, string, depth, and entry limits. `prepareTurn` keeps
 the accepted user message unchanged for `beginTurn` and later title generation,

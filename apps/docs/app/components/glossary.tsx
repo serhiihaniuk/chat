@@ -6,8 +6,9 @@
  * reserved for the inline hover cards. Each term carries an `id` anchor so the
  * hover card's "Full vocabulary" link lands on the row.
  */
-import { glossary, glossaryCategories } from "../data/glossary";
-import { glossaryExplanations } from "../data/glossary-explanations";
+import { glossary } from "../data/glossary";
+import { glossaryExplanations } from "../data/glossary/explanations";
+import { glossaryCategories } from "../data/glossary/schema";
 
 export function Glossary() {
   return (

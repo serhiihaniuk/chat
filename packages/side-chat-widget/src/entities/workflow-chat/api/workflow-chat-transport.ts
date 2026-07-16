@@ -7,6 +7,7 @@ import {
 import type { ChatRequestOptions, ChatTransport } from "ai";
 import type { HostContextRequest, WidgetHostBridge } from "@side-chat/host-bridge";
 import type { JsonObject } from "@side-chat/shared";
+import { SIDE_CHAT_CLIENT_TOOL_CAPABILITY } from "@side-chat/stream-profile";
 
 import {
   readWorkflowChatHttpError,
@@ -25,6 +26,7 @@ type CreateWorkflowChatTransportInput = Readonly<{
         | readonly WorkflowClientToolDefinition[]
         | Promise<readonly WorkflowClientToolDefinition[]>)
     | undefined;
+  clientToolCapability?: string | undefined;
   onRunStarted: (runId: string) => void;
   onRunFinished: () => void;
   /** The run to reattach to on a cold-load reconnect, when discovery found one. */
@@ -64,6 +66,7 @@ type SideChatWorkflowTransport = Omit<ChatTransport<WorkflowUIMessage>, "reconne
  * become captured mount-time values.
  */
 export function createWorkflowChatTransport({
+  clientToolCapability,
   getClient,
   getClientTools,
   getHostContext,
@@ -105,7 +108,19 @@ export function createWorkflowChatTransport({
       }
       if (clientTools && clientTools.length > 0) body.clientTools = clientTools;
       if (hostContext !== undefined) body.hostContext = hostContext;
-      return applyRequestConfig({ api: workflowChatUrl(client, "/api/chat"), body }, request);
+      const prepared = applyRequestConfig<PreparedWorkflowSendRequest>(
+        { api: workflowChatUrl(client, "/api/chat"), body },
+        request,
+      );
+      if (clientTools && clientTools.length > 0) {
+        if (!clientToolCapability) {
+          throw new Error("Client tools require an originating-tab capability.");
+        }
+        const headers = new Headers(prepared.headers);
+        headers.set(SIDE_CHAT_CLIENT_TOOL_CAPABILITY.HEADER, clientToolCapability);
+        prepared.headers = headers;
+      }
+      return prepared;
     },
     prepareReconnectToStreamRequest: async ({ api }) => {
       const client = getClient();
@@ -228,6 +243,10 @@ type PreparedWorkflowRequest = {
   body?: object;
   credentials?: RequestCredentials;
   headers?: HeadersInit;
+};
+
+type PreparedWorkflowSendRequest = PreparedWorkflowRequest & {
+  body: object;
 };
 
 const applyRequestConfig = <Request extends PreparedWorkflowRequest>(

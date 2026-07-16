@@ -2,7 +2,11 @@ import type { SidechatStreamEvent } from "@side-chat/chat-protocol";
 import type { HostBridge } from "@side-chat/host-bridge";
 
 import { toErrorMessage } from "#entities/chat";
-import { SideChatApiError, type SideChatApiClient } from "#entities/conversation";
+import {
+  SIDE_CHAT_API_ERROR_CODES,
+  SideChatApiError,
+  type SideChatApiClient,
+} from "#entities/conversation";
 import {
   WIDGET_RUN_STATUSES,
   isTerminalRunStatus,
@@ -19,8 +23,7 @@ const RETRY_BACKOFF_MS = [500, 1_000, 2_000, 4_000] as const;
 /**
  * Cut and retry when no stream event arrives for this long.
  *
- * The server sends an SSE heartbeat about every 20 seconds. This window is more
- * than twice that interval, so a few missed heartbeats do not cause a reconnect.
+ * The 45-second window tolerates a few missed 20-second SSE heartbeats.
  * Heartbeats keep the connection alive but are discarded by the decoder, so they
  * do not reset this event timer. A quiet model or server tool may therefore
  * trigger safe reconnect and status polling while generation continues.
@@ -32,6 +35,11 @@ const MAX_POLL_FAILURES = 5;
 
 const LOST_CONNECTION_MESSAGE = "Connection to the assistant was lost.";
 const SERVER_FAILED_MESSAGE = "The assistant turn failed.";
+const SERVER_TURN_STATUSES = {
+  RUNNING: "running",
+  COMPLETED: "completed",
+  USER_ABORTED: "user_aborted",
+} as const;
 
 /** The first attempt's pre-acquired stream (the `createRun` POST body) + its owner. */
 export type InitialStreamAttempt = {
@@ -123,19 +131,19 @@ type TransportErrorClass = "retryable" | "poll" | "fatal";
 export const classifyTransportError = (error: unknown): TransportErrorClass => {
   if (!(error instanceof SideChatApiError)) return "retryable";
   switch (error.code) {
-    case "stream_unavailable":
+    case SIDE_CHAT_API_ERROR_CODES.STREAM_UNAVAILABLE:
       return "poll";
-    case "missing_terminal":
-    case "network_error":
-    case "aborted":
+    case SIDE_CHAT_API_ERROR_CODES.MISSING_TERMINAL:
+    case SIDE_CHAT_API_ERROR_CODES.NETWORK_ERROR:
+    case SIDE_CHAT_API_ERROR_CODES.ABORTED:
       return "retryable";
-    case "http_error":
+    case SIDE_CHAT_API_ERROR_CODES.HTTP_ERROR:
       return error.status !== undefined && error.status >= 500 ? "retryable" : "fatal";
-    case "malformed_stream":
-    case "replay_expired":
+    case SIDE_CHAT_API_ERROR_CODES.MALFORMED_STREAM:
+    case SIDE_CHAT_API_ERROR_CODES.REPLAY_EXPIRED:
     // A busy conversation is a pre-start rejection, not a recoverable drop:
     // retrying or polling cannot unbusy it, so surface it as fatal.
-    case "conversation_busy":
+    case SIDE_CHAT_API_ERROR_CODES.CONVERSATION_BUSY:
       return "fatal";
   }
 };
@@ -202,7 +210,7 @@ const readServerPollStep = async (input: TransportRecoveryInput): Promise<Server
     const result = await input.client.getTurnStatus(input.assistantTurnId, {
       signal: input.signal,
     });
-    return result.status === "running"
+    return result.status === SERVER_TURN_STATUSES.RUNNING
       ? { kind: "running" }
       : { kind: "terminal", status: widgetStatusFromServer(result.status) };
   } catch {
@@ -225,8 +233,8 @@ const settleServerTerminal = (input: TransportRecoveryInput, status: WidgetRunSt
 
 /** Map the durable turn status to the widget's terminal vocabulary. */
 const widgetStatusFromServer = (status: string): WidgetRunStatus => {
-  if (status === "completed") return WIDGET_RUN_STATUSES.COMPLETED;
-  if (status === "user_aborted") return WIDGET_RUN_STATUSES.CANCELLED;
+  if (status === SERVER_TURN_STATUSES.COMPLETED) return WIDGET_RUN_STATUSES.COMPLETED;
+  if (status === SERVER_TURN_STATUSES.USER_ABORTED) return WIDGET_RUN_STATUSES.CANCELLED;
   return WIDGET_RUN_STATUSES.FAILED;
 };
 
@@ -248,7 +256,10 @@ const resumeCursor = (input: TransportRecoveryInput): number => {
 
 /** The watchdog aborted a live-but-silent connection: report it as a network stall. */
 const wedgedConnectionError = (): SideChatApiError =>
-  new SideChatApiError("network_error", "No stream events arrived within the inactivity window");
+  new SideChatApiError(
+    SIDE_CHAT_API_ERROR_CODES.NETWORK_ERROR,
+    "No stream events arrived within the inactivity window",
+  );
 
 /**
  * Abort the attempt's controller when no event arrives within the window.

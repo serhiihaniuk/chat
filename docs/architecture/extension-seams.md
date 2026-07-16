@@ -4,6 +4,17 @@ Read this when: you adopt Side Chat and need to add a tool, provider/model, guar
 Source of truth for: the adoption seams, where each seam's contract type lives, and where you bind it in service composition.
 Not source of truth for: package import rules (see [package-boundaries.md](package-boundaries.md)), the turn lifecycle (see [assistant-turn.md](assistant-turn.md)), or runtime/protocol events (see [runtime-and-protocol-events.md](runtime-and-protocol-events.md)).
 
+## Migration status
+
+The seam map below describes the legacy `apps/partner-ai-service` wing. The
+replacement `apps/side-chat-service` keeps providers, persistence, auth, and
+telemetry behind app-local ports and composition; it uses native server tools,
+durable [client tools](client-tools.md), and durable [tool approvals](tool-approvals.md).
+Its Workflow boundary is documented in [workflow-substrate.md](workflow-substrate.md).
+Do not add a new legacy registration when the adopter is targeting the
+replacement stack; use the replacement service's config catalogs and app-local
+composition seams instead.
+
 ## How extension works
 
 Side Chat keeps each extension point as a typed contract in a `packages/*` package, then lets the deployable service bind a concrete implementation at startup. You write the implementation against the contract; you register it in `apps/partner-ai-service`. The split keeps core and runtime provider-neutral and lets one host app swap tools, models, or storage without forking them.

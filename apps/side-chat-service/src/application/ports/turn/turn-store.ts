@@ -45,7 +45,11 @@ export type TurnClaimDisposition =
 
 export interface TurnStore {
   /** Read-only fast rejection; beginTurn repeats these checks atomically. */
-  assertCanBegin(auth: AuthContext, conversationId: string, requestId: string): Promise<void>;
+  assertCanBegin(
+    auth: AuthContext,
+    conversationId: string,
+    requestId: string,
+  ): Promise<BegunTurn["disposition"]>;
   /** Atomically persists or resolves the canonical message + product turn aggregate. */
   beginTurn(input: BeginTurnInput): Promise<BegunTurn>;
   bindRun(turn: TurnRef, runId: string): Promise<void>;

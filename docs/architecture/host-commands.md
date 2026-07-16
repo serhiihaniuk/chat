@@ -4,6 +4,15 @@ Read this when: you want the assistant to _act_ in your host app — open a reco
 Source of truth for: declaring, handling, and testing a host command end to end, plus a runnable worked example.
 Not source of truth for: the host-bridge contract ([widget-and-host-integration.md](widget-and-host-integration.md) "Host bridge contract"), the full seam map ([extension-seams.md](extension-seams.md)), or the config file shape ([../operations/configuration.md](../operations/configuration.md)).
 
+## Migration status
+
+This page describes the legacy `apps/partner-ai-service` host-command path. The
+replacement `apps/side-chat-service` does not expose host commands; it uses
+durable browser-executed [client tools](client-tools.md) instead. Keep this guide
+only when maintaining the legacy comparison wing before Step 20 cutover. New
+replacement-stack integrations must follow the client-tool contract, including
+durable ownership checks, timeout behavior, and Workflow-hook resumption.
+
 ## Host command vs runtime tool
 
 Side Chat has two ways for the assistant to do more than write text. They look similar in a config file and feel different at runtime.

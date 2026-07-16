@@ -18,14 +18,21 @@ const USER_MESSAGE = {
 } as const;
 
 describe("InMemoryTurnState", () => {
-  it("rejects an unknown conversation without persisting residue", async () => {
+  it("creates a draft conversation atomically with its first turn", async () => {
     const state = new InMemoryTurnState([]);
 
-    await expect(state.beginTurn(beginInput())).rejects.toMatchObject({
-      code: "conversation_not_found",
+    await expect(state.assertCanBegin(AUTH, "conversation-1", "request-1")).resolves.toBe(
+      "created",
+    );
+    await expect(state.beginTurn(beginInput())).resolves.toMatchObject({
+      conversationId: "conversation-1",
+      disposition: "created",
     });
-    expect(state.userMessages).toEqual([]);
-    expect(state.runningTurns.size).toBe(0);
+    await expect(state.listConversations(AUTH)).resolves.toContainEqual(
+      expect.objectContaining({ id: "conversation-1" }),
+    );
+    expect(state.userMessages).toEqual([USER_MESSAGE]);
+    expect(state.runningTurns).toEqual(new Set(["conversation-1"]));
   });
 
   it("rejects a mismatched owner without persisting residue", async () => {

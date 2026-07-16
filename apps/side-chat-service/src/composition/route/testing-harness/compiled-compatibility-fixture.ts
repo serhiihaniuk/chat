@@ -2,10 +2,13 @@ import {
   startCompiledService,
   type CompiledService,
 } from "#adapters/http/testing/compiled-service-process";
+import { isRecord } from "@side-chat/shared";
 import { BUNDLED_CONFIG_NAMES } from "#config/declaration/bundled-config-catalog";
 import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
 import { serviceProcessEnv } from "#config/environment/process-environment";
 import { PROVIDER_OBSERVATION_PREFIX } from "#testing/scripted-language-model";
+
+export { isRecord };
 
 export type ApiScriptMode =
   | "happy"
@@ -203,10 +206,6 @@ function isolatedCompatibilityEnvironment(): Readonly<Record<string, string | un
     [SERVICE_ENV_KEYS.SIDECHAT_DATABASE_URL]: undefined,
     [SERVICE_ENV_KEYS.WORKFLOW_POSTGRES_URL]: undefined,
   };
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function userMessage(requestId: string): Record<string, unknown> {

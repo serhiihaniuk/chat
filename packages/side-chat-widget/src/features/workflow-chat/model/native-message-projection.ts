@@ -5,6 +5,11 @@ import type { WorkflowChatTerminal } from "./use-workflow-widget-chat.js";
 
 export { projectLatestAssistantUsage } from "./projection/assistant-usage-projection.js";
 
+const STATIC_TOOL_PART_PREFIX = "tool-";
+const DEFAULT_TOOL_LABEL = "Tool";
+const DEFAULT_SOURCE_LABEL = "Source";
+const DEFAULT_DOCUMENT_LABEL = "Document";
+
 export type WorkflowTimelineMessage = Readonly<{
   readonly id: string;
   readonly role: "system" | "user" | "assistant";
@@ -117,7 +122,7 @@ function projectPart(
     };
   }
 
-  if (type === "dynamic-tool" || type.startsWith("tool-")) {
+  if (type === "dynamic-tool" || type.startsWith(STATIC_TOOL_PART_PREFIX)) {
     return projectToolPart(record, id, type);
   }
 
@@ -158,13 +163,16 @@ function projectToolPart(
     noteUnknownNativePart(`${type}:state`);
     return undefined;
   }
-  const toolName = type === "dynamic-tool" ? readString(part, "toolName") : type.slice(5);
+  const toolName =
+    type === "dynamic-tool"
+      ? readString(part, "toolName")
+      : type.slice(STATIC_TOOL_PART_PREFIX.length);
   const toolCallId = readString(part, "toolCallId");
   const base = {
     id: toolCallId ? `${id}-tool-${toolCallId}` : id,
     kind: "tool" as const,
-    toolName: toolName || "Tool",
-    name: humanizeToolName(toolName || "Tool"),
+    toolName: toolName || DEFAULT_TOOL_LABEL,
+    name: humanizeToolName(toolName || DEFAULT_TOOL_LABEL),
     state,
     input: part["input"],
     output: part["output"],
@@ -195,7 +203,7 @@ function projectSourceUrl(
   return {
     id,
     kind: "source",
-    label: title || url || "Source",
+    label: title || url || DEFAULT_SOURCE_LABEL,
     url,
   };
 }
@@ -209,7 +217,7 @@ function projectSourceDocument(
   return {
     id,
     kind: "source",
-    label: title || filename || "Document",
+    label: title || filename || DEFAULT_DOCUMENT_LABEL,
   };
 }
 
@@ -269,7 +277,7 @@ function humanizeToolName(name: string): string {
     .replace(/[_-]+/gu, " ")
     .replace(/\s+/gu, " ")
     .trim();
-  return words ? words.charAt(0).toUpperCase() + words.slice(1) : "Tool";
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : DEFAULT_TOOL_LABEL;
 }
 
 function readString(

@@ -75,6 +75,13 @@ The workflow branch projects validated native `UIMessage` parts in source order:
 
 Dynamic `onToolCall` callbacks execute once per unsettled call and post a safe outcome to the durable result endpoint; settled replay parts never execute again. Approval cards post approve or deny decisions to the service, which resumes the durable hook. An approve click immediately projects the existing tool row as running while delivery is in flight; a failed decision request replaces that optimistic state with the safe failure state. The widget does not call `addToolOutput` or configure `sendAutomaticallyWhen`, so continuation remains server-owned.
 
+Client-tool execution is additionally bound to the originating tab. A send that
+advertises client tools includes a fresh browser-held capability; only its
+digest crosses into Workflow and durable dispatch state. The raw value remains
+in the tab-scoped active-turn cursor and accompanies result submission. A
+same-subject watcher may replay and render the pending tool, but without that
+capability it neither invokes the host bridge nor posts a synthetic failure.
+
 The projection ignores unknown future parts with a development-build console note and bounds rendering at the observed terminal part count. Step 16 requires a deterministic proof with both tabs already open before generation: the watcher receives the activity transition without manual refresh, selection and close/reopen do not interrupt the sender, refresh preserves the live session, and both tabs converge after replay. Retry exhaustion/manual reconnect and the remaining Step 16 edge cases are still open.
 
 ## Protocol-backed live-turn data flow

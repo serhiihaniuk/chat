@@ -32,7 +32,7 @@ function resolveValue(
       resolveValue(item, environment, [...path, String(index)], issues),
     );
   }
-  if (!isRecord(value)) return value;
+  if (!isConfigRecord(value)) return value;
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [
       key,
@@ -68,9 +68,11 @@ function resolveMissingReference(
 }
 
 function isEnvReference(value: unknown): value is EnvReference {
-  return isRecord(value) && value["kind"] === ENV_REFERENCE_KINDS.ENV;
+  return isConfigRecord(value) && value["kind"] === ENV_REFERENCE_KINDS.ENV;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+// Config is an isolated boundary and cannot import runtime helpers outside its
+// own subtree; arrays are handled earlier by `resolveValue`.
+function isConfigRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
 }

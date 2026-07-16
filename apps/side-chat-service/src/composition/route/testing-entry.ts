@@ -1,11 +1,12 @@
 import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
 import { envValue, serviceProcessEnv } from "#config/environment/process-environment";
+import { BoundedTurnAdmission } from "#adapters/capacity/bounded-turn-admission";
+import { recordServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
 
 import { startTestingServiceWithConfiguredPersistence } from "./testing.js";
 import { resolveServiceSettings } from "../settings/resolve-service-settings.js";
 import { createWorkflowTurnExecution } from "../turn/workflow-turn-execution.js";
 import { createWorkflowTurnReplay } from "../turn/replay/workflow-turn-replay.js";
-import { PASS_THROUGH_TURN_ADMISSION } from "../turn/pass-through-admission.js";
 import { startTestingChatTurn } from "#workflows/testing/chat-turn";
 import { resumeTestingClientToolResult } from "#workflows/testing/client-tool-result";
 
@@ -27,7 +28,10 @@ const settings = {
 };
 const service = await startTestingServiceWithConfiguredPersistence(settings, [], {
   turnExecution: createWorkflowTurnExecution(settings, startTestingChatTurn),
-  turnAdmission: PASS_THROUGH_TURN_ADMISSION,
+  turnAdmission: new BoundedTurnAdmission({
+    ...settings.capacity,
+    telemetry: { record: recordServiceTelemetry },
+  }),
   turnReplay: createWorkflowTurnReplay(),
   resumeClientTool: resumeTestingClientToolResult,
 });

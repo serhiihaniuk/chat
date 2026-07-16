@@ -30,6 +30,7 @@ describe("widget harness modes", () => {
       mode: "local-service",
       apiBaseUrl: "/side-chat-api",
       authToken: "local-compose-token",
+      clientToolsEnabled: true,
       defaultOpen: true,
       openControl: "widget",
       workspaceId: "workspace_local",
@@ -188,5 +189,13 @@ describe("widget harness modes", () => {
       resultCode: "harness_local_only",
     });
     expect(bridge.toolRecords).toHaveLength(1);
+  });
+
+  it("can disable host client tools for a database-free workflow smoke", async () => {
+    const bridge = createHarnessHostBridge(
+      parseWidgetHarnessConfig("?mode=workflow-service&clientTools=false"),
+    );
+
+    await expect(bridge.getCapabilities()).resolves.toMatchObject({ commands: [] });
   });
 });

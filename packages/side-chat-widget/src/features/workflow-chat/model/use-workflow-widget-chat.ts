@@ -78,6 +78,7 @@ export type WorkflowWidgetChat = Readonly<{
 export type UseWorkflowWidgetChatInput = Readonly<{
   activeTurn?: WorkflowActiveTurn | undefined;
   client: WorkflowConversationClient;
+  clientToolCapability?: string | undefined;
   hostBridge?: WidgetHostBridge | undefined;
   includeHostContext?: boolean | undefined;
   initialMessages: readonly WorkflowUIMessage[];
@@ -91,6 +92,7 @@ export type UseWorkflowWidgetChatInput = Readonly<{
 export function useWorkflowWidgetChat({
   activeTurn,
   client,
+  clientToolCapability,
   hostBridge,
   includeHostContext = false,
   initialMessages,
@@ -103,6 +105,7 @@ export function useWorkflowWidgetChat({
   const session = registry.getOrCreate({
     activeTurn,
     client,
+    clientToolCapability,
     hostBridge,
     includeHostContext,
     initialMessages,
@@ -119,6 +122,7 @@ export function useWorkflowWidgetChat({
     session.updateContext({
       activeTurn,
       client,
+      clientToolCapability,
       hostBridge,
       includeHostContext,
       lifecycle,
@@ -129,6 +133,7 @@ export function useWorkflowWidgetChat({
   }, [
     activeTurn,
     client,
+    clientToolCapability,
     hostBridge,
     includeHostContext,
     initialMessages,

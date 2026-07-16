@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isRecord } from "@side-chat/shared";
 
 import type { HostContext, HostContextMetadata, HostContextPolicy } from "#domain/host-context";
 
@@ -95,8 +96,4 @@ function reserveEntries(count: number, budget: MetadataBudget, policy: HostConte
 
 function serializedByteLength(value: HostContext): number {
   return new TextEncoder().encode(JSON.stringify(value)).byteLength;
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

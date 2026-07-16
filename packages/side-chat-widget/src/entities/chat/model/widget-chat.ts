@@ -10,7 +10,14 @@ import { omitUndefinedProperties } from "@side-chat/shared";
 
 import { createEmptyActivityTimeline, type WidgetActivityTimeline } from "./activity.js";
 
-export type WidgetStatus = "idle" | "submitted" | "streaming" | "error";
+export const WIDGET_STATUSES = {
+  IDLE: "idle",
+  SUBMITTED: "submitted",
+  STREAMING: "streaming",
+  ERROR: "error",
+} as const;
+
+export type WidgetStatus = (typeof WIDGET_STATUSES)[keyof typeof WIDGET_STATUSES];
 export type WidgetUsage = UsageMetadata;
 
 /**

@@ -4,7 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { HTTP_ERROR } from "#adapters/http/error-response";
 import { CHAT_HTTP_ROUTES, HTTP_HEADERS } from "#adapters/http/http-contract";
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
+import type { TurnAdmission } from "#application/ports/turn/turn-admission";
 import type { TurnExecutionTerminal } from "#application/ports/turn/turn-execution";
+import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import { TURN_MESSAGE_ROLES, TURN_TERMINAL_STATUSES, type TurnMessage } from "#domain/turn/turn";
 import { createServiceTestHarness } from "#composition/route/testing-harness/service-test-harness";
 import { SCRIPTED_PROVIDER } from "#config/providers/scripted-provider-config";
@@ -295,6 +297,37 @@ describe("chat routes", () => {
       expect(response.status).toBe(HTTP_ERROR.CONFLICT.STATUS);
       expect(admission.admitted).toBe(0);
       expect(state.userMessages).toEqual([]);
+      expect(execution.started).toEqual([]);
+    } finally {
+      await harness.close();
+    }
+  });
+
+  it("maps capacity rejection before writes to 503 with Retry-After", async () => {
+    const state = ownedState();
+    const execution = new ControlledTurnExecution(chunks(), neverTerminal());
+    const admission: TurnAdmission = {
+      admitTurn: () =>
+        Promise.reject(
+          new TurnRejectedError(
+            TURN_REJECTION_CODES.CAPACITY,
+            "Turn capacity is temporarily exhausted",
+            5,
+          ),
+        ),
+    };
+    const harness = await createServiceTestHarness({
+      turnState: state,
+      turnAdmission: admission,
+      turnExecution: execution,
+    });
+    try {
+      const response = await harness.request(CHAT_HTTP_ROUTES.START, chatRequest());
+      expect(response.status).toBe(HTTP_ERROR.SERVICE_UNAVAILABLE.STATUS);
+      expect(response.headers.get(HTTP_HEADERS.RETRY_AFTER)).toBe("5");
+      await expect(response.json()).resolves.toMatchObject({ code: "rate_limited" });
+      expect(state.userMessages).toEqual([]);
+      expect(state.runningTurns.size).toBe(0);
       expect(execution.started).toEqual([]);
     } finally {
       await harness.close();

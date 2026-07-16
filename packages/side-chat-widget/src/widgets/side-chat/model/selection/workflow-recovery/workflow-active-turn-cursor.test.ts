@@ -7,15 +7,20 @@ import {
 } from "./workflow-active-turn-cursor.js";
 
 describe("tab-scoped workflow active-turn cursor", () => {
-  it("round-trips only active run identity under the explicit key", () => {
+  it("round-trips active run identity and originating-tab authority under the explicit key", () => {
     const store = createStorage();
     writeWorkflowActiveTurnCursor(
       "workspace-a:widget-a:active-turn",
-      { conversationId: "conversation-1", runId: "run-1" },
+      {
+        clientToolCapability: "a".repeat(64),
+        conversationId: "conversation-1",
+        runId: "run-1",
+      },
       store,
     );
 
     expect(readWorkflowActiveTurnCursor("workspace-a:widget-a:active-turn", store)).toEqual({
+      clientToolCapability: "a".repeat(64),
       conversationId: "conversation-1",
       runId: "run-1",
     });
@@ -42,6 +47,22 @@ describe("tab-scoped workflow active-turn cursor", () => {
     const store = createStorage();
     const key = "workspace-a:widget-a:active-turn";
     store.setItem(key, JSON.stringify({ conversationId: "conversation-1" }));
+
+    expect(readWorkflowActiveTurnCursor(key, store)).toBeUndefined();
+    expect(store.getItem(key)).toBeNull();
+  });
+
+  it("removes malformed originating-tab authority", () => {
+    const store = createStorage();
+    const key = "workspace-a:widget-a:active-turn";
+    store.setItem(
+      key,
+      JSON.stringify({
+        clientToolCapability: "predictable",
+        conversationId: "conversation-1",
+        runId: "run-1",
+      }),
+    );
 
     expect(readWorkflowActiveTurnCursor(key, store)).toBeUndefined();
     expect(store.getItem(key)).toBeNull();

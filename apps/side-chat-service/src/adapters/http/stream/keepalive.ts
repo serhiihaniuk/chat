@@ -1,9 +1,14 @@
 const KEEPALIVE_FRAME = new TextEncoder().encode(": hb\n\n");
 
+export type KeepaliveObserver = Readonly<{
+  onKeepalive?: () => void;
+}>;
+
 /** Add an SSE comment only when the upstream byte stream has been idle for one interval. */
 export function withIdleSseKeepalive(
   source: ReadableStream<Uint8Array>,
   intervalMs: number,
+  observer: KeepaliveObserver = {},
 ): ReadableStream<Uint8Array> {
   const reader = source.getReader();
   let pendingRead: Promise<ReadableStreamReadResult<Uint8Array>> | undefined;
@@ -17,6 +22,7 @@ export function withIdleSseKeepalive(
       const result = await Promise.race([pendingRead, idle]);
       clearTimer();
       if (result === "idle") {
+        notifyKeepalive(observer);
         controller.enqueue(KEEPALIVE_FRAME.slice());
         return;
       }
@@ -32,5 +38,13 @@ export function withIdleSseKeepalive(
   function clearTimer(): void {
     if (timer !== undefined) clearTimeout(timer);
     timer = undefined;
+  }
+}
+
+function notifyKeepalive(observer: KeepaliveObserver): void {
+  try {
+    observer.onKeepalive?.();
+  } catch {
+    // Keepalive health is observational and cannot interrupt the stream.
   }
 }

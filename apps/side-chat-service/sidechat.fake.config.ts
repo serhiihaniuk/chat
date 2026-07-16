@@ -90,22 +90,37 @@ const config: SideChatConfig = defineSideChatConfig({
     providerMs: 2_000,
     clientToolMs: 1_000,
   },
+  capacity: {
+    maxActiveTurns: 16,
+    queueSize: 32,
+    queueTimeoutMs: 5_000,
+  },
   agent: {
     instructions: "You are the deterministic Side Chat test assistant.",
     maxSteps: 4,
   },
   persistence: {
     databaseUrl: readEnv.secret(SERVICE_ENV_KEYS.SIDECHAT_DATABASE_URL, {
+      description: "Optional PostgreSQL connection for local persistent product records.",
       required: false,
     }),
   },
   keepalive: { intervalMs: 5_000 },
   telemetry: { mode: TELEMETRY_MODES.OFF },
   workflow: {
+    workerConcurrency: readEnv.number(SERVICE_ENV_KEYS.WORKFLOW_POSTGRES_WORKER_CONCURRENCY, {
+      description: "Maximum concurrent jobs executed by the local Postgres Workflow worker.",
+      defaultValue: 50,
+    }),
+    maxPoolSize: readEnv.number(SERVICE_ENV_KEYS.WORKFLOW_POSTGRES_MAX_POOL_SIZE, {
+      description: "Maximum Postgres connections available to the local Workflow world.",
+      defaultValue: 52,
+    }),
     journalPruneAfterDays: 2,
     journalSweepIntervalMs: 60_000,
     journalClass: WORKFLOW_JOURNAL_CLASSES.OPERATIONAL,
     postgresUrl: readEnv.secret(SERVICE_ENV_KEYS.WORKFLOW_POSTGRES_URL, {
+      description: "Optional PostgreSQL connection for local Workflow durability tests.",
       required: false,
     }),
   },

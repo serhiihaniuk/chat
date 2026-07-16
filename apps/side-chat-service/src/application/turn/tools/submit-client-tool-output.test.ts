@@ -4,6 +4,7 @@ import {
   CLIENT_TOOL_OUTPUT_STATES,
   type ClientToolDispatchStore,
 } from "#application/ports/turn/tools/client-tool-dispatch-store";
+import type { TelemetryRecord } from "#application/ports/telemetry-sink";
 
 import { submitClientToolOutput, type ResumeClientTool } from "./submit-client-tool-output.js";
 import { TURN_REJECTION_CODES } from "../turn-errors.js";
@@ -20,6 +21,7 @@ const DISPATCH = {
   toolCallId: "call-1",
 } as const;
 const OUTPUT = { value: { changed: true } } as const;
+const CLIENT_TOOL_CAPABILITY_DIGEST = "a".repeat(64);
 
 describe("submitClientToolOutput", () => {
   it("proves ownership before reading private output and resumes after persistence", async () => {
@@ -41,6 +43,7 @@ describe("submitClientToolOutput", () => {
 
     const result = await submitClientToolOutput(store, resume, {
       auth: AUTH,
+      clientToolCapabilityDigest: CLIENT_TOOL_CAPABILITY_DIGEST,
       runId: DISPATCH.runId,
       toolCallId: DISPATCH.toolCallId,
       readOutput: async () => {
@@ -68,6 +71,7 @@ describe("submitClientToolOutput", () => {
     await expect(
       submitClientToolOutput({ findOwned: async () => DISPATCH, submit }, async () => true, {
         auth: AUTH,
+        clientToolCapabilityDigest: CLIENT_TOOL_CAPABILITY_DIGEST,
         runId: DISPATCH.runId,
         toolCallId: DISPATCH.toolCallId,
         readOutput: async () => ({
@@ -99,6 +103,7 @@ describe("submitClientToolOutput", () => {
       resume,
       {
         auth: AUTH,
+        clientToolCapabilityDigest: CLIENT_TOOL_CAPABILITY_DIGEST,
         runId: DISPATCH.runId,
         toolCallId: DISPATCH.toolCallId,
         readOutput: async () => ({ valid: true, output: OUTPUT }),
@@ -128,6 +133,7 @@ describe("submitClientToolOutput", () => {
         async () => false,
         {
           auth: AUTH,
+          clientToolCapabilityDigest: CLIENT_TOOL_CAPABILITY_DIGEST,
           runId: DISPATCH.runId,
           toolCallId: DISPATCH.toolCallId,
           readOutput: async () => ({ valid: true, output: OUTPUT }),
@@ -153,6 +159,7 @@ describe("submitClientToolOutput", () => {
       resume,
       {
         auth: AUTH,
+        clientToolCapabilityDigest: CLIENT_TOOL_CAPABILITY_DIGEST,
         runId: DISPATCH.runId,
         toolCallId: DISPATCH.toolCallId,
         readOutput: async () => ({ valid: true, output: OUTPUT }),
@@ -162,4 +169,50 @@ describe("submitClientToolOutput", () => {
     expect(result.state).toBe("late");
     expect(resume).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["accepted", "settled"],
+    ["duplicate", "failed"],
+    ["late", "late"],
+  ] as const)(
+    "records the %s.%s durable outcome without output content",
+    async (disposition, state) => {
+      const records: TelemetryRecord[] = [];
+      const sentinel = "PRIVATE_CLIENT_TOOL_OUTPUT_SENTINEL";
+      await submitClientToolOutput(
+        {
+          findOwned: async () => DISPATCH,
+          submit: async () => ({
+            disposition,
+            state,
+            output: { value: { sentinel } },
+          }),
+        },
+        async () => true,
+        {
+          auth: AUTH,
+          clientToolCapabilityDigest: CLIENT_TOOL_CAPABILITY_DIGEST,
+          runId: DISPATCH.runId,
+          toolCallId: DISPATCH.toolCallId,
+          readOutput: async () => ({
+            valid: true,
+            output: { value: { sentinel } },
+          }),
+          telemetry: { record: (record) => void records.push(record) },
+        },
+      );
+
+      expect(records).toEqual([
+        {
+          type: "client_tool.output",
+          labels: {
+            operation: "client_tool_output",
+            outcomeTag: `${disposition}.${state}`,
+          },
+          count: 1,
+        },
+      ]);
+      expect(JSON.stringify(records)).not.toContain(sentinel);
+    },
+  );
 });

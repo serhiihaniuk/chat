@@ -3,6 +3,8 @@ import {
   TOOL_APPROVAL_LOOKUP,
   type ToolApprovalDecisionStore,
 } from "#application/ports/turn/tools/tool-approval-store";
+import type { TelemetrySink } from "#application/ports/telemetry-sink";
+import { recordTelemetrySafely } from "#application/telemetry/record-telemetry-safely";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
 
@@ -16,6 +18,7 @@ export type SubmitToolApprovalInput = Readonly<{
   readDecision: () => Promise<
     Readonly<{ valid: true; approved: boolean }> | Readonly<{ valid: false }>
   >;
+  telemetry?: Pick<TelemetrySink, "record"> | undefined;
 }>;
 
 /** Persist the authorized decision before treating its Workflow hook as a wake signal. */
@@ -47,6 +50,20 @@ export async function submitToolApproval(
     approved: decision.approved,
     requestId: input.requestId,
   });
+  const outcomeTag =
+    result.disposition === TOOL_APPROVAL_DECISION_DISPOSITIONS.CONFLICT ||
+    result.disposition === TOOL_APPROVAL_DECISION_DISPOSITIONS.LATE
+      ? result.disposition
+      : result.state;
+  recordTelemetrySafely(input.telemetry ?? NOOP_TELEMETRY, {
+    type: "tool_approval.decision",
+    labels: {
+      operation: "tool_approval_decision",
+      outcomeTag,
+      toolName: approval.toolName,
+    },
+    count: 1,
+  });
   if (
     result.disposition === TOOL_APPROVAL_DECISION_DISPOSITIONS.CONFLICT ||
     result.disposition === TOOL_APPROVAL_DECISION_DISPOSITIONS.LATE
@@ -65,3 +82,7 @@ export async function submitToolApproval(
     resumed,
   };
 }
+
+const NOOP_TELEMETRY: Pick<TelemetrySink, "record"> = {
+  record: () => undefined,
+};

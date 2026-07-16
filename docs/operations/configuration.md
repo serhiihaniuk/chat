@@ -19,8 +19,12 @@ defineSideChatConfig({
   models: {
     provider: OPENAI_PROVIDER.KIND,
     connection: {
-      apiKey: readEnv.secret(OPENAI_PROVIDER.SECRET_ENV_KEYS.API_KEY),
-      baseUrl: readEnv(OPENAI_PROVIDER.TRANSPORT_ENV_KEYS.BASE_URL),
+      apiKey: readEnv.secret(OPENAI_PROVIDER.SECRET_ENV_KEYS.API_KEY, {
+        description: "OpenAI API key used to create provider clients.",
+      }),
+      baseUrl: readEnv(OPENAI_PROVIDER.TRANSPORT_ENV_KEYS.BASE_URL, {
+        description: "Optional OpenAI-compatible API base URL override.",
+      }),
     },
     reasoningSummary: OPENAI_PROVIDER.REASONING_SUMMARIES.CONCISE,
     defaultModelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
@@ -51,6 +55,11 @@ defineSideChatConfig({
     maxMetadataDepth: 8,
     maxMetadataEntries: 128,
   },
+  capacity: {
+    maxActiveTurns: 16,
+    queueSize: 32,
+    queueTimeoutMs: 5_000,
+  },
   // auth, timeouts, agent, persistence, keepalive, telemetry, workflow
 });
 ```
@@ -65,7 +74,11 @@ Azure keeps credentials, endpoint, and API version in `models.connection`, but e
 
 The remaining `hostContext` fields bound optional browser-supplied page reference data before a turn reaches application policy. The HTTP boundary rejects unknown host-context keys, strings over `maxStringLength`, non-finite metadata numbers, metadata deeper than `maxMetadataDepth`, metadata with more than `maxMetadataEntries` nested object properties and array items, or a normalized UTF-8 serialization over `maxSerializedBytes`. The accepted value remains untrusted user-level data: it may be rendered into the current user message for model execution, but it never supplies identity, authorization, workspace scope, or system instructions.
 
-Only behavior that is wired remains configurable. The replacement retains queue, provider, client-tool, and title timeouts; agent instructions and step cap; persistence; SSE keepalive interval; telemetry; and Workflow journal retention, sweep, class, and database settings. It deliberately has no request timeout, agent token budgets, active-generation count, proxy-idle budget, or worker-concurrency/headroom fields because those values did not control runtime behavior. Step 17 owns any future capacity policy and must add real enforcement before adding capacity configuration.
+The replacement declares admission capacity separately from transport and execution timeouts. `capacity.maxActiveTurns` limits admitted turns per service process, `capacity.queueSize` bounds the local waiting queue, and `capacity.queueTimeoutMs` limits how long a request may wait for admission. Their defaults are `16`, `32`, and `5_000` ms. `timeouts.queueMs` remains the Workflow readiness timeout; it is not the admission queue timeout.
+
+The Postgres Workflow world declares `workflow.workerConcurrency` and `workflow.maxPoolSize` through `WORKFLOW_POSTGRES_WORKER_CONCURRENCY` and `WORKFLOW_POSTGRES_MAX_POOL_SIZE`. Worker concurrency defaults to `50`; the pool size is required in Postgres deployments because the upstream fallback is only the `pg` default of `10`. Boot validation keeps four workers above the maximum active-turn count and requires `maxPoolSize >= max(10, workerConcurrency + 2)`, so the default worker setting needs a pool of at least `52`. These values size the Workflow engine as a whole, including workflow and step jobs; they are not provider-only concurrency controls.
+
+The replacement also retains provider, client-tool, and title timeouts; agent instructions and step cap; persistence; SSE keepalive interval; telemetry; and Workflow journal retention, sweep, class, and database settings. It deliberately has no request timeout, agent token budgets, active-generation count separate from admission, or proxy-idle budget.
 
 The replacement service consumes `hostContext.enabled` in both capability publication and request admission, and consumes every limit directly in request validation. The native widget collects a fresh snapshot only for an opted-in send; reconnect and replay never recollect it.
 

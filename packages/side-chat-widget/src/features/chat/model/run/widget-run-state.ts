@@ -1,4 +1,9 @@
-import type { WidgetMessage, WidgetStatus, WidgetUsage } from "#entities/chat";
+import {
+  WIDGET_STATUSES,
+  type WidgetMessage,
+  type WidgetStatus,
+  type WidgetUsage,
+} from "#entities/chat";
 
 /**
  * Lifecycle of one server-owned assistant run, as the widget sees it.
@@ -44,16 +49,16 @@ export const isTerminalRunStatus = (status: WidgetRunStatus): boolean =>
 export const runStatusToWidgetStatus = (status: WidgetRunStatus): WidgetStatus => {
   switch (status) {
     case WIDGET_RUN_STATUSES.SUBMITTED:
-      return "submitted";
+      return WIDGET_STATUSES.SUBMITTED;
     case WIDGET_RUN_STATUSES.STREAMING:
     case WIDGET_RUN_STATUSES.RECONNECTING:
-      return "streaming";
+      return WIDGET_STATUSES.STREAMING;
     case WIDGET_RUN_STATUSES.FAILED:
-      return "error";
+      return WIDGET_STATUSES.ERROR;
     case WIDGET_RUN_STATUSES.COMPLETED:
     case WIDGET_RUN_STATUSES.CANCELLED:
     case WIDGET_RUN_STATUSES.BLOCKED:
-      return "idle";
+      return WIDGET_STATUSES.IDLE;
   }
 };
 

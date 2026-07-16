@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import {
   isSideChatFinishReason,
   SIDE_CHAT_ERROR_CODES as PUBLIC_ERROR_CODES,
+  SIDE_CHAT_FINISH_REASONS,
   SIDE_CHAT_MESSAGE_TERMINAL_STATUSES,
   type SideChatErrorCode,
   type SideChatMessageTerminal,
@@ -27,9 +28,6 @@ export const CHAT_TURN_ERROR_CODES = {
   MODEL_STREAM_FAILED: "model_stream_failed",
   PROVIDER_TIMEOUT: "provider_timeout",
 } as const;
-
-/** Native provider finish reason that marks content-filtered ("blocked") output. */
-const CONTENT_FILTER_FINISH_REASON = "content-filter";
 
 /** Abort rejections must carry this `Error.name` or the engine retries the step. */
 export const ABORT_ERROR_NAME = "AbortError";
@@ -132,7 +130,7 @@ export function shouldDeferChatTurnStreamFailure(
 /** The single source both the route terminal and the durable claim derive from. */
 export function classifyChatTurnOutcome(outcome: ChatTurnTerminalOutcome): ChatTurnClassification {
   if (outcome.status === CHAT_TURN_OUTCOMES.COMPLETED) {
-    if (outcome.finishReason === CONTENT_FILTER_FINISH_REASON) {
+    if (outcome.finishReason === SIDE_CHAT_FINISH_REASONS.CONTENT_FILTER) {
       return {
         status: TURN_TERMINAL_STATUSES.BLOCKED,
         finishReason: outcome.finishReason,

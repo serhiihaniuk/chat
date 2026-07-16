@@ -6,6 +6,7 @@ import {
   createWidgetMessage,
   findLastUserMessage,
   messagesBeforeMessage,
+  WIDGET_STATUSES,
   type WidgetMessage,
   type WidgetStatus,
 } from "#entities/chat";
@@ -171,7 +172,7 @@ const createTurnIds = (): {
 });
 
 const isSubmitBlocked = (message: string, status: WidgetStatus): boolean =>
-  !message || status === "submitted" || status === "streaming";
+  !message || status === WIDGET_STATUSES.SUBMITTED || status === WIDGET_STATUSES.STREAMING;
 
 /**
  * Ask the host which commands are available for this turn.

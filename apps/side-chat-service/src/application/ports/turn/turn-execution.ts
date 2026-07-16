@@ -19,6 +19,7 @@ export type TurnExecutionInput = TurnRef &
     reasoningEffort?: SideChatReasoningEffort | undefined;
     messages: readonly TurnMessage[];
     clientTools: readonly ClientToolDefinition[];
+    clientToolCapabilityDigest?: string | undefined;
     enabledToolNames?: readonly string[] | undefined;
   }>;
 

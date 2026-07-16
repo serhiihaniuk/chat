@@ -3,7 +3,7 @@ import { type JsonValue } from "@side-chat/shared";
 import { describe, expect, it } from "vitest";
 
 import { HTTP_ERROR } from "#adapters/http/error-response";
-import { CHAT_HTTP_ROUTES } from "#adapters/http/http-contract";
+import { CHAT_HTTP_ROUTES, HTTP_HEADERS } from "#adapters/http/http-contract";
 import {
   SERVER_TOOL_APPROVAL_POLICIES,
   defineServerTool,
@@ -28,6 +28,31 @@ const REQUEST_USER_MESSAGE: UIMessage = {
 };
 
 describe("chat route client-tool catalog", () => {
+  it("rejects client tools without originating-tab authority before execution", async () => {
+    const execution = new CatalogCapturingTurnExecution();
+    const harness = await createServiceTestHarness({ turnExecution: execution });
+    try {
+      const response = await harness.request(
+        CHAT_HTTP_ROUTES.START,
+        chatRequest(
+          [
+            {
+              name: "open_file",
+              description: "Open a file.",
+              inputSchema: { type: "object" },
+            },
+          ],
+          false,
+        ),
+      );
+
+      expect(response.status).toBe(HTTP_ERROR.BAD_REQUEST.STATUS);
+      expect(execution.started).toEqual([]);
+    } finally {
+      await harness.close();
+    }
+  });
+
   it("validates the catalog before admission, writes, or execution", async () => {
     const admission = new DeterministicTurnAdmission();
     const execution = new CatalogCapturingTurnExecution();
@@ -110,6 +135,8 @@ describe("chat route client-tool catalog", () => {
 
       expect(response.status).toBe(SUCCESS_HTTP_STATUS);
       expect(execution.started[0]?.clientTools).toEqual(clientTools);
+      expect(execution.started[0]?.clientToolCapabilityDigest).toMatch(/^[0-9a-f]{64}$/u);
+      expect(execution.started[0]?.clientToolCapabilityDigest).not.toBe("a".repeat(64));
     } finally {
       await response?.body?.cancel();
       await harness.close();
@@ -148,9 +175,12 @@ function collisionServerTool() {
   });
 }
 
-function chatRequest(clientTools: readonly unknown[]): RequestInit {
+function chatRequest(clientTools: readonly unknown[], includeCapability = true): RequestInit {
   return {
     method: "POST",
+    ...(includeCapability
+      ? { headers: { [HTTP_HEADERS.CLIENT_TOOL_CAPABILITY]: "a".repeat(64) } }
+      : {}),
     body: JSON.stringify({
       requestId: "request-1",
       conversationId: "conversation-1",

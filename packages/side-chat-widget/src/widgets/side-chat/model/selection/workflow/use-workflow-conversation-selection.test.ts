@@ -120,7 +120,7 @@ describe("workflow conversation selection recovery cursor", () => {
     expect(current.value?.isLocalDraft).toBe(true);
     expect(sessionStorage.getItem(storageKey)).toBeNull();
 
-    act(() => current.value?.acceptedRun("conversation-running", "run-delayed"));
+    act(() => current.value?.acceptedRun("conversation-running", "run-delayed", "a".repeat(64)));
     expect(current.value?.activeConversationId).toBe(draftId);
     expect(current.value?.isLocalDraft).toBe(true);
     expect(sessionStorage.getItem(storageKey)).toBeNull();

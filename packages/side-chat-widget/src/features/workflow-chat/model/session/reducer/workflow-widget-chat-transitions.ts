@@ -1,3 +1,5 @@
+import { SIDE_CHAT_FINISH_REASONS } from "@side-chat/stream-profile";
+
 import type { WorkflowChatHttpError, WorkflowUIMessage } from "#entities/workflow-chat";
 import {
   workflowChatTerminalFromMessage,
@@ -247,7 +249,9 @@ function terminalFromServerEnd(
   if (state.terminal.kind !== "none") return state.terminal;
   const base = lastAssistantTerminalBase(state.messages);
   if (event.serverAborted) return { kind: "cancelled", ...base };
-  if (event.finishReason === "content-filter") return { kind: "blocked", ...base };
+  if (event.finishReason === SIDE_CHAT_FINISH_REASONS.CONTENT_FILTER) {
+    return { kind: "blocked", ...base };
+  }
   return EMPTY_WORKFLOW_CHAT_TERMINAL;
 }
 

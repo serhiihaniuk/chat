@@ -16,13 +16,32 @@ describe("withIdleSseKeepalive", () => {
       start: (controller) => provideUpstream(controller),
     });
     const upstream = await upstreamAvailable;
-    const reader = withIdleSseKeepalive(source, 100).getReader();
+    const onKeepalive = vi.fn();
+    const reader = withIdleSseKeepalive(source, 100, {
+      onKeepalive,
+    }).getReader();
     const idleRead = reader.read();
     await vi.advanceTimersByTimeAsync(100);
     expect(new TextDecoder().decode((await idleRead).value)).toBe(": hb\n\n");
+    expect(onKeepalive).toHaveBeenCalledOnce();
     const dataRead = reader.read();
     upstream.enqueue(new TextEncoder().encode("data: one\n\n"));
     expect(new TextDecoder().decode((await dataRead).value)).toBe("data: one\n\n");
+    await reader.cancel();
+  });
+
+  it("keeps the stream alive when its observer throws", async () => {
+    vi.useFakeTimers();
+    const source = new ReadableStream<Uint8Array>();
+    const reader = withIdleSseKeepalive(source, 50, {
+      onKeepalive: () => {
+        throw new Error("telemetry unavailable");
+      },
+    }).getReader();
+
+    const read = reader.read();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(new TextDecoder().decode((await read).value)).toBe(": hb\n\n");
     await reader.cancel();
   });
 });

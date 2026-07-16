@@ -9,8 +9,13 @@ import {
 } from "#entities/workflow-chat";
 
 export type WorkflowWidgetChatAttachmentMode =
-  | Readonly<{ kind: "reconnect"; runId: string }>
   | Readonly<{
+      clientToolCapability?: string | undefined;
+      kind: "reconnect";
+      runId: string;
+    }>
+  | Readonly<{
+      clientToolCapability: string;
       kind: "send";
       messageId: string | undefined;
       trigger: "regenerate-message" | "submit-message";
@@ -33,7 +38,7 @@ type CreateWorkflowWidgetChatEngineInput = Readonly<{
   messages: readonly WorkflowUIMessage[];
   mode: WorkflowWidgetChatAttachmentMode;
   onMessage: (message: WorkflowUIMessage) => void;
-  onRunAccepted: (runId: string) => void;
+  onRunAccepted: (runId: string, clientToolCapability: string) => void;
   onStreamEnded: (end: WorkflowWidgetChatStreamEnd) => void;
   onTransportDropped: (error: unknown) => void;
   onTransportReconnecting: () => void;
@@ -68,6 +73,7 @@ export function createWorkflowWidgetChatEngine(
 ): WorkflowWidgetChatEngine {
   const abortController = new AbortController();
   const transport = createWorkflowChatTransport({
+    clientToolCapability: input.mode.clientToolCapability,
     getClient: () => input.client,
     getClientTools: () => readClientTools(input.hostBridge),
     getHostContext: (request) => readHostContext(input, request),
@@ -75,7 +81,10 @@ export function createWorkflowWidgetChatEngine(
     onReconnectConnected: input.onTransportRecovered,
     onReconnectStarted: input.onTransportReconnecting,
     onRunFinished: () => undefined,
-    onRunStarted: input.onRunAccepted,
+    onRunStarted: (runId) => {
+      if (input.mode.kind !== "send") return;
+      input.onRunAccepted(runId, input.mode.clientToolCapability);
+    },
   });
 
   return {

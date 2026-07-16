@@ -23,10 +23,10 @@ export type WorkflowConversationSelectionState =
 
 export type WorkflowConversationSelection = Readonly<{
   activeConversationId: string;
-  acceptedRun: (conversationId: string, runId: string) => void;
+  acceptedRun: (conversationId: string, runId: string, clientToolCapability: string) => void;
   clearTerminalRun: (runId: string) => void;
   discardInvalidRecovery: (cursor: WorkflowActiveTurnCursor) => void;
-  focusActiveRun: (conversationId: string, runId: string) => void;
+  focusActiveRun: (conversationId: string, runId: string, clientToolCapability?: string) => void;
   isLocalDraft: boolean;
   recoveryCursor: WorkflowActiveTurnCursor | undefined;
   recoveryNeedsValidation: boolean;
@@ -92,9 +92,11 @@ export function useWorkflowConversationSelection(
     [clearFocusedRun, updateSelection],
   );
   const focusActiveRun = useCallback(
-    (conversationId: string, runId: string): void => {
+    (conversationId: string, runId: string, clientToolCapability?: string): void => {
       if (selectionRef.current.conversationId !== conversationId) return;
-      const cursor = { conversationId, runId };
+      const cursor: WorkflowActiveTurnCursor = clientToolCapability
+        ? { clientToolCapability, conversationId, runId }
+        : { conversationId, runId };
       writeWorkflowActiveTurnCursor(activeTurnStorageKey, cursor);
       recoveryCursorRef.current = cursor;
       setRecoveryCursor(cursor);
@@ -103,11 +105,11 @@ export function useWorkflowConversationSelection(
     [activeTurnStorageKey],
   );
   const acceptedRun = useCallback(
-    (conversationId: string, runId: string): void => {
+    (conversationId: string, runId: string, clientToolCapability: string): void => {
       if (selectionRef.current.conversationId !== conversationId) return;
       const next = promoteWorkflowSelection(selectionRef.current);
       updateSelection(next);
-      focusActiveRun(next.conversationId, runId);
+      focusActiveRun(next.conversationId, runId, clientToolCapability);
     },
     [focusActiveRun, updateSelection],
   );

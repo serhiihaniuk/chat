@@ -15,7 +15,8 @@ type WorkflowWidgetInteractionState = Readonly<{
 type WorkflowWidgetClientToolContext = Pick<
   WorkflowWidgetChatRuntimeContext,
   "client" | "hostBridge"
->;
+> &
+  Readonly<{ clientToolCapability: string }>;
 
 export type WorkflowWidgetInteractionContinuation = Readonly<{
   reconnect: boolean;
@@ -77,6 +78,7 @@ export async function dispatchPendingWorkflowClientTool(
   }
   const outcome = await dispatchWorkflowClientTool({
     client: input.client,
+    clientToolCapability: input.clientToolCapability,
     hostBridge: input.hostBridge,
     runId,
     toolCall: input.toolCall,

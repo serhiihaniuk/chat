@@ -13,3 +13,6 @@ This package is deliberately tiny: browser-safe contract types, runtime validato
 - `SideChatMessageMetadata` / `sideChatMessageMetadataSchema`: the native message metadata contract for folded turn usage. The dependency-free schema accepts only finite non-negative integer token counts and rejects unknown/private fields; the service scrub edge and widget use the same validator.
 - `SideChatDataParts`: the `data-*` extension point. Empty at baseline — turn state derives from native parts and message metadata (ADR 0015). Adding a part requires a schema, a named consumer, and a privacy review.
 - `SIDE_CHAT_STREAM_PROTOCOL`: the pinned protocol header and version.
+- `SIDE_CHAT_CLIENT_TOOL_CAPABILITY`: the shared header name and fixed entropy/
+  encoding shape for originating-tab client-tool authority. The header value is
+  private HTTP input and is never part of the public UI message stream.

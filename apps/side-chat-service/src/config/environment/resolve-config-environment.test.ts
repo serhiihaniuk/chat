@@ -8,7 +8,11 @@ const TEST_SECRET_ENV_KEY = "SIDECHAT_SECRET";
 
 describe("configuration environment adapter", () => {
   it("reports missing secrets by key without exposing values", () => {
-    const config = { credential: readEnv.secret(TEST_SECRET_ENV_KEY) };
+    const config = {
+      credential: readEnv.secret(TEST_SECRET_ENV_KEY, {
+        description: "Credential used only by this environment-adapter test.",
+      }),
+    };
 
     const result = resolveConfigEnvironment(config, {});
 

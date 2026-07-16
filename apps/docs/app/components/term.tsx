@@ -10,7 +10,7 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { findGlossaryTerm } from "../data/glossary";
+import { findGlossaryTerm } from "../data/glossary/lookup";
 
 interface TermProps {
   id: string;

@@ -2,6 +2,8 @@ import { encodeTurnActivitySseEvent } from "@side-chat/chat-protocol";
 import { Hono } from "hono";
 
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
+import type { TelemetrySink } from "#application/ports/telemetry-sink";
+import { recordTelemetrySafely } from "#application/telemetry/record-telemetry-safely";
 import { createActivitySubscriptionStream } from "#application/turn/activity/activity-subscription-stream";
 import type { TurnActivityDispatcher } from "#application/turn/activity/turn-activity-dispatcher";
 
@@ -20,6 +22,7 @@ export function createActivityRoutes(dependencies: {
   readonly dispatcher: TurnActivityDispatcher;
   readonly queries: Pick<ConversationQueryStore, "listActiveTurns">;
   readonly keepaliveIntervalMs: number;
+  readonly telemetry: Pick<TelemetrySink, "record">;
 }): Hono<AuthVariables> {
   const app = new Hono<AuthVariables>();
   app.get(QUERY_HTTP_ROUTES.ACTIVITY, (context) => {
@@ -30,11 +33,24 @@ export function createActivityRoutes(dependencies: {
     );
     const encoded = encodeActivityEvents(events);
     const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
-    return new Response(withIdleSseKeepalive(encoded, dependencies.keepaliveIntervalMs), {
-      headers: { ...SSE_HEADERS, [HTTP_HEADERS.REQUEST_ID]: requestId },
-    });
+    return new Response(
+      withIdleSseKeepalive(encoded, dependencies.keepaliveIntervalMs, {
+        onKeepalive: () => recordKeepalive(dependencies.telemetry),
+      }),
+      {
+        headers: { ...SSE_HEADERS, [HTTP_HEADERS.REQUEST_ID]: requestId },
+      },
+    );
   });
   return app;
+}
+
+function recordKeepalive(telemetry: Pick<TelemetrySink, "record">): void {
+  recordTelemetrySafely(telemetry, {
+    type: "stream.keepalive",
+    labels: { operation: "activity_stream" },
+    count: 1,
+  });
 }
 
 function encodeActivityEvents(

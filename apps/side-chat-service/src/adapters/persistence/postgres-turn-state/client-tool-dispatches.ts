@@ -19,6 +19,7 @@ export function createPostgresClientToolDispatchStore(
     async create(dispatch) {
       const result = await repositories.createClientToolDispatch({
         ...toRepositoryIdentity(dispatch),
+        clientToolCapabilityDigest: dispatch.clientToolCapabilityDigest,
         toolName: dispatch.toolName,
         now: new Date().toISOString(),
       });
@@ -48,7 +49,7 @@ export function createPostgresClientToolDispatchStore(
       return result === undefined ? undefined : toSnapshot(result.record);
     },
 
-    async findOwned(auth, runId, toolCallId) {
+    async findOwned(auth, runId, toolCallId, clientToolCapabilityDigest) {
       const turn = await repositories.findAssistantTurnByRun({
         workspaceId: toWorkspaceId(auth.workspaceId),
         subjectId: auth.subjectId,
@@ -60,7 +61,12 @@ export function createPostgresClientToolDispatchStore(
         assistantTurnId: turn.assistantTurnId,
         toolCallId: toToolCallId(toolCallId),
       });
-      if (dispatch === undefined) return CLIENT_TOOL_DISPATCH_LOOKUP.NOT_READY;
+      if (
+        dispatch === undefined ||
+        dispatch.clientToolCapabilityDigest !== clientToolCapabilityDigest
+      ) {
+        return CLIENT_TOOL_DISPATCH_LOOKUP.NOT_FOUND;
+      }
       return {
         workspaceId: auth.workspaceId,
         turnId: turn.assistantTurnId,

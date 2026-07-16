@@ -65,7 +65,13 @@ async function runSweepToEmpty(
         completedBefore,
         batchLimit: SWEEP_BATCH_LIMIT,
       });
-      if (result.prunedRuns > 0) await telemetry.record({ type: "workflow.journal_prune" });
+      if (result.prunedRuns > 0) {
+        await telemetry.record({
+          type: "workflow.journal_prune",
+          count: result.prunedRuns,
+          bytes: result.prunedBytes,
+        });
+      }
       if (!result.lockAcquired || result.selectedRuns < SWEEP_BATCH_LIMIT) return;
     }
   } catch {

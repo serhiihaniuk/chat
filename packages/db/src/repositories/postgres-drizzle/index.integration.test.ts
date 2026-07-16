@@ -141,6 +141,7 @@ describe("postgres drizzle repositories", () => {
       } as const;
       await repositories.createClientToolDispatch({
         ...identity,
+        clientToolCapabilityDigest: "a".repeat(64),
         toolName: "open_resource",
         now: NOW,
       });
@@ -235,6 +236,7 @@ describe("postgres drizzle repositories", () => {
       } as const;
       await repositories.createClientToolDispatch({
         ...identity,
+        clientToolCapabilityDigest: "a".repeat(64),
         toolName: "open_resource",
         now: NOW,
       });
@@ -292,6 +294,7 @@ describe("postgres drizzle repositories", () => {
       } as const;
       await repositories.createClientToolDispatch({
         ...identity,
+        clientToolCapabilityDigest: "a".repeat(64),
         toolName: "open_resource",
         now: NOW,
       });

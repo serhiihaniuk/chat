@@ -1,5 +1,9 @@
 import type { ActiveConversationTurnSummary } from "#application/ports/conversation-query-store";
-import type { BeginTurnInput } from "#application/ports/turn/turn-store";
+import {
+  BEGIN_TURN_DISPOSITIONS,
+  type BeginTurnInput,
+  type BegunTurn,
+} from "#application/ports/turn/turn-store";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
 import type { AuthContext } from "#domain/auth-context";
 import type { TurnMessage, TurnRef } from "#domain/turn/turn";
@@ -62,6 +66,22 @@ export function findTurnByRequest(
   requestId: string,
 ): InMemoryStoredTurn | undefined {
   return [...turns].find((turn) => turn.requestId === requestId);
+}
+
+export function preflightTurn(
+  auth: AuthContext,
+  conversationId: string,
+  requestId: string,
+  turns: Iterable<InMemoryStoredTurn>,
+  runningConversationIds: ReadonlySet<string>,
+): BegunTurn["disposition"] {
+  const replay = findTurnByRequest(turns, requestId);
+  if (replay) {
+    if (sameReplayOwner(replay, auth, conversationId)) return BEGIN_TURN_DISPOSITIONS.REUSED;
+    throw requestConflict();
+  }
+  requireIdleConversation(runningConversationIds, conversationId);
+  return BEGIN_TURN_DISPOSITIONS.CREATED;
 }
 
 export function createInMemoryTurnReference(

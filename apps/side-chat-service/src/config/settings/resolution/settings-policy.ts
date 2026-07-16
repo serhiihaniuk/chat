@@ -6,6 +6,9 @@ export type SettingsValidationCatalogs = Readonly<{
   registeredServerToolNames: readonly string[];
 }>;
 
+export const WORKFLOW_CAPACITY_HEADROOM = 4;
+const MIN_WORKFLOW_POSTGRES_POOL_SIZE = 10;
+
 /** Apply relationships that cannot be validated while decoding one field. */
 export function validateSettingsPolicy(
   settings: Settings,
@@ -19,15 +22,40 @@ export function validateSettingsPolicy(
     "provider timeout",
     issues,
   );
+  validateWorkflowCapacity(settings, issues);
   validateModelCatalog(settings, issues);
   validateServerTools(settings.serverTools, catalogs.registeredServerToolNames, issues);
   validateMaintenanceDatabase(settings, issues);
 }
 
+function validateWorkflowCapacity(settings: Settings, issues: SettingsIssue[]): void {
+  const minimumWorkerConcurrency = settings.capacity.maxActiveTurns + WORKFLOW_CAPACITY_HEADROOM;
+  if (settings.workflow.workerConcurrency < minimumWorkerConcurrency) {
+    issues.push({
+      path: "workflow.workerConcurrency",
+      message: `must be at least capacity.maxActiveTurns + ${WORKFLOW_CAPACITY_HEADROOM} worker headroom (${minimumWorkerConcurrency})`,
+    });
+  }
+
+  const minimumPoolSize = Math.max(
+    MIN_WORKFLOW_POSTGRES_POOL_SIZE,
+    settings.workflow.workerConcurrency + 2,
+  );
+  if (settings.workflow.maxPoolSize < minimumPoolSize) {
+    issues.push({
+      path: "workflow.maxPoolSize",
+      message: `must be at least max(10, workflow.workerConcurrency + 2) (${minimumPoolSize})`,
+    });
+  }
+}
+
 function validateModelCatalog(settings: Settings, issues: SettingsIssue[]): void {
   const models = settings.models.availableModels;
   if (models.length === 0) {
-    issues.push({ path: "models.availableModels", message: "must contain at least one model" });
+    issues.push({
+      path: "models.availableModels",
+      message: "must contain at least one model",
+    });
     return;
   }
   const ids = models.map((model) => model.id);
@@ -74,12 +102,18 @@ function validateServerTools(
   issues: SettingsIssue[],
 ): void {
   if (new Set(selected).size !== selected.length) {
-    issues.push({ path: "serverTools", message: "must not contain duplicate names" });
+    issues.push({
+      path: "serverTools",
+      message: "must not contain duplicate names",
+    });
   }
   const registeredNames = new Set(registered);
   const unknown = selected.filter((name) => !registeredNames.has(name));
   if (unknown.length > 0) {
-    issues.push({ path: "serverTools", message: "contains an unregistered server tool" });
+    issues.push({
+      path: "serverTools",
+      message: "contains an unregistered server tool",
+    });
   }
 }
 

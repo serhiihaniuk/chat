@@ -197,6 +197,7 @@ export type CreateClientToolDispatchCommand = RepositoryCommandEnvelope & {
   readonly assistantTurnId: AssistantTurnId;
   readonly toolCallId: ToolCallId;
   readonly toolName: string;
+  readonly clientToolCapabilityDigest: string;
 };
 
 export type FindClientToolDispatchCommand = {

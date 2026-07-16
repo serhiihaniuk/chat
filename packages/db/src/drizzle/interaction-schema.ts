@@ -92,6 +92,7 @@ export const defineInteractionTables = ({
       workspaceId: workspaceIdColumn(),
       toolCallId: text("tool_call_id").notNull(),
       toolName: text("tool_name").notNull(),
+      clientToolCapabilityDigest: text("client_tool_capability_digest").notNull(),
       state: text("state").$type<ClientToolDispatchState>().notNull(),
       // The object envelope distinguishes `{ value: null }` from no model outcome.
       outputJson: jsonb("output_json").$type<JsonObject>(),

@@ -42,7 +42,10 @@ describe("chat replay route", () => {
         tailIndex: 4,
         stream: chunks({ type: "start" }, { type: "finish" }),
       });
-      const harness = await createServiceTestHarness({ turnState: state, turnReplay: replay });
+      const harness = await createServiceTestHarness({
+        turnState: state,
+        turnReplay: replay,
+      });
       try {
         const query = source === undefined ? "" : `?startIndex=${source}`;
         const response = await harness.request(`${streamRoute(TEST_RUN_ID)}${query}`);
@@ -59,6 +62,11 @@ describe("chat replay route", () => {
           "start",
           "finish",
         ]);
+        expect(harness.telemetry.records).toContainEqual({
+          type: "stream.reconnect",
+          labels: { operation: "chat_stream_replay", outcomeTag: "opened" },
+          count: 1,
+        });
       } finally {
         await harness.close();
       }
@@ -68,7 +76,9 @@ describe("chat replay route", () => {
   it.each(["1.5", "+1", "01", "1e2", "safe?", "9007199254740992"])(
     "rejects malformed replay startIndex %s before opening Workflow",
     async (startIndex) => {
-      const replay = new ControlledTurnReplay({ status: TURN_REPLAY_RESULTS.NOT_FOUND });
+      const replay = new ControlledTurnReplay({
+        status: TURN_REPLAY_RESULTS.NOT_FOUND,
+      });
       const harness = await createServiceTestHarness({ turnReplay: replay });
       try {
         const response = await harness.request(
@@ -84,8 +94,13 @@ describe("chat replay route", () => {
 
   it("hides unknown ownership and a pruned Workflow run behind the same 404", async () => {
     const state = ownedState();
-    const replay = new ControlledTurnReplay({ status: TURN_REPLAY_RESULTS.NOT_FOUND });
-    const harness = await createServiceTestHarness({ turnState: state, turnReplay: replay });
+    const replay = new ControlledTurnReplay({
+      status: TURN_REPLAY_RESULTS.NOT_FOUND,
+    });
+    const harness = await createServiceTestHarness({
+      turnState: state,
+      turnReplay: replay,
+    });
     try {
       expect((await harness.request(streamRoute(UNKNOWN_RUN_ID))).status).toBe(
         HTTP_ERROR.NOT_FOUND.STATUS,
@@ -102,6 +117,11 @@ describe("chat replay route", () => {
           assistantMessageId: "turn-1-assistant",
         },
       ]);
+      expect(harness.telemetry.records).toContainEqual({
+        type: "stream.reconnect",
+        labels: { operation: "chat_stream_replay", outcomeTag: "not_found" },
+        count: 1,
+      });
     } finally {
       await harness.close();
     }
@@ -114,12 +134,20 @@ describe("chat replay route", () => {
       status: TURN_REPLAY_RESULTS.START_INDEX_OUT_OF_RANGE,
       tailIndex: 2,
     });
-    const harness = await createServiceTestHarness({ turnState: state, turnReplay: replay });
+    const harness = await createServiceTestHarness({
+      turnState: state,
+      turnReplay: replay,
+    });
     try {
       const response = await harness.request(`${streamRoute(TEST_RUN_ID)}?startIndex=4`);
       expect(response.status).toBe(HTTP_ERROR.RANGE_NOT_SATISFIABLE.STATUS);
       expect(response.headers.get(HTTP_HEADERS.WORKFLOW_STREAM_TAIL_INDEX)).toBe("2");
       expect(response.headers.get("content-type")).toContain("application/json");
+      expect(harness.telemetry.records).toContainEqual({
+        type: "stream.reconnect",
+        labels: { operation: "chat_stream_replay", outcomeTag: "out_of_range" },
+        count: 1,
+      });
     } finally {
       await harness.close();
     }
@@ -139,7 +167,10 @@ describe("chat replay route", () => {
         cancel: cancelled,
       }),
     });
-    const harness = await createServiceTestHarness({ turnState: state, turnReplay: replay });
+    const harness = await createServiceTestHarness({
+      turnState: state,
+      turnReplay: replay,
+    });
     try {
       const response = await harness.request(streamRoute(TEST_RUN_ID));
       const reader = response.body?.getReader();

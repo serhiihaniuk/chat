@@ -90,7 +90,12 @@ export const createHarnessHostBridge = (
     commandRecords,
     toolRecords,
     getContext: () => Promise.resolve(createHarnessHostContext(config)),
-    getCapabilities: () => Promise.resolve(HARNESS_HOST_CAPABILITIES),
+    getCapabilities: () =>
+      Promise.resolve(
+        config.clientToolsEnabled
+          ? HARNESS_HOST_CAPABILITIES
+          : { ...HARNESS_HOST_CAPABILITIES, commands: [] },
+      ),
     dispatchCommand: (event) => {
       const command = toHostCommand(event);
       const result =

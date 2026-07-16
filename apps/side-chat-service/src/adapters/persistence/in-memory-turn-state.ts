@@ -6,7 +6,6 @@ import {
   type ConversationHistoryPage,
   type ConversationHistoryQuery,
   type ConversationQueryStore,
-  type StoredConversationMessage,
 } from "#application/ports/conversation-query-store";
 import {
   CANCEL_REQUEST_DISPOSITIONS,
@@ -24,14 +23,18 @@ import {
   createInMemoryTurnReference,
   findTurnByRequest,
   listOwnedActiveTurns,
+  preflightTurn,
   requireIdleConversation,
   requestConflict,
   sameReplayInput,
-  sameReplayOwner,
   sameOwner,
   type InMemoryStoredTurn,
 } from "./in-memory-turn-state/active-turns.js";
 import { createInMemoryTurnActivity } from "./in-memory-turn-state/activity.js";
+import {
+  InMemoryConversationCatalog,
+  type SeedConversation,
+} from "./in-memory-turn-state/conversations/catalog.js";
 import { asError } from "./in-memory-turn-state/errors.js";
 import { storedUIMessage, storedUserMessage } from "./in-memory-turn-state/messages.js";
 import {
@@ -41,16 +44,11 @@ import {
   readInMemoryHistoryPage,
 } from "./in-memory-turn-state/queries.js";
 
-export type SeedConversation = Readonly<{
-  conversationId: string;
-  workspaceId: string;
-  subjectId: string;
-  title?: string | undefined;
-}>;
+export type { SeedConversation } from "./in-memory-turn-state/conversations/catalog.js";
 
 /**
- * Disposable local repository whose seed list is the complete owned catalog;
- * unknown ids and mismatched owners are rejected like the database adapter.
+ * Disposable local repository that mirrors database ownership and turn fencing.
+ * A draft conversation is created atomically with its first accepted turn.
  */
 export class InMemoryTurnState
   implements
@@ -67,20 +65,17 @@ export class InMemoryTurnState
   private readonly turnActivity = createInMemoryTurnActivity();
   readonly turnActivityNotifications = this.turnActivity.source;
 
-  private readonly conversations = new Map<string, SeedConversation>();
-  private readonly conversationMessages = new Map<string, StoredConversationMessage[]>();
+  private readonly conversationCatalog: InMemoryConversationCatalog;
   private readonly turns = new Map<string, InMemoryStoredTurn>();
   private nextTurnNumber = 1;
 
   constructor(seedConversations: readonly SeedConversation[]) {
-    for (const conversation of seedConversations) {
-      this.conversations.set(conversation.conversationId, conversation);
-    }
+    this.conversationCatalog = new InMemoryConversationCatalog(seedConversations);
   }
 
   assertOwned(auth: AuthContext, conversationId: string): Promise<void> {
     try {
-      this.requireOwnedConversation(auth, conversationId);
+      this.conversationCatalog.requireOwned(auth, conversationId);
       return Promise.resolve();
     } catch (error) {
       return Promise.reject(asError(error));
@@ -93,9 +88,9 @@ export class InMemoryTurnState
     query?: ConversationHistoryQuery,
   ): Promise<ConversationHistoryPage> {
     try {
-      this.requireOwnedConversation(auth, conversationId);
+      this.conversationCatalog.requireOwned(auth, conversationId);
       return Promise.resolve(
-        readInMemoryHistoryPage(this.conversationMessages.get(conversationId) ?? [], query),
+        readInMemoryHistoryPage(this.conversationCatalog.readMessages(conversationId), query),
       );
     } catch (error) {
       return Promise.reject(asError(error));
@@ -111,14 +106,14 @@ export class InMemoryTurnState
         this.runningTurns,
         this.turns.values(),
         (owner, ownedConversationId) => {
-          this.requireOwnedConversation(owner, ownedConversationId);
+          this.conversationCatalog.requireOwned(owner, ownedConversationId);
         },
       ),
     );
   }
 
   listConversations(auth: AuthContext) {
-    const conversations = [...this.conversations.values()]
+    const conversations = [...this.conversationCatalog.conversations.values()]
       .filter((conversation) => sameOwner(auth, conversation))
       .map((conversation) => ({
         id: conversation.conversationId,
@@ -131,12 +126,17 @@ export class InMemoryTurnState
 
   listActiveTurns(auth: AuthContext) {
     return Promise.resolve(
-      listOwnedActiveTurns(auth, this.runningTurns, this.conversations, this.turns.values()),
+      listOwnedActiveTurns(
+        auth,
+        this.runningTurns,
+        this.conversationCatalog.conversations,
+        this.turns.values(),
+      ),
     );
   }
 
   readTitleEligibility(auth: AuthContext, conversationId: string) {
-    const conversation = this.requireOwnedConversation(auth, conversationId);
+    const conversation = this.conversationCatalog.requireOwned(auth, conversationId);
     return Promise.resolve({
       eligible: conversation.title === undefined,
       ...(conversation.title === undefined ? {} : { existingTitle: conversation.title }),
@@ -144,38 +144,30 @@ export class InMemoryTurnState
   }
 
   prepareConversationTitle(auth: AuthContext, conversationId: string, titleText: string) {
-    const conversation = this.requireOwnedConversation(auth, conversationId);
-    if (conversation.title === undefined) {
-      this.conversations.set(conversationId, {
-        ...conversation,
-        title: titleText,
-      });
-    }
+    this.conversationCatalog.prepareTitle(auth, conversationId, titleText);
     return Promise.resolve();
   }
 
   recordConversationTitleRun(): Promise<void> {
     return Promise.resolve();
   }
-
-  assertCanBegin(auth: AuthContext, conversationId: string, requestId: string): Promise<void> {
+  assertCanBegin(
+    auth: AuthContext,
+    conversationId: string,
+    requestId: string,
+  ): ReturnType<TurnStore["assertCanBegin"]> {
     try {
-      this.requireOwnedConversation(auth, conversationId);
-      const replay = findTurnByRequest(this.turns.values(), requestId);
-      if (replay) {
-        if (sameReplayOwner(replay, auth, conversationId)) return Promise.resolve();
-        throw requestConflict();
-      }
-      requireIdleConversation(this.runningTurns, conversationId);
-      return Promise.resolve();
+      this.conversationCatalog.assertOwnerWhenExists(auth, conversationId);
+      return Promise.resolve(
+        preflightTurn(auth, conversationId, requestId, this.turns.values(), this.runningTurns),
+      );
     } catch (error) {
       return Promise.reject(asError(error));
     }
   }
-
   beginTurn(input: BeginTurnInput): ReturnType<TurnStore["beginTurn"]> {
     try {
-      this.requireOwnedConversation(input.auth, input.conversationId);
+      this.conversationCatalog.assertOwnerWhenExists(input.auth, input.conversationId);
       const replay = findTurnByRequest(this.turns.values(), input.requestId);
       if (replay) {
         if (!sameReplayInput(replay, input)) throw requestConflict();
@@ -186,6 +178,7 @@ export class InMemoryTurnState
         });
       }
       requireIdleConversation(this.runningTurns, input.conversationId);
+      this.conversationCatalog.createIfMissing(input.auth, input.conversationId);
 
       const reference = createInMemoryTurnReference(
         input.conversationId,
@@ -195,7 +188,10 @@ export class InMemoryTurnState
       this.nextTurnNumber += 1;
       this.runningTurns.add(input.conversationId);
       this.userMessages.push(input.userMessage);
-      this.appendConversationMessage(input.conversationId, storedUserMessage(input.userMessage));
+      this.conversationCatalog.appendMessage(
+        input.conversationId,
+        storedUserMessage(input.userMessage),
+      );
       this.turns.set(reference.turnId, {
         reference,
         requestId: input.requestId,
@@ -226,7 +222,7 @@ export class InMemoryTurnState
 
   assertRunOwned(auth: AuthContext, conversationId: string, runId: string): Promise<void> {
     try {
-      this.requireOwnedConversation(auth, conversationId);
+      this.conversationCatalog.requireOwned(auth, conversationId);
       const matches = [...this.turns.values()].some(
         (turn) => turn.reference.conversationId === conversationId && turn.runId === runId,
       );
@@ -250,7 +246,7 @@ export class InMemoryTurnState
       runId,
       this.turns.values(),
       (owner, conversationId) => {
-        this.requireOwnedConversation(owner, conversationId);
+        this.conversationCatalog.requireOwned(owner, conversationId);
       },
     );
   }
@@ -261,24 +257,15 @@ export class InMemoryTurnState
 
     if (record.assistantMessage !== undefined) {
       this.assistantMessages.push(record.assistantMessage);
-      this.appendConversationMessage(turn.conversationId, storedUIMessage(record.assistantMessage));
+      this.conversationCatalog.appendMessage(
+        turn.conversationId,
+        storedUIMessage(record.assistantMessage),
+      );
     }
     this.terminals.set(turn.turnId, record.terminal);
     this.runningTurns.delete(turn.conversationId);
     this.turnActivity.publish(turn);
     return Promise.resolve(true);
-  }
-
-  private requireOwnedConversation(auth: AuthContext, conversationId: string): SeedConversation {
-    const conversation = this.conversations.get(conversationId);
-    if (!conversation) {
-      throw new TurnRejectedError(TURN_REJECTION_CODES.NOT_FOUND, "Conversation not found");
-    }
-
-    if (!sameOwner(auth, conversation)) {
-      throw new TurnRejectedError(TURN_REJECTION_CODES.FORBIDDEN, "Conversation access denied");
-    }
-    return conversation;
   }
 
   private requireTurn(turn: TurnRef): InMemoryStoredTurn {
@@ -287,13 +274,5 @@ export class InMemoryTurnState
       throw new TurnRejectedError(TURN_REJECTION_CODES.RUN_NOT_FOUND, "Turn not found");
     }
     return stored;
-  }
-
-  private appendConversationMessage(
-    conversationId: string,
-    message: StoredConversationMessage,
-  ): void {
-    const messages = this.conversationMessages.get(conversationId) ?? [];
-    this.conversationMessages.set(conversationId, [...messages, message]);
   }
 }

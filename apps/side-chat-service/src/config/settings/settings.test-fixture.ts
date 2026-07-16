@@ -53,6 +53,11 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
       providerMs: 45_000,
       clientToolMs: 30_000,
     },
+    capacity: {
+      maxActiveTurns: 16,
+      queueSize: 32,
+      queueTimeoutMs: 5_000,
+    },
     agent: {
       instructions: "You are a concise Side Chat assistant.",
       maxSteps: 8,
@@ -61,6 +66,8 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
     keepalive: { intervalMs: 15_000 },
     telemetry: { mode: TELEMETRY_MODES.OFF },
     workflow: {
+      workerConcurrency: 50,
+      maxPoolSize: 52,
       journalPruneAfterDays: 30,
       journalSweepIntervalMs: 3_600_000,
       journalClass: WORKFLOW_JOURNAL_CLASSES.OPERATIONAL,
@@ -77,6 +84,7 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
     hostContext: { ...defaults.hostContext, ...overrides.hostContext },
     auth: { ...defaults.auth, ...overrides.auth },
     timeouts: { ...defaults.timeouts, ...overrides.timeouts },
+    capacity: { ...defaults.capacity, ...overrides.capacity },
     agent: { ...defaults.agent, ...overrides.agent },
     persistence: { ...defaults.persistence, ...overrides.persistence },
     keepalive: { ...defaults.keepalive, ...overrides.keepalive },

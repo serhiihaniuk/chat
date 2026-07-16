@@ -154,6 +154,7 @@ export const toClientToolDispatchRecord = (
   workspaceId: row.workspaceId,
   toolCallId: row.toolCallId,
   toolName: row.toolName,
+  clientToolCapabilityDigest: row.clientToolCapabilityDigest,
   state: row.state,
   ...omitNullishField("outputJson", row.outputJson),
   dispatchedAt: isoTimestamp(row.dispatchedAt),

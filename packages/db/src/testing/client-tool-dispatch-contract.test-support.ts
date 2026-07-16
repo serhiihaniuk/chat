@@ -23,6 +23,7 @@ export const clientToolDispatchRepositoryContract = (
         const command = {
           workspaceId: workspaceId(scope),
           assistantTurnId: turn.assistantTurnId,
+          clientToolCapabilityDigest: "a".repeat(64),
           toolCallId: "client_tool_1",
           toolName: "open_resource",
           now,
@@ -33,6 +34,12 @@ export const clientToolDispatchRepositoryContract = (
 
         expect(created.record.state).toBe("dispatched");
         expect(replayed).toEqual({ record: created.record, inserted: false });
+        await expect(
+          repositories.createClientToolDispatch({
+            ...command,
+            clientToolCapabilityDigest: "b".repeat(64),
+          }),
+        ).rejects.toMatchObject({ code: DB_REPOSITORY_ERROR_CODES.INVALID_TRANSITION });
       } finally {
         await closeIfNeeded(repositories);
       }

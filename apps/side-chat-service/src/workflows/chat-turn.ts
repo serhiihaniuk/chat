@@ -1,4 +1,3 @@
-import { type WorkflowAgent, type WorkflowAgentStreamResult } from "@ai-sdk/workflow";
 import type { UIMessageChunk } from "ai";
 import { createHook, getWorkflowMetadata, getWritable } from "workflow";
 
@@ -12,19 +11,13 @@ import {
 import { patchWorkflowRealmAbortSignal } from "./realm/abort-signal-patch.js";
 import type { ChatTurnJournalPart } from "./journal/chat-turn-journal.js";
 import {
-  ABORT_ERROR_NAME,
-  CHAT_TURN_ERROR_CODES,
   CHAT_TURN_OUTCOMES,
   chatTurnFinalization,
   failedChatTurnOutcome,
-  shouldDeferChatTurnStreamFailure,
   withVisibleAssistantMessage,
   type ChatTurnTerminalOutcome,
 } from "./outcome/chat-turn-outcome.js";
-import {
-  didWorkflowAgentFail,
-  toCompletedChatTurnOutcome,
-} from "./outcome/completed-chat-turn-outcome.js";
+import { raceChatTurnOutcome } from "./outcome/race/chat-turn-outcome-race.js";
 import { createClientTools } from "./client-tools/index.js";
 import { runChatTurnFinalizeStep } from "./production/chat-turn-finalize.js";
 import { claimChatTurnExecution, resolveRejectedChatTurnClaim } from "./execution-claim.js";
@@ -32,7 +25,7 @@ import { readChatTurnJournalProjectionStep } from "./production/stream/chat-turn
 import { createSuspendableTurnTimeout } from "./timeout/turn-timeout.js";
 import { createServerTools } from "./server-tools/index.js";
 import type { ChatTurnWorkflowInput } from "./input/chat-turn-input.js";
-import { createChatTurnAgent, toChatTurnModelMessages } from "./chat-turn-agent.js";
+import { createChatTurnAgent } from "./agent/chat-turn-agent.js";
 
 export type { ChatTurnWorkflowInput, SerializableChatMessage } from "./input/chat-turn-input.js";
 export { stampAssistantMessageId, toChatTurnUIStream } from "./journal/chat-turn-ui-stream.js";
@@ -41,17 +34,7 @@ const CHAT_TURN_WORKFLOW = {
   AGENT_ID: "side-chat-turn",
   CANCELLATION_HOOK_PREFIX: "chat-turn-cancel",
   MAX_RETRIES: 0,
-  PROVIDER_TIMEOUT_REASON: CHAT_TURN_ERROR_CODES.PROVIDER_TIMEOUT,
 } as const;
-
-/**
- * Excludes an aborted stream from the terminal race. The cancel or timeout arm
- * that requested the abort is the authority, so the aborted `agent.stream`
- * rejection must not resolve the race and misclassify the outcome.
- */
-const DEFERRED_OUTCOME: Promise<never> = new Promise(() => {
-  // Intentionally never settles.
-});
 
 export interface StartedChatTurn {
   readonly runId: string;
@@ -59,13 +42,21 @@ export interface StartedChatTurn {
   readonly terminal: Promise<ChatTurnTerminalOutcome>;
 }
 
-interface TurnCancellation {
-  readonly reason: string;
-}
+export type ChatTurnExecutionDependencies = Readonly<{
+  workflowRunId: () => string;
+  claimExecution: typeof claimChatTurnExecution;
+  resolveRejectedClaim: typeof resolveRejectedChatTurnClaim;
+  createCancellationHook: (token: string) => PromiseLike<Readonly<{ reason: string }>>;
+  createAgent: typeof createChatTurnAgent;
+}>;
 
-type SettledStream =
-  | Readonly<{ kind: "completed"; result: WorkflowAgentStreamResult }>
-  | Readonly<{ kind: "failed"; error: unknown }>;
+const DEFAULT_CHAT_TURN_EXECUTION_DEPENDENCIES: ChatTurnExecutionDependencies = {
+  workflowRunId: () => getWorkflowMetadata().workflowRunId,
+  claimExecution: claimChatTurnExecution,
+  resolveRejectedClaim: resolveRejectedChatTurnClaim,
+  createCancellationHook: (token) => createHook<Readonly<{ reason: string }>>({ token }),
+  createAgent: createChatTurnAgent,
+};
 
 export function chatTurnCancellationHookToken(runId: string): string {
   return `${CHAT_TURN_WORKFLOW.CANCELLATION_HOOK_PREFIX}:${runId}`;
@@ -77,22 +68,33 @@ export async function executeChatTurn(
   modelProvider: ModelProvider,
   serverToolDefinitions: readonly ServerToolDefinition[],
   databaseUrl?: string,
+  dependencies: ChatTurnExecutionDependencies = DEFAULT_CHAT_TURN_EXECUTION_DEPENDENCIES,
 ): Promise<ChatTurnTerminalOutcome> {
   const controller = new AbortController();
   patchWorkflowRealmAbortSignal(controller.signal);
-  const { workflowRunId } = getWorkflowMetadata();
+  const workflowRunId = dependencies.workflowRunId();
 
-  const initialClaim = await claimChatTurnExecution(databaseUrl, input, workflowRunId);
+  const initialClaim = await dependencies.claimExecution(databaseUrl, input, workflowRunId);
   if (initialClaim !== TURN_CLAIM_DISPOSITIONS.EXECUTE) {
-    return await resolveRejectedChatTurnClaim(initialClaim, databaseUrl, input, finalizeChatTurn);
+    return await dependencies.resolveRejectedClaim(
+      initialClaim,
+      databaseUrl,
+      input,
+      finalizeChatTurn,
+    );
   }
 
-  const cancellation = createHook<TurnCancellation>({
-    token: chatTurnCancellationHookToken(workflowRunId),
-  });
-  const providerClaim = await claimChatTurnExecution(databaseUrl, input, workflowRunId);
+  const cancellation = dependencies.createCancellationHook(
+    chatTurnCancellationHookToken(workflowRunId),
+  );
+  const providerClaim = await dependencies.claimExecution(databaseUrl, input, workflowRunId);
   if (providerClaim !== TURN_CLAIM_DISPOSITIONS.EXECUTE) {
-    return await resolveRejectedChatTurnClaim(providerClaim, databaseUrl, input, finalizeChatTurn);
+    return await dependencies.resolveRejectedClaim(
+      providerClaim,
+      databaseUrl,
+      input,
+      finalizeChatTurn,
+    );
   }
   const resolvedModel = modelProvider.modelFor({
     modelId: input.modelId,
@@ -104,6 +106,7 @@ export async function executeChatTurn(
   const writable = getWritable<ChatTurnJournalPart>();
   const clientTools = createClientTools({
     definitions: input.clientTools,
+    clientToolCapabilityDigest: input.clientToolCapabilityDigest,
     runId: workflowRunId,
     databaseUrl,
     workspaceId: input.workspaceId,
@@ -123,7 +126,7 @@ export async function executeChatTurn(
     abortSignal: controller.signal,
   });
 
-  const agent = createChatTurnAgent({
+  const agent = dependencies.createAgent({
     id: CHAT_TURN_WORKFLOW.AGENT_ID,
     model: resolvedModel.model,
     instructions: input.instructions,
@@ -172,84 +175,6 @@ async function foldChatTurnJournalProjection(
       ? failedChatTurnOutcome()
       : outcome;
   return withVisibleAssistantMessage(classifiedOutcome, projection.assistantMessage);
-}
-
-/**
- * Resolve exactly one terminal outcome. A completion or a non-abort failure wins
- * directly; an aborted stream defers to the cancel or timeout arm that requested
- * it, so the result is order-independent and does not depend on the abort message
- * surviving the provider boundary.
- */
-async function raceChatTurnOutcome(
-  agent: WorkflowAgent,
-  controller: AbortController,
-  cancellation: PromiseLike<TurnCancellation>,
-  providerTimeout: ReturnType<typeof createSuspendableTurnTimeout>,
-  writable: WritableStream<ChatTurnJournalPart>,
-  input: ChatTurnWorkflowInput,
-): Promise<ChatTurnTerminalOutcome> {
-  const activityStartedAt = Date.now();
-  const streamSettled = agent
-    .stream({
-      messages: toChatTurnModelMessages(input.messages),
-      writable,
-      abortSignal: controller.signal,
-    })
-    .then(
-      (result): SettledStream => ({ kind: "completed", result }),
-      (error): SettledStream => ({ kind: "failed", error }),
-    );
-
-  const streamOutcome = streamSettled.then((settled) =>
-    resolveSettledStream(
-      settled,
-      input,
-      Math.max(0, Date.now() - activityStartedAt),
-      controller.signal.aborted,
-    ),
-  );
-
-  const cancelOutcome = async (): Promise<ChatTurnTerminalOutcome> => {
-    const payload = await cancellation;
-    controller.abort(new DOMException(payload.reason, ABORT_ERROR_NAME));
-    await streamSettled;
-    return { status: CHAT_TURN_OUTCOMES.CANCELLED, reason: payload.reason };
-  };
-
-  const timeoutOutcome = async (): Promise<ChatTurnTerminalOutcome> => {
-    await providerTimeout.waitUntilElapsed();
-    controller.abort(
-      new DOMException(CHAT_TURN_WORKFLOW.PROVIDER_TIMEOUT_REASON, ABORT_ERROR_NAME),
-    );
-    await streamSettled;
-    return {
-      status: CHAT_TURN_OUTCOMES.FAILED,
-      code: CHAT_TURN_ERROR_CODES.PROVIDER_TIMEOUT,
-    };
-  };
-
-  return await Promise.race([streamOutcome, cancelOutcome(), timeoutOutcome()]);
-}
-
-function resolveSettledStream(
-  settled: SettledStream,
-  input: ChatTurnWorkflowInput,
-  activityDurationMs: number,
-  controllerAbortRequested: boolean,
-): ChatTurnTerminalOutcome | Promise<never> {
-  if (settled.kind === "completed") {
-    if (didWorkflowAgentFail(settled.result)) return failedChatTurnOutcome();
-    return toCompletedChatTurnOutcome(
-      input.turnId,
-      input.maxSteps,
-      activityDurationMs,
-      settled.result,
-    );
-  }
-  if (shouldDeferChatTurnStreamFailure(settled.error, controllerAbortRequested)) {
-    return DEFERRED_OUTCOME;
-  }
-  return failedChatTurnOutcome();
 }
 
 /** Durably persist the terminal inside the workflow so a route crash cannot strand it. */

@@ -61,7 +61,7 @@ afterEach(() => {
 describe("useWorkflowWidgetChat", () => {
   it("seeds history once and finishes with exactly one streamed assistant", async () => {
     let sentMessageIds: string[] = [];
-    const onRunAccepted = vi.fn<(runId: string) => void>();
+    const onRunAccepted = vi.fn<(runId: string, clientToolCapability: string) => void>();
     const onRunTerminal = vi.fn<(runId: string) => void>();
     const request = vi.fn<typeof fetch>((_input, init) => {
       sentMessageIds = readSentMessageIds(init?.body);
@@ -99,7 +99,7 @@ describe("useWorkflowWidgetChat", () => {
       messageId: "assistant-1",
       partCount: 2,
     });
-    expect(onRunAccepted).toHaveBeenCalledWith("run-1");
+    expect(onRunAccepted).toHaveBeenCalledWith("run-1", expect.any(String));
     expect(onRunTerminal).toHaveBeenCalledWith("run-1");
   });
 
@@ -251,7 +251,7 @@ describe("useWorkflowWidgetChat", () => {
     const approvalResponse = new Promise<Response>((resolve) => {
       resolveApproval = resolve;
     });
-    const onRunAccepted = vi.fn<(runId: string) => void>();
+    const onRunAccepted = vi.fn<(runId: string, clientToolCapability: string) => void>();
     const onRunTerminal = vi.fn<(runId: string) => void>();
     const request = vi.fn<typeof fetch>((input, init) => {
       const url = requestUrl(input);
@@ -268,7 +268,7 @@ describe("useWorkflowWidgetChat", () => {
       JSON.stringify(chat.current?.messages).includes('"state":"approval-requested"'),
     );
 
-    expect(onRunAccepted).toHaveBeenCalledWith("run-1");
+    expect(onRunAccepted).toHaveBeenCalledWith("run-1", expect.any(String));
     expect(onRunTerminal).not.toHaveBeenCalled();
 
     let decisionRequest: Promise<void> | undefined;
@@ -382,7 +382,7 @@ describe("useWorkflowWidgetChat", () => {
 
   it("retains an accepted run when its response stream loses transport", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const onRunAccepted = vi.fn<(runId: string) => void>();
+    const onRunAccepted = vi.fn<(runId: string, clientToolCapability: string) => void>();
     const onRunTerminal = vi.fn<(runId: string) => void>();
     const request = vi.fn<typeof fetch>(() => Promise.resolve(interruptedTurnResponse()));
     const chat = renderChat({ fetch: request }, undefined, { onRunAccepted, onRunTerminal });
@@ -390,7 +390,7 @@ describe("useWorkflowWidgetChat", () => {
     await act(async () => chat.current?.submitMessage("Lose the stream"));
     await waitFor(() => chat.current?.error !== undefined);
 
-    expect(onRunAccepted).toHaveBeenCalledWith("run-1");
+    expect(onRunAccepted).toHaveBeenCalledWith("run-1", expect.any(String));
     expect(onRunTerminal).not.toHaveBeenCalled();
   });
 });

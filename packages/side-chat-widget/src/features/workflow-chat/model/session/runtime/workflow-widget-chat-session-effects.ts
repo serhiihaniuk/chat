@@ -15,7 +15,7 @@ export type WorkflowWidgetChatSessionEffectContext = Readonly<{
   isDisposed: () => boolean;
   isEpochActive: () => boolean;
   readSnapshot: () => WorkflowWidgetChatSessionSnapshot;
-  reconnect: (runId: string) => void;
+  reconnect: (runId: string, clientToolCapability?: string) => void;
 }>;
 
 type WorkflowWidgetApprovalInput = Readonly<{
@@ -40,16 +40,18 @@ export async function decideWorkflowWidgetApproval(
 export async function dispatchWorkflowWidgetClientTool(
   context: WorkflowWidgetChatSessionEffectContext,
   toolCall: WorkflowClientToolCall,
+  clientToolCapability: string,
 ): Promise<void> {
   const continuation = await dispatchPendingWorkflowClientTool({
     client: context.client,
+    clientToolCapability,
     dispatch: context.dispatch,
     hostBridge: context.hostBridge,
     readSnapshot: context.readSnapshot,
     toolCall,
   });
   if (!continuation?.reconnect || context.isDisposed() || context.isEpochActive()) return;
-  context.reconnect(continuation.runId);
+  context.reconnect(continuation.runId, clientToolCapability);
 }
 
 export function requestWorkflowWidgetCancellation(

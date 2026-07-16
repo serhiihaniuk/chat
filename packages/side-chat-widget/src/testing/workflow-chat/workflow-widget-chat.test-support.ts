@@ -184,6 +184,26 @@ export function approvalTurnResponse(): Response {
   );
 }
 
+export function clientToolTurnResponse(): Response {
+  return eventResponse(
+    [
+      { type: "start", messageId: "assistant-1" },
+      { type: "start-step" },
+      {
+        type: "tool-input-available",
+        dynamic: true,
+        toolCallId: "client-tool-call-1",
+        toolName: "open_resource",
+        input: { resourceId: "doc-1" },
+      },
+      { type: "finish-step" },
+      { type: "finish" },
+    ]
+      .map(toSseData)
+      .join("") + "data: [DONE]\n\n",
+  );
+}
+
 export function readSentMessageIds(body: BodyInit | null | undefined): string[] {
   const parsed: unknown = JSON.parse(requestBodyText(body));
   if (!isRecord(parsed) || !Array.isArray(parsed["messages"])) {

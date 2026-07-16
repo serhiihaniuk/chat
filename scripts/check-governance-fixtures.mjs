@@ -443,6 +443,19 @@ expectFailure(
 );
 
 expectFailure(
+  "service application dependency allowlist fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/application/bad.ts",
+      "import { openai } from '@ai-sdk/openai';\nexport const bad = openai;\n",
+    );
+  },
+  "application imports outward dependency @ai-sdk/openai",
+);
+
+expectFailure(
   "service Effect boundary fixture",
   "check-side-chat-service-architecture.mjs",
   (root) => {
@@ -482,6 +495,37 @@ expectFailure(
 );
 
 expectFailure(
+  "service adapter workflow coupling fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/adapters/http/bad.ts",
+      "import { run } from '#workflows/production/chat-turn';\nexport const bad = run;\n",
+    );
+  },
+  "adapter imports another outer implementation #workflows/production/chat-turn",
+);
+
+expectFailure(
+  "service relative adapter coupling fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/adapters/http/bad.ts",
+      "import { model } from '../providers/model.js';\nexport const bad = model;\n",
+    );
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/adapters/providers/model.ts",
+      "export const model = {};\n",
+    );
+  },
+  "adapter imports another outer implementation ../providers/model.js",
+);
+
+expectFailure(
   "service workflow engine placement fixture",
   "check-side-chat-service-architecture.mjs",
   (root) => {
@@ -512,6 +556,29 @@ expectFailure(
       root,
       "apps/side-chat-service/src/testing/scripted-model.ts",
       "export const model = {};\n",
+    );
+  },
+  "production import graph reaches testing dependency",
+);
+
+expectFailure(
+  "service production testing folder isolation fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/index.ts",
+      "export { app } from '#composition/route/production';\n",
+    );
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/composition/route/production.ts",
+      "export { fake } from './testing-harness/fake.js';\n",
+    );
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/composition/route/testing-harness/fake.ts",
+      "export const fake = {};\n",
     );
   },
   "production import graph reaches testing dependency",

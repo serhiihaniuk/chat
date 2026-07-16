@@ -1,38 +1,11 @@
 import type { UIMessageChunk } from "ai";
 import type { ModelCallStreamPart } from "@ai-sdk/workflow";
-import type * as WorkflowModule from "workflow";
 import { HookNotFoundError, WorkflowRunNotFoundError } from "workflow/internal/errors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ModelProvider } from "#application/ports/model-provider";
 import { TURN_CLAIM_DISPOSITIONS } from "#application/ports/turn/turn-store";
-import type { createChatTurnAgent, toChatTurnModelMessages } from "../chat-turn-agent.js";
-import type { claimChatTurnExecution, resolveRejectedChatTurnClaim } from "../execution-claim.js";
-
-const { claimExecutionMock, createAgentMock, createHookMock, resolveRejectedClaimMock } =
-  vi.hoisted(() => ({
-    claimExecutionMock: vi.fn<typeof claimChatTurnExecution>(),
-    createAgentMock: vi.fn<typeof createChatTurnAgent>(),
-    createHookMock: vi.fn<() => Promise<never>>(),
-    resolveRejectedClaimMock: vi.fn<typeof resolveRejectedChatTurnClaim>(),
-  }));
-
-vi.mock("workflow", async (importOriginal) => {
-  const actual = await importOriginal<typeof WorkflowModule>();
-  return {
-    ...actual,
-    createHook: createHookMock,
-    getWorkflowMetadata: () => ({ workflowRunId: "workflow-run-1" }),
-  };
-});
-vi.mock("../execution-claim.js", () => ({
-  claimChatTurnExecution: claimExecutionMock,
-  resolveRejectedChatTurnClaim: resolveRejectedClaimMock,
-}));
-vi.mock("../chat-turn-agent.js", () => ({
-  createChatTurnAgent: createAgentMock,
-  toChatTurnModelMessages: vi.fn<typeof toChatTurnModelMessages>(),
-}));
+import type { ChatTurnExecutionDependencies } from "../chat-turn.js";
 
 import {
   clientToolResultHookToken,
@@ -47,6 +20,10 @@ import { cancelChatTurn, wakeChatTurnProviderStep } from "./cancellation/index.j
 
 const ZERO_USAGE = { inputTokens: 0, outputTokens: 0, totalTokens: 0 } as const;
 const ACTIVITY_DURATION_MS = 1_501;
+const claimExecutionMock = vi.fn<ChatTurnExecutionDependencies["claimExecution"]>();
+const createAgentMock = vi.fn<ChatTurnExecutionDependencies["createAgent"]>();
+const createHookMock = vi.fn<ChatTurnExecutionDependencies["createCancellationHook"]>();
+const resolveRejectedClaimMock = vi.fn<ChatTurnExecutionDependencies["resolveRejectedClaim"]>();
 
 beforeEach(() => {
   claimExecutionMock.mockReset();
@@ -88,6 +65,13 @@ describe("provider execution fence", () => {
         { modelFor },
         [],
         "postgres://test",
+        {
+          workflowRunId: () => "workflow-run-1",
+          claimExecution: claimExecutionMock,
+          resolveRejectedClaim: resolveRejectedClaimMock,
+          createCancellationHook: createHookMock,
+          createAgent: createAgentMock,
+        },
       ),
     ).resolves.toEqual({ status: "cancelled", reason: "product_turn_fenced" });
 

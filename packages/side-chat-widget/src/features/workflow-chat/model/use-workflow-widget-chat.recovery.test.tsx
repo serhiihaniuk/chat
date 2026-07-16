@@ -2,6 +2,7 @@ import { Window } from "happy-dom";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { WidgetHostBridge } from "@side-chat/host-bridge";
 
 import type {
   WorkflowActiveTurn,
@@ -15,6 +16,7 @@ import {
 } from "./use-workflow-widget-chat.js";
 import {
   completedTurnResponse,
+  clientToolTurnResponse,
   controllableTurnResponse,
   openTurnResponse,
   requestUrl,
@@ -53,6 +55,42 @@ afterEach(() => {
 });
 
 describe("useWorkflowWidgetChat recovery", () => {
+  it("lets a watcher replay a client-tool call without invoking or failing it", async () => {
+    const dispatchToolCall = vi.fn<NonNullable<WidgetHostBridge["dispatchToolCall"]>>();
+    const getCapabilities = vi.fn<NonNullable<WidgetHostBridge["getCapabilities"]>>(() =>
+      Promise.resolve({
+        schemaVersion: "test.capabilities.v1",
+        commands: [
+          {
+            commandName: "open_resource",
+            description: "Open a host resource.",
+            inputSchema: { type: "object" },
+          },
+        ],
+      }),
+    );
+    const request = vi.fn<typeof fetch>(() => Promise.resolve(clientToolTurnResponse()));
+    const client = createClient(request);
+    const current: { current: WorkflowWidgetChat | undefined } = { current: undefined };
+    const Probe = () => {
+      current.current = useWorkflowWidgetChat({
+        activeTurn: { runId: "run-1", turnId: "turn-1" },
+        client,
+        hostBridge: { dispatchToolCall, getCapabilities },
+        initialMessages: [SEEDED_MESSAGE],
+        stateObservationId: "watcher-snapshot",
+      });
+      return null;
+    };
+
+    act(() => root.render(createElement(Probe)));
+    await waitFor(() => JSON.stringify(current.current?.messages).includes("client-tool-call-1"));
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(getCapabilities).not.toHaveBeenCalled();
+    expect(dispatchToolCall).not.toHaveBeenCalled();
+  });
+
   it("reattaches to a discovered run on cold load without duplicating seeded history", async () => {
     const urls: string[] = [];
     const request = vi.fn<typeof fetch>((input) => {

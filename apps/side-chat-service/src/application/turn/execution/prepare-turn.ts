@@ -32,7 +32,9 @@ export type PrepareTurnInput = Readonly<{
   acceptedUserMessage: TurnMessage;
   hostContext?: HostContext | undefined;
   clientTools?: readonly ClientToolDefinition[];
+  clientToolCapabilityDigest?: string | undefined;
   enabledToolNames?: readonly string[] | undefined;
+  signal?: AbortSignal | undefined;
 }>;
 
 export type PreparedTurn = Readonly<{
@@ -59,8 +61,15 @@ export async function prepareTurn(
   input: PrepareTurnInput,
 ): Promise<PreparedTurn> {
   const model = dependencies.modelPolicy(input.requestedModelId, input.requestedReasoningEffort);
-  await dependencies.turns.assertCanBegin(input.auth, input.conversationId, input.requestId);
-  const admission = await dependencies.admission.admitTurn(input.conversationId);
+  const preflight = await dependencies.turns.assertCanBegin(
+    input.auth,
+    input.conversationId,
+    input.requestId,
+  );
+  let admission =
+    preflight === BEGIN_TURN_DISPOSITIONS.REUSED
+      ? NO_ADMISSION_LEASE
+      : await dependencies.admission.admitTurn(input.conversationId, { signal: input.signal });
 
   try {
     const begun = await dependencies.turns.beginTurn({
@@ -69,6 +78,10 @@ export async function prepareTurn(
       requestId: input.requestId,
       userMessage: input.acceptedUserMessage,
     });
+    if (begun.disposition === BEGIN_TURN_DISPOSITIONS.REUSED && admission !== NO_ADMISSION_LEASE) {
+      await admission.release();
+      admission = NO_ADMISSION_LEASE;
+    }
     const executionMessages = renderHostContextForExecution(
       input.messages,
       input.acceptedUserMessage,
@@ -82,12 +95,23 @@ export async function prepareTurn(
       ...(model.reasoningEffort === undefined ? {} : { reasoningEffort: model.reasoningEffort }),
       messages: executionMessages,
       clientTools: input.clientTools ?? [],
+      ...(input.clientToolCapabilityDigest === undefined
+        ? {}
+        : { clientToolCapabilityDigest: input.clientToolCapabilityDigest }),
       ...(input.enabledToolNames === undefined ? {} : { enabledToolNames: input.enabledToolNames }),
     };
     const turn = toTurnRef(begun);
     const execution = await beginExecution(dependencies, begun, executionInput);
     if (begun.disposition === BEGIN_TURN_DISPOSITIONS.CREATED) {
-      await dependencies.turns.bindRun(turn, execution.runId);
+      try {
+        await dependencies.turns.bindRun(turn, execution.runId);
+      } catch (error) {
+        const startedRunAdmission = admission;
+        admission = NO_ADMISSION_LEASE;
+        releaseStartedRunAtTerminal(execution, startedRunAdmission);
+        void dependencies.execution.cancel(execution.runId).catch(() => undefined);
+        throw error;
+      }
     }
     return { turn, execution, admission };
   } catch (error) {
@@ -95,6 +119,23 @@ export async function prepareTurn(
     throw error;
   }
 }
+
+/** A started durable run keeps its reservation even if its local run bind fails. */
+function releaseStartedRunAtTerminal(
+  execution: StartedTurnExecution,
+  admission: TurnAdmissionLease,
+): void {
+  void execution.terminal
+    .then(
+      () => admission.release(),
+      () => admission.release(),
+    )
+    .catch(() => undefined);
+}
+
+const NO_ADMISSION_LEASE: TurnAdmissionLease = {
+  release: () => Promise.resolve(),
+};
 
 async function beginExecution(
   dependencies: PrepareTurnDependencies,

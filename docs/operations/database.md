@@ -70,7 +70,12 @@ In-memory persistence loses all chats on restart. Use it for local development o
 
 `sidechat.client_tool_dispatches` is the authority for browser-executed tool calls. One row is unique on `(assistant_turn_id, tool_call_id)` and moves atomically from `dispatched` to `settled`, `failed`, `timed_out`, or `aborted`; a result after timeout records `late` without replacing the timeout output already returned to the model. The exact JSON-safe model output is stored in an object envelope so JSON `null` remains distinguishable from SQL `NULL`. Inputs are not copied into this coordination table.
 
-`assistant_turns.run_id` has a partial unique index and is bound once. Result routes first resolve that run under the authenticated workspace and subject, then require the exact dispatch row before accepting a body. This makes the row an anti-spoof anchor and lets any service instance settle a suspended Workflow run without relying on process memory.
+Each row also stores the SHA-256 digest of the originating tab's run-scoped
+client-tool capability. The raw capability is never stored in PostgreSQL. An
+exact replay must preserve the same tool name and digest; changing either is an
+invalid transition rather than a new authority grant.
+
+`assistant_turns.run_id` has a partial unique index and is bound once. Result routes first resolve that run under the authenticated workspace and subject, then require the exact dispatch row and capability digest before accepting a body. This makes the row an anti-spoof anchor and lets any service instance settle a suspended Workflow run without relying on process memory.
 
 ## Tool-approval coordination
 

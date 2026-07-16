@@ -6,35 +6,24 @@ import { createActivityRoutes } from "#adapters/http/conversations/activity-rout
 import { structuredPartCatalogsForServerTools } from "#application/conversations/read-conversation-history";
 import { createHttpApp, type Readiness } from "#adapters/http/health/health-app";
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
-import {
-  createPostgresTurnState,
-  type PostgresTurnState,
-} from "#adapters/persistence/postgres-turn-state";
+import type { PostgresTurnState } from "#adapters/persistence/postgres-turn-state";
 import { registerServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
 import type { ModelProvider } from "#application/ports/model-provider";
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
-import type { TurnActivityNotificationSource } from "#application/ports/turn/activity/turn-activity-source";
 import { createTurnActivityDispatcher } from "#application/turn/activity/turn-activity-dispatcher";
-import { createPostgresTurnActivityNotificationSource } from "@side-chat/db";
 import type { RequestAuthorizer } from "#application/ports/request-authorizer";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
 import type { TurnExecution } from "#application/ports/turn/turn-execution";
-import {
-  CLIENT_TOOL_DISPATCH_LOOKUP,
-  type ClientToolDispatchStore,
-} from "#application/ports/turn/tools/client-tool-dispatch-store";
+import type { ClientToolDispatchStore } from "#application/ports/turn/tools/client-tool-dispatch-store";
 import type { ResumeClientTool } from "#application/turn/tools/submit-client-tool-output";
-import {
-  TOOL_APPROVAL_LOOKUP,
-  type ToolApprovalDecisionStore,
-} from "#application/ports/turn/tools/tool-approval-store";
+import type { ToolApprovalDecisionStore } from "#application/ports/turn/tools/tool-approval-store";
 import type { ResumeToolApproval } from "#application/turn/tools/approvals/submit-tool-approval";
 import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
 import { configuredTurnModelCatalog } from "#application/turn/turn-model-policy";
 import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
 import { selectRegisteredServerTools } from "#application/turn/tools/server-tools/registered-server-tools";
-import { createScrubTransform } from "#application/turn/stream/scrub-filter";
+import { createObservedScrubTransform } from "#application/telemetry/observed-scrub-transform";
 import type { Settings } from "#config/settings/resolve-settings";
 import { scriptedModelProvider } from "#testing/scripted-language-model";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
@@ -47,19 +36,14 @@ import {
 } from "../providers/configured-model-catalog.js";
 import { createServiceAuthorizer } from "../auth/create-service-authorizer.js";
 import { localChatConversation } from "./testing-harness/local-chat-fixture.js";
+import {
+  createConfiguredTestingPersistence,
+  createInMemoryTestingPersistence,
+  type TestingPersistence,
+} from "./persistence/testing-persistence.js";
 
 const unavailableTurnReplay: TurnReplay = {
   open: () => Promise.resolve({ status: TURN_REPLAY_RESULTS.NOT_FOUND }),
-};
-
-const unavailableClientToolDispatches: ClientToolDispatchStore = {
-  findOwned: () => Promise.resolve(CLIENT_TOOL_DISPATCH_LOOKUP.NOT_FOUND),
-  submit: () => Promise.reject(new Error("Client-tool dispatch persistence is unavailable")),
-};
-
-const unavailableToolApprovals: ToolApprovalDecisionStore = {
-  findOwnedApproval: () => Promise.resolve(TOOL_APPROVAL_LOOKUP.NOT_FOUND),
-  decideApproval: () => Promise.reject(new Error("Tool-approval persistence is unavailable")),
 };
 
 function resolveServerTools(
@@ -89,7 +73,7 @@ export async function startTestingService(
     serverTools?: readonly ServerToolDefinition[];
   }> = {},
 ) {
-  const persistence = inMemoryPersistence(
+  const persistence = createInMemoryTestingPersistence(
     overrides.turnState ??
       new InMemoryTurnState([localChatConversation(settings.auth.workspaceId)]),
   );
@@ -179,10 +163,11 @@ async function startTestingServiceWithPersistence<
       resumeClientTool: overrides.resumeClientTool ?? (() => Promise.resolve(false)),
       ...approvalDependencies,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
-      outboundTransforms: [() => createScrubTransform()],
+      outboundTransforms: [() => createObservedScrubTransform(telemetrySink)],
       modelPolicy: configuredTurnModelCatalog(configuredModelCatalog(settings)),
       serverToolNames,
       hostContextPolicy: settings.hostContext,
+      telemetry: telemetrySink,
       // In-memory dev has no durable workflow finalize; the route projects the
       // terminal itself. Postgres deployments leave it to the workflow step.
       ...(persistence.durable ? {} : { routeFinalization: { turns: turnState } }),
@@ -205,6 +190,7 @@ async function startTestingServiceWithPersistence<
       dispatcher: activityDispatcher,
       queries: conversationQueries,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
+      telemetry: telemetrySink,
     }),
   );
   app.route("/", createCompatibilityApp());
@@ -232,51 +218,4 @@ function testingApprovalDependencies(
 
 function resolveTurnReplay(override: TurnReplay | undefined): TurnReplay {
   return override ?? unavailableTurnReplay;
-}
-
-type TestingPersistence<TStore extends InMemoryTurnState | PostgresTurnState> = Readonly<{
-  store: TStore;
-  clientToolDispatches: ClientToolDispatchStore;
-  toolApprovals: ToolApprovalDecisionStore;
-  registerClose: StartServicePart;
-  activityNotificationSource: TurnActivityNotificationSource;
-  /** True when the workflow finalize step owns terminal persistence (Postgres). */
-  durable: boolean;
-}>;
-
-function createConfiguredTestingPersistence(
-  settings: Settings,
-): TestingPersistence<InMemoryTurnState | PostgresTurnState> {
-  const databaseUrl = settings.persistence.databaseUrl;
-  if (databaseUrl === undefined) {
-    return inMemoryPersistence(
-      new InMemoryTurnState([localChatConversation(settings.auth.workspaceId)]),
-    );
-  }
-  const store = createPostgresTurnState(databaseUrl);
-  return {
-    store,
-    activityNotificationSource: createPostgresTurnActivityNotificationSource(databaseUrl),
-    clientToolDispatches: store,
-    toolApprovals: store,
-    durable: true,
-    registerClose: () => ({
-      name: "postgres testing turn state",
-      close: () => store.close(),
-    }),
-  };
-}
-
-function inMemoryPersistence(store: InMemoryTurnState): TestingPersistence<InMemoryTurnState> {
-  return {
-    store,
-    activityNotificationSource: store.turnActivityNotifications,
-    clientToolDispatches: unavailableClientToolDispatches,
-    toolApprovals: unavailableToolApprovals,
-    durable: false,
-    registerClose: () => ({
-      name: "in-memory testing turn state",
-      close: () => undefined,
-    }),
-  };
 }

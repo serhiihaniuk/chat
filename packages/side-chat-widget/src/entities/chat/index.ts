@@ -9,6 +9,7 @@ export {
   messagesBeforeMessage,
   toErrorMessage,
   updateMessage,
+  WIDGET_STATUSES,
 } from "./model/widget-chat.js";
 export {
   applyActivityEvent,

@@ -152,9 +152,9 @@ describe("postgres turn state adapter mapping", () => {
       }),
     );
 
-    await expect(
-      state.assertCanBegin(AUTH, "conversation_1", "request_1"),
-    ).resolves.toBeUndefined();
+    await expect(state.assertCanBegin(AUTH, "conversation_1", "request_1")).resolves.toBe(
+      BEGIN_TURN_DISPOSITIONS.CREATED,
+    );
   });
 
   it("allows an owned request replay without consulting the busy slot", async () => {
@@ -169,9 +169,9 @@ describe("postgres turn state adapter mapping", () => {
       }),
     );
 
-    await expect(
-      state.assertCanBegin(AUTH, "conversation_1", "request_1"),
-    ).resolves.toBeUndefined();
+    await expect(state.assertCanBegin(AUTH, "conversation_1", "request_1")).resolves.toBe(
+      BEGIN_TURN_DISPOSITIONS.REUSED,
+    );
     expect(availabilityRead).toBe(false);
   });
 

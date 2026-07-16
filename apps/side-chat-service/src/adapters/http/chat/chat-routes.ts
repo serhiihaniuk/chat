@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import type { JsonValue } from "@side-chat/shared";
 
 import { cancelTurn } from "#application/turn/cancel-turn";
 import type { ClientToolDispatchStore } from "#application/ports/turn/tools/client-tool-dispatch-store";
@@ -9,7 +8,6 @@ import {
   submitClientToolOutput,
   type ResumeClientTool,
 } from "#application/turn/tools/submit-client-tool-output";
-import { TurnRejectedError } from "#application/turn/turn-errors";
 import {
   submitToolApproval,
   type ResumeToolApproval,
@@ -18,15 +16,24 @@ import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/re
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 import type { HostContextPolicy } from "#domain/host-context";
 import type { TurnCancellationStore } from "#application/ports/turn/turn-store";
+import type { TelemetrySink } from "#application/ports/telemetry-sink";
 
 import type { AuthVariables } from "../auth-middleware.js";
-import { errorResponse, HTTP_ERROR, turnRejectionResponse } from "../error-response.js";
+import { errorResponse, HTTP_ERROR } from "../error-response.js";
 import { CHAT_HTTP_ROUTES, HTTP_HEADERS } from "../http-contract.js";
 import { parseCancelRequest, parseChatRequest } from "./chat-request-schema.js";
 import { createChatStreamResponse, type OutboundTransformFactory } from "./chat-stream-response.js";
 import { readToolApprovalDecision } from "./approvals/read-tool-approval-decision.js";
-import { readCappedBytes } from "./body/read-capped-bytes.js";
 import { readCappedJson } from "./body/read-capped-json.js";
+import { digestClientToolCapability } from "./client-tools/authority/client-tool-capability.js";
+import { readClientToolOutput } from "./client-tools/read-client-tool-output.js";
+import {
+  mapTurnError,
+  parseStartIndex,
+  readRequestId,
+  requireClientToolCapabilityDigest,
+} from "./routing/chat-route-support.js";
+import { createChatKeepaliveObserver, recordReconnect } from "./telemetry/stream-telemetry.js";
 
 export const CHAT_REQUEST_MAX_BYTES = 512 * 1024;
 const CANCEL_REQUEST_MAX_BYTES = 4 * 1024;
@@ -36,6 +43,10 @@ export {
   readToolApprovalDecision,
 } from "./approvals/read-tool-approval-decision.js";
 export { readCappedBytes } from "./body/read-capped-bytes.js";
+export {
+  CLIENT_TOOL_OUTPUT_MAX_BYTES,
+  readClientToolOutput,
+} from "./client-tools/read-client-tool-output.js";
 
 export type ChatRouteDependencies = RunTurnDependencies &
   Readonly<{
@@ -50,6 +61,7 @@ export type ChatRouteDependencies = RunTurnDependencies &
     resumeToolApproval: ResumeToolApproval;
     serverToolNames: ReadonlySet<string>;
     hostContextPolicy: HostContextPolicy;
+    telemetry: Pick<TelemetrySink, "record">;
   }>;
 
 /** HTTP owns validation and stream encoding; application services own turn policy and state. */
@@ -57,13 +69,19 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
   const app = new Hono<AuthVariables>();
 
   app.post(CHAT_HTTP_ROUTES.START, async (context) => {
-    const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
+    const requestId = readRequestId(context);
     const request = await parseChatRequest(
       await readCappedJson(context.req.raw, CHAT_REQUEST_MAX_BYTES),
       dependencies.serverToolNames,
       dependencies.hostContextPolicy,
     );
     if (!request) {
+      return errorResponse(requestId, HTTP_ERROR.BAD_REQUEST, "Invalid chat request.");
+    }
+    const clientToolCapabilityDigest = digestClientToolCapability(
+      context.req.header(HTTP_HEADERS.CLIENT_TOOL_CAPABILITY),
+    );
+    if (request.clientTools.length > 0 && clientToolCapabilityDigest === undefined) {
       return errorResponse(requestId, HTTP_ERROR.BAD_REQUEST, "Invalid chat request.");
     }
 
@@ -76,7 +94,9 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
         acceptedUserMessage: request.acceptedUserMessage,
         ...(request.hostContext === undefined ? {} : { hostContext: request.hostContext }),
         clientTools: request.clientTools,
+        ...(clientToolCapabilityDigest === undefined ? {} : { clientToolCapabilityDigest }),
         enabledToolNames: request.enabledToolNames,
+        signal: context.req.raw.signal,
         ...(request.requestedModelId === undefined
           ? {}
           : { requestedModelId: request.requestedModelId }),
@@ -89,6 +109,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
         runId: running.runId,
         keepaliveIntervalMs: dependencies.keepaliveIntervalMs,
         outboundTransforms: dependencies.outboundTransforms ?? [],
+        onKeepalive: createChatKeepaliveObserver(dependencies.telemetry),
       });
     } catch (error) {
       return mapTurnError(requestId, error);
@@ -96,7 +117,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
   });
 
   app.post(CHAT_HTTP_ROUTES.CANCEL, async (context) => {
-    const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
+    const requestId = readRequestId(context);
     const request = parseCancelRequest(
       await readCappedJson(context.req.raw, CANCEL_REQUEST_MAX_BYTES),
     );
@@ -119,8 +140,11 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
   });
 
   app.post(CHAT_HTTP_ROUTES.CLIENT_TOOL_OUTPUT, async (context) => {
-    const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
+    const requestId = readRequestId(context);
     try {
+      const clientToolCapabilityDigest = requireClientToolCapabilityDigest(
+        context.req.header(HTTP_HEADERS.CLIENT_TOOL_CAPABILITY),
+      );
       const acknowledgement = await submitClientToolOutput(
         dependencies.clientToolDispatches,
         dependencies.resumeClientTool,
@@ -128,7 +152,9 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
           auth: context.get("authContext"),
           runId: context.req.param("runId"),
           toolCallId: context.req.param("toolCallId"),
+          clientToolCapabilityDigest,
           readOutput: () => readClientToolOutput(context.req.raw),
+          telemetry: dependencies.telemetry,
         },
       );
       return context.json(acknowledgement);
@@ -138,7 +164,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
   });
 
   app.post(CHAT_HTTP_ROUTES.TOOL_APPROVAL, async (context) => {
-    const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
+    const requestId = readRequestId(context);
     try {
       const acknowledgement = await submitToolApproval(
         dependencies.toolApprovals,
@@ -149,6 +175,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
           approvalId: context.req.param("approvalId"),
           requestId,
           readDecision: () => readToolApprovalDecision(context.req.raw),
+          telemetry: dependencies.telemetry,
         },
       );
       return context.json(acknowledgement);
@@ -158,7 +185,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
   });
 
   app.get(CHAT_HTTP_ROUTES.STREAM, async (context) => {
-    const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
+    const requestId = readRequestId(context);
     const startIndex = parseStartIndex(context.req.query("startIndex"));
     if (startIndex === undefined) {
       return errorResponse(requestId, HTTP_ERROR.BAD_REQUEST, "Invalid replay start index.");
@@ -177,9 +204,11 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
         `${accessibleRun.turnId}-assistant`,
       );
       if (replay.status === TURN_REPLAY_RESULTS.NOT_FOUND) {
+        recordReconnect(dependencies.telemetry, "not_found");
         return errorResponse(requestId, HTTP_ERROR.NOT_FOUND, "Turn run not found.");
       }
       if (replay.status === TURN_REPLAY_RESULTS.START_INDEX_OUT_OF_RANGE) {
+        recordReconnect(dependencies.telemetry, "out_of_range");
         const response = errorResponse(
           requestId,
           HTTP_ERROR.RANGE_NOT_SATISFIABLE,
@@ -188,12 +217,14 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
         response.headers.set(HTTP_HEADERS.WORKFLOW_STREAM_TAIL_INDEX, String(replay.tailIndex));
         return response;
       }
+      recordReconnect(dependencies.telemetry, "opened");
       return createChatStreamResponse({
         stream: replay.stream,
         runId,
         tailIndex: replay.tailIndex,
         keepaliveIntervalMs: dependencies.keepaliveIntervalMs,
         outboundTransforms: dependencies.outboundTransforms ?? [],
+        onKeepalive: createChatKeepaliveObserver(dependencies.telemetry),
       });
     } catch (error) {
       return mapTurnError(requestId, error);
@@ -201,62 +232,4 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
   });
 
   return app;
-}
-
-/** Missing means replay from the beginning; otherwise require one safe integer. */
-function parseStartIndex(value: string | undefined): number | undefined {
-  if (value === undefined) return 0;
-  if (!/^-?(?:0|[1-9]\d*)$/.test(value)) return undefined;
-  const parsed = Number(value);
-  return Number.isSafeInteger(parsed) ? parsed : undefined;
-}
-
-function mapTurnError(requestId: string, error: unknown): Response {
-  if (error instanceof TurnRejectedError) {
-    return turnRejectionResponse(requestId, error);
-  }
-  return errorResponse(
-    requestId,
-    HTTP_ERROR.INTERNAL_SERVER_ERROR,
-    "The turn request could not be completed.",
-  );
-}
-
-export const CLIENT_TOOL_OUTPUT_MAX_BYTES = 64 * 1024;
-const CLIENT_TOOL_OUTPUT_MAX_DEPTH = 16;
-const INVALID_CLIENT_TOOL_OUTPUT = {
-  value: { status: "failed", errorCode: "invalid_client_tool_output" },
-} as const;
-
-export async function readClientToolOutput(request: Request) {
-  const declaredLength = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declaredLength) && declaredLength > CLIENT_TOOL_OUTPUT_MAX_BYTES) {
-    return { valid: false as const, output: INVALID_CLIENT_TOOL_OUTPUT };
-  }
-  try {
-    const bytes = await readCappedBytes(request.body, CLIENT_TOOL_OUTPUT_MAX_BYTES);
-    if (bytes === undefined) {
-      return { valid: false as const, output: INVALID_CLIENT_TOOL_OUTPUT };
-    }
-    const body: unknown = JSON.parse(new TextDecoder().decode(bytes));
-    if (!isRecord(body) || !("output" in body) || !isBoundedJson(body["output"])) {
-      return { valid: false as const, output: INVALID_CLIENT_TOOL_OUTPUT };
-    }
-    return { valid: true as const, output: { value: body["output"] } };
-  } catch {
-    return { valid: false as const, output: INVALID_CLIENT_TOOL_OUTPUT };
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isBoundedJson(value: unknown, depth = 0): value is JsonValue {
-  if (depth > CLIENT_TOOL_OUTPUT_MAX_DEPTH || value === undefined) return false;
-  if (value === null || typeof value === "string" || typeof value === "boolean") return true;
-  if (typeof value === "number") return Number.isFinite(value);
-  if (Array.isArray(value)) return value.every((entry) => isBoundedJson(entry, depth + 1));
-  if (!isRecord(value)) return false;
-  return Object.values(value).every((entry) => isBoundedJson(entry, depth + 1));
 }

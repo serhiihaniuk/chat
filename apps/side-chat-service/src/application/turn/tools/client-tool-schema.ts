@@ -1,3 +1,5 @@
+import { isRecord } from "@side-chat/shared";
+
 import { CLIENT_TOOL_CATALOG_LIMITS } from "./client-tool-catalog.js";
 import {
   BOOLEAN_KEYWORDS,
@@ -199,8 +201,4 @@ function isSafePattern(value: string): boolean {
   } catch {
     return false;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

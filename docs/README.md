@@ -19,12 +19,12 @@ table to the doc that owns each topic.
 
 **Working in the code** — change a package, lifecycle, or boundary:
 
-- [architecture/](architecture/): system map, [assistant-turn.md](architecture/assistant-turn.md), [turn-terminal-reconciliation.md](architecture/turn-terminal-reconciliation.md), [runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md), [package-boundaries.md](architecture/package-boundaries.md), [widget-and-host-integration.md](architecture/widget-and-host-integration.md), [extension-seams.md](architecture/extension-seams.md), [host-commands.md](architecture/host-commands.md), [effect.md](architecture/effect.md).
+- [architecture/](architecture/): system map, [assistant-turn.md](architecture/assistant-turn.md), [workflow-substrate.md](architecture/workflow-substrate.md), [client-tools.md](architecture/client-tools.md), [tool-approvals.md](architecture/tool-approvals.md), [turn-terminal-reconciliation.md](architecture/turn-terminal-reconciliation.md), [runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md), [package-boundaries.md](architecture/package-boundaries.md), [widget-and-host-integration.md](architecture/widget-and-host-integration.md), [extension-seams.md](architecture/extension-seams.md), [host-commands.md](architecture/host-commands.md), [effect.md](architecture/effect.md).
 - [domain/vocabulary.md](domain/vocabulary.md): canonical terms and the synonyms to avoid.
 
 **Adopting or operating** — turn the starter into your team's application:
 
-- [operations/](operations/): [verification.md](operations/verification.md), [local-development.md](operations/local-development.md), [configuration.md](operations/configuration.md), [capacity-and-deployment.md](operations/capacity-and-deployment.md), [database.md](operations/database.md), [embed-widget-iframe.md](operations/embed-widget-iframe.md).
+- [operations/](operations/): [verification.md](operations/verification.md), [local-development.md](operations/local-development.md), [configuration.md](operations/configuration.md), [telemetry.md](operations/telemetry.md), [capacity-and-deployment.md](operations/capacity-and-deployment.md), [database.md](operations/database.md), [embed-widget-iframe.md](operations/embed-widget-iframe.md).
 - [architecture/extension-seams.md](architecture/extension-seams.md): the seams for tools, guards, executors, observability, and host commands.
 - [architecture/host-commands.md](architecture/host-commands.md): the end-to-end walkthrough for adding a host-side tool (host command), with a runnable example.
 
@@ -37,6 +37,9 @@ Each file below owns its topic. Link to it; never re-derive its content elsewher
 | [domain/vocabulary.md](domain/vocabulary.md)                                                 | Canonical terms and names to avoid.                                               |
 | [architecture/system-map.md](architecture/system-map.md)                                     | Product identity, package roles, first files.                                     |
 | [architecture/assistant-turn.md](architecture/assistant-turn.md)                             | The assistant-turn lifecycle and its order.                                       |
+| [architecture/workflow-substrate.md](architecture/workflow-substrate.md)                     | Replacement Workflow ownership, realms, journal, world, and cancellation.         |
+| [architecture/client-tools.md](architecture/client-tools.md)                                 | Durable browser-executed tool dispatch and result lifecycle.                      |
+| [architecture/tool-approvals.md](architecture/tool-approvals.md)                             | Durable server-tool approval decisions and execution gate.                        |
 | [architecture/turn-terminal-reconciliation.md](architecture/turn-terminal-reconciliation.md) | How joined Workflow activity, product fencing, and guarded repair handle crashes. |
 | [architecture/runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md)   | The three event vocabularies and the streaming transport.                         |
 | [architecture/package-boundaries.md](architecture/package-boundaries.md)                     | Import and data boundaries; common boundary mistakes.                             |
@@ -48,6 +51,7 @@ Each file below owns its topic. Link to it; never re-derive its content elsewher
 | [operations/verification.md](operations/verification.md)                                     | Gate commands and what each proves.                                               |
 | [operations/local-development.md](operations/local-development.md)                           | Running the service and harnesses locally.                                        |
 | [operations/configuration.md](operations/configuration.md)                                   | The typed `sidechat.config.ts` and its tunables.                                  |
+| [operations/telemetry.md](operations/telemetry.md)                                           | Signal meanings, bounded labels, privacy, and exporter posture.                   |
 | [operations/capacity-and-deployment.md](operations/capacity-and-deployment.md)               | Instance model, SSE budgets, and what grows forever.                              |
 | [operations/database.md](operations/database.md)                                             | Schema tooling, migrations, and role grants.                                      |
 | [operations/embed-widget-iframe.md](operations/embed-widget-iframe.md)                       | Embedding the widget in a host page via iframe.                                   |

@@ -162,6 +162,7 @@ export type ClientToolDispatchRecord = TenantScopedRecord &
     readonly assistantTurnId: AssistantTurnId;
     readonly toolCallId: ToolCallId;
     readonly toolName: string;
+    readonly clientToolCapabilityDigest: string;
     readonly state: ClientToolDispatchState;
     readonly outputJson?: JsonObject;
     readonly dispatchedAt: string;

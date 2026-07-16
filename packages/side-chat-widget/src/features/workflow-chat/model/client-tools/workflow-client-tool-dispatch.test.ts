@@ -16,6 +16,7 @@ const capabilities: HostCapabilities = {
     },
   ],
 };
+const CLIENT_TOOL_CAPABILITY = "a".repeat(64);
 
 describe("dispatchWorkflowClientTool", () => {
   it("dispatches a dynamic tool through the bridge and posts its success", async () => {
@@ -31,6 +32,7 @@ describe("dispatchWorkflowClientTool", () => {
     const request = vi.fn<typeof fetch>(() => Promise.resolve(Response.json({ accepted: true })));
     const outcome = await dispatchWorkflowClientTool({
       client: createClient(request),
+      clientToolCapability: CLIENT_TOOL_CAPABILITY,
       hostBridge: bridge,
       runId: "run-1",
       toolCall: {
@@ -67,6 +69,7 @@ describe("dispatchWorkflowClientTool", () => {
     const request = vi.fn<typeof fetch>(() => Promise.resolve(Response.json({ accepted: true })));
     const outcome = await dispatchWorkflowClientTool({
       client: createClient(request),
+      clientToolCapability: CLIENT_TOOL_CAPABILITY,
       hostBridge: bridge,
       runId: "run-1",
       toolCall: {
@@ -95,6 +98,7 @@ describe("dispatchWorkflowClientTool", () => {
     await expect(
       dispatchWorkflowClientTool({
         client: createClient(request),
+        clientToolCapability: CLIENT_TOOL_CAPABILITY,
         hostBridge: bridge,
         runId: "run-1",
         toolCall: {
@@ -116,6 +120,7 @@ describe("dispatchWorkflowClientTool", () => {
     await expect(
       dispatchWorkflowClientTool({
         client: createClient(request),
+        clientToolCapability: CLIENT_TOOL_CAPABILITY,
         hostBridge: undefined,
         runId: "run-1",
         toolCall: {

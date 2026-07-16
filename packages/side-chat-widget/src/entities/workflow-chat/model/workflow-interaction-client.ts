@@ -1,4 +1,5 @@
 import { isRecord, type JsonValue } from "@side-chat/shared";
+import { SIDE_CHAT_CLIENT_TOOL_CAPABILITY } from "@side-chat/stream-profile";
 
 import {
   readWorkflowChatHttpError,
@@ -28,12 +29,14 @@ export async function postWorkflowClientToolOutput(
   runId: string,
   toolCallId: string,
   output: JsonValue,
+  clientToolCapability: string,
 ): Promise<void> {
   await postWorkflowJson(
     client,
     `/api/chat/${encodeURIComponent(runId)}/tools/${encodeURIComponent(toolCallId)}/output`,
     { output },
     true,
+    clientToolCapability,
   );
 }
 
@@ -49,6 +52,7 @@ export async function postWorkflowApprovalDecision(
     `/api/chat/${encodeURIComponent(runId)}/approvals/${encodeURIComponent(approvalId)}`,
     { approved },
     false,
+    undefined,
   );
   if (!isRecord(payload) || typeof payload["state"] !== "string") {
     throw new WorkflowChatHttpError(
@@ -70,31 +74,45 @@ async function postWorkflowJson(
   path: string,
   body: JsonValue,
   retryNotReady: boolean,
+  clientToolCapability: string | undefined,
 ): Promise<unknown> {
   for (let attempt = 0; ; attempt += 1) {
     const request = await resolveWorkflowChatRequestConfig(client);
-    const headers = new Headers(request.headers);
-    headers.set("content-type", "application/json");
-    if (!headers.has("x-request-id")) headers.set("x-request-id", crypto.randomUUID());
-    const init: RequestInit = {
-      method: "POST",
-      body: JSON.stringify(body),
-      headers,
-    };
-    if (request.credentials !== undefined) init.credentials = request.credentials;
+    const init = createPostWorkflowRequest(request, body, clientToolCapability);
     const response = await workflowChatFetch(client)(workflowChatUrl(client, path), init);
     if (response.ok) return readJsonIfPresent(response);
 
-    if (
-      retryNotReady &&
-      response.status === HOOK_NOT_READY_STATUS &&
-      attempt < MAX_HOOK_RETRY_ATTEMPTS
-    ) {
+    if (shouldRetryNotReady(response, retryNotReady, attempt)) {
       await waitForRetry(response.headers.get("retry-after"));
       continue;
     }
     throw await readWorkflowChatHttpError(response);
   }
+}
+
+function shouldRetryNotReady(response: Response, retryNotReady: boolean, attempt: number): boolean {
+  return (
+    retryNotReady && response.status === HOOK_NOT_READY_STATUS && attempt < MAX_HOOK_RETRY_ATTEMPTS
+  );
+}
+
+function createPostWorkflowRequest(
+  request: Awaited<ReturnType<typeof resolveWorkflowChatRequestConfig>>,
+  body: JsonValue,
+  clientToolCapability: string | undefined,
+): RequestInit {
+  const headers = new Headers(request.headers);
+  headers.set("content-type", "application/json");
+  if (clientToolCapability !== undefined) {
+    headers.set(SIDE_CHAT_CLIENT_TOOL_CAPABILITY.HEADER, clientToolCapability);
+  }
+  if (!headers.has("x-request-id")) headers.set("x-request-id", crypto.randomUUID());
+  return {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers,
+    ...(request.credentials === undefined ? {} : { credentials: request.credentials }),
+  };
 }
 
 async function readJsonIfPresent(response: Response): Promise<unknown> {

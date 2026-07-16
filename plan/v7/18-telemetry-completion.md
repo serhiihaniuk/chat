@@ -60,16 +60,33 @@ Review remaining console matches; the composition root/local exporter may be leg
 
 ## Completion checklist
 
-- [ ] SDK Telemetry implementation complete with the per-version assertion list.
-- [ ] All "ours" counters emitting, incl. the stuck-run alarm.
-- [ ] Label allowlist enforced by test; privacy sentinels pass.
-- [ ] Exporter-optional boot proven; fail-open sink proven.
-- [ ] Operations docs updated with what each signal means.
+- [x] SDK Telemetry implementation complete with the per-version assertion list.
+- [x] All "ours" counters emitting, incl. the stuck-run alarm.
+- [x] Label allowlist enforced by test; privacy sentinels pass.
+- [x] Exporter-optional boot proven; fail-open sink proven.
+- [x] Operations docs updated with what each signal means.
 
 ## Handoff record
 
-Event/metric inventory as implemented: pending
+Event/metric inventory as implemented: AI operation, step, model-call, and tool
+start/end records; operation abort/error; admission accepted/queued/rejected,
+active gauge, and queue wait; turn terminal outcomes; client-tool wait/output;
+approval wait/decision; reconnect, keepalive, scrub, and duplicate terminal;
+history drift; journal pruning count plus exact selected-row bytes; and oldest
+non-terminal stuck alarm. [`telemetry.md`](../../docs/operations/telemetry.md)
+owns signal meanings, labels, privacy, and exporter posture.
 
-Workflow-bridge assertion list: pending
+Workflow-bridge assertion list: on the pinned `ai@7.0.22` surface the adapter
+implements `onStart`, `onStepStart`, `onStepEnd`,
+`onLanguageModelCallStart`, `onLanguageModelCallEnd`,
+`onToolExecutionStart`, `onToolExecutionEnd`, `onEnd`, `onAbort`, and
+`onError`. The Workflow bridge may omit callbacks or performance fields; tests
+assert the complete adapter plus the successful sequence the pinned bridge and
+SDK demonstrably deliver. The collector is authoritative; OTLP remains
+trace-only and optional.
 
-Legitimate console usages: pending
+Legitimate console usages: the redacted console telemetry sink; two compiled
+approval compatibility probes under `workflows/testing/probes`; and the scripted
+provider observation channel used only by the credential-free compatibility
+suite. Production routes, application services, and Workflow code have no
+direct console writes.

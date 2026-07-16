@@ -32,12 +32,19 @@ The product shape, the model knobs, and the context the assistant runs on.
 
 ## Turn lifecycle
 
-One user message produces one assistant turn. The service runs pre-start work synchronously, then forks generation onto a server-owned fiber. See `../architecture/assistant-turn.md` for the ordered flow.
+One user message produces one assistant turn. During the two-wing migration, the
+legacy service forks generation onto a server-owned Effect fiber; the replacement
+service starts a durable Workflow run. See `../architecture/assistant-turn.md`
+for both ordered flows.
 
 | Term                                 | Meaning                                                                                                                                                         | Where it lives (code path)                                                                                                               |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | User message                         | A user-submitted message, persisted and displayed. Avoid the broad terms input and prompt.                                                                      | `packages/chat-protocol/src/sidechat-v1/request/request.ts:24` (`ChatRequestMessage`)                                                    |
 | Assistant turn                       | One assistant-response lifecycle attached to a user message. Not the same as one model call.                                                                    | `packages/ai-runtime-contract/src/runtime-ids.ts:12` (`AssistantTurnId`)                                                                 |
+| Workflow run                         | The replacement service's durable execution instance for one assistant turn; identified by `runId`.                                                             | `apps/side-chat-service/src/workflows/production/chat-turn.ts`                                                                           |
+| Workflow journal                     | Workflow-owned ordered model-call parts used for live delivery, replay, and recoverable terminal projection.                                                    | `apps/side-chat-service/src/workflows/journal/chat-turn-journal.ts`                                                                      |
+| Client tool                          | A model-callable action executed in the browser, with a durable dispatch and Workflow result hook.                                                              | `apps/side-chat-service/src/workflows/client-tools/index.ts`; `../architecture/client-tools.md`                                          |
+| Tool approval                        | A durable authorized decision required before an approval-gated server tool executes.                                                                           | `apps/side-chat-service/src/application/turn/tools/approvals/`; `../architecture/tool-approvals.md`                                      |
 | Stream chat turn                     | The product workflow that prepares and streams one assistant turn.                                                                                              | `packages/partner-ai-core/src/application/stream-chat/` (directory)                                                                      |
 | TurnPolicyDecision                   | The per-turn decision: profile, model, allowed tools/commands, executor, and instructions.                                                                      | `.../contracts/capabilities.ts` (`TurnPolicyDecision`)                                                                                   |
 | ResolvedTurnPlan                     | The workflow value wrapping the manifest, its hash, the `TurnPolicyDecision`, and the resolved profile.                                                         | `packages/partner-ai-core/src/application/stream-chat/turn/turn-policy-plan.ts:22`                                                       |
@@ -52,11 +59,16 @@ One user message produces one assistant turn. The service runs pre-start work sy
 
 ## Protocol & runtime events
 
-Three event vocabularies, never conflated, each lower than the last: AI-SDK stream parts (inside the runtime) become `RuntimeEvent`s (the runtime contract), which core maps to browser-facing `sidechat.v1` events.
+The legacy wing maps AI SDK stream parts to `RuntimeEvent`, then to
+browser-facing `sidechat.v1` events. The replacement wing stores native model
+parts in the Workflow journal and converts them once to `UIMessageChunk` values
+under the Side Chat stream profile. Never mix the two pipelines.
 
 | Term                                           | Meaning                                                                                                                                                                      | Where it lives (code path)                                                                                      |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | AI SDK stream part                             | A provider/tool-loop event from the AI SDK; private to `agent-runtime`.                                                                                                      | Mapped by `packages/agent-runtime/src/runtime/ai-sdk/streaming/stream-part-mapper.ts:78` (`mapAiSdkStreamPart`) |
+| UIMessageChunk                                 | The replacement browser stream part produced from the Workflow journal; native tool and approval parts remain native.                                                        | `apps/side-chat-service/src/workflows/journal/chat-turn-ui-stream.ts`                                           |
+| Stream profile                                 | The shared browser-safe vocabulary for finish reasons, safe error codes, metadata, and justified custom data parts on the native stream.                                     | `packages/stream-profile/`                                                                                      |
 | RuntimeEvent                                   | The normalized internal event from agent runtime. Kinds: `started`, `output_delta`, `activity`, `completed`, `error`, `blocked`.                                             | `packages/ai-runtime-contract/src/index.ts:113` (`RUNTIME_EVENT_TYPES`)                                         |
 | RuntimeActivityDetails                         | Provider-neutral activity detail that core maps to browser-safe activity detail.                                                                                             | `packages/ai-runtime-contract/src/runtime-activity.ts:70`                                                       |
 | mapRuntimeEvent                                | The core function that maps one `RuntimeEvent` to its `sidechat.v1` event(s).                                                                                                | `packages/partner-ai-core/src/application/stream-chat/protocol/runtime-event-mapper.ts:52`                      |
@@ -105,13 +117,19 @@ Authority is proven, fail-closed, and checked before any persistence or model wo
 
 ## Packages & boundaries
 
-Four layers, dependencies pointing inward: Browser → Service → Core → Runtime. Two contract packages cross boundaries: `chat-protocol` (browser↔service) and `ai-runtime-contract` (core↔runtime). See `../architecture/package-boundaries.md` for the import rules these names enforce.
+Two backend wings coexist before cutover. The legacy wing is Browser to Service
+to Core to Runtime, with `chat-protocol` and `ai-runtime-contract` crossing its
+seams. The replacement `apps/side-chat-service` keeps app-local hexagonal layers,
+uses `stream-profile` for its native browser stream, and shares `db` and the
+widget. See `../architecture/package-boundaries.md`.
 
 | Term                          | Meaning                                                                                                                        | Where it lives (code path)                                                                 |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | apps/partner-ai-service       | The deployable Hono backend composition root. The separate `apps/docs` workspace is the contributor-facing documentation site. | `apps/partner-ai-service/`                                                                 |
+| apps/side-chat-service        | The replacement Hono, AI SDK 7, and Workflow backend; plain TypeScript with app-local hexagonal layers.                        | `apps/side-chat-service/`                                                                  |
 | packages/partner-ai-core      | The Core layer: workflows, domain, ports. Maps `RuntimeEvent` to `sidechat.v1`.                                                | `packages/partner-ai-core/`                                                                |
-| packages/agent-runtime        | The Runtime layer: the only home for `ai` and `@ai-sdk/*`; runs one prepared turn.                                             | `packages/agent-runtime/`                                                                  |
+| packages/agent-runtime        | The legacy Runtime layer and legacy home for `ai` and provider SDKs; runs one prepared turn.                                   | `packages/agent-runtime/`                                                                  |
+| packages/stream-profile       | The replacement browser/service contract for native stream metadata, safe errors, and finish reasons.                          | `packages/stream-profile/`                                                                 |
 | packages/chat-protocol        | The browser↔service contract: `sidechat.v1` requests, events, and error codes.                                                 | `packages/chat-protocol/`                                                                  |
 | packages/ai-runtime-contract  | The core↔runtime contract: `AiRuntimeRequest`, `RuntimeEvent`, branded ids.                                                    | `packages/ai-runtime-contract/`                                                            |
 | packages/side-chat-widget     | The browser UI. Effect-free and provider-free; uses TanStack Query for list/history/catalog, but not the live stream.          | `packages/side-chat-widget/`                                                               |

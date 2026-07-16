@@ -1,4 +1,5 @@
 import { safeValidateUIMessages, type UIMessage } from "ai";
+import { isRecord } from "@side-chat/shared";
 import {
   isSideChatErrorCode,
   type SideChatReasoningEffort,
@@ -230,10 +231,6 @@ function parseErrorPayload(text: string, status?: number): WorkflowChatHttpError
 
 function isWorkflowChatHttpError(value: unknown): value is WorkflowChatHttpError {
   return value instanceof WorkflowChatHttpError;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function createHistoryRequestInit(

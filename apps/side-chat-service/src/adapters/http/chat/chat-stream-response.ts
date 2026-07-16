@@ -33,6 +33,7 @@ export type OutboundTransformFactory = () => OutboundTransform;
  * @param options.outboundTransforms - Per-request transform factories, applied in
  *   array order before encoding; each is invoked once per response. Defaults to
  *   none. The scrub filter and any `data-*` injection compose here.
+ * @param options.onKeepalive - Observes emitted heartbeat frames without seeing stream content.
  */
 export function createChatStreamResponse(options: {
   readonly stream: ReadableStream<UIMessageChunk>;
@@ -40,9 +41,12 @@ export function createChatStreamResponse(options: {
   readonly keepaliveIntervalMs: number;
   readonly tailIndex?: number;
   readonly outboundTransforms?: readonly OutboundTransformFactory[];
+  readonly onKeepalive?: (() => void) | undefined;
 }): Response {
   const transformed = pipeOutboundTransforms(options.stream, options.outboundTransforms ?? []);
-  const headers: Record<string, string> = { [HTTP_HEADERS.WORKFLOW_RUN_ID]: options.runId };
+  const headers: Record<string, string> = {
+    [HTTP_HEADERS.WORKFLOW_RUN_ID]: options.runId,
+  };
   if (options.tailIndex !== undefined) {
     headers[HTTP_HEADERS.WORKFLOW_STREAM_TAIL_INDEX] = String(options.tailIndex);
   }
@@ -51,11 +55,18 @@ export function createChatStreamResponse(options: {
     headers,
   });
   if (!response.body) return response;
-  return new Response(withIdleSseKeepalive(response.body, options.keepaliveIntervalMs), {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers,
-  });
+  return new Response(
+    withIdleSseKeepalive(
+      response.body,
+      options.keepaliveIntervalMs,
+      options.onKeepalive === undefined ? {} : { onKeepalive: options.onKeepalive },
+    ),
+    {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    },
+  );
 }
 
 function pipeOutboundTransforms(

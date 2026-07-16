@@ -21,5 +21,6 @@ export interface ChatTurnWorkflowInput {
   readonly clientToolTimeoutMs: number;
   readonly messages: readonly SerializableChatMessage[];
   readonly clientTools: readonly ClientToolDefinition[];
+  readonly clientToolCapabilityDigest?: string | undefined;
   readonly enabledToolNames?: readonly string[] | undefined;
 }

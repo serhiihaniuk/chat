@@ -6,6 +6,77 @@ import type { SideChatConfig } from "../declaration/side-chat-config.js";
 import { createDefaultConfig } from "./settings.test-fixture.js";
 
 describe("service settings", () => {
+  it("resolves the declared admission and Workflow capacity defaults", () => {
+    const result = resolveTestSettings(createDefaultConfig());
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.settings.capacity).toEqual({
+      maxActiveTurns: 16,
+      queueSize: 32,
+      queueTimeoutMs: 5_000,
+    });
+    expect(result.settings.workflow).toMatchObject({
+      workerConcurrency: 50,
+      maxPoolSize: 52,
+    });
+  });
+
+  it("allows deployments to disable admission waiting with a zero-sized queue", () => {
+    const result = resolveTestSettings(createDefaultConfig({ capacity: { queueSize: 0 } }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.settings.capacity.queueSize).toBe(0);
+  });
+
+  it("reserves explicit Workflow worker headroom above active turns", () => {
+    const result = resolveTestSettings(
+      createDefaultConfig({
+        capacity: { maxActiveTurns: 16 },
+        workflow: { workerConcurrency: 19, maxPoolSize: 21 },
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toContainEqual({
+      path: "workflow.workerConcurrency",
+      message: "must be at least capacity.maxActiveTurns + 4 worker headroom (20)",
+    });
+  });
+
+  it("keeps the Workflow Postgres pool floor at ten", () => {
+    const result = resolveTestSettings(
+      createDefaultConfig({
+        capacity: { maxActiveTurns: 4 },
+        workflow: { workerConcurrency: 8, maxPoolSize: 9 },
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toContainEqual({
+      path: "workflow.maxPoolSize",
+      message: "must be at least max(10, workflow.workerConcurrency + 2) (10)",
+    });
+  });
+
+  it("adds two Workflow Postgres connections above worker concurrency", () => {
+    const result = resolveTestSettings(
+      createDefaultConfig({
+        workflow: { workerConcurrency: 50, maxPoolSize: 51 },
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toContainEqual({
+      path: "workflow.maxPoolSize",
+      message: "must be at least max(10, workflow.workerConcurrency + 2) (52)",
+    });
+  });
+
   it("accumulates model, tool, and timeout policy failures", () => {
     const config = createDefaultConfig({
       models: {
@@ -51,7 +122,9 @@ describe("service settings", () => {
       workflow: {
         postgresUrl: "postgres://workflow@db.internal/sidechat-other",
       },
-      persistence: { databaseUrl: `postgres://product:${secret}@db.internal/sidechat` },
+      persistence: {
+        databaseUrl: `postgres://product:${secret}@db.internal/sidechat`,
+      },
     });
 
     const result = resolveTestSettings(config);
@@ -67,6 +140,7 @@ describe("service settings", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(Object.isFrozen(result.settings)).toBe(true);
+    expect(Object.isFrozen(result.settings.capacity)).toBe(true);
     expect(Object.isFrozen(result.settings.workflow)).toBe(true);
     expect(Object.isFrozen(result.settings.hostContext)).toBe(true);
     expect(Object.isFrozen(result.settings.models.availableModels)).toBe(true);
@@ -88,10 +162,22 @@ describe("service settings", () => {
     if (result.ok) return;
     expect(result.issues).toEqual(
       expect.arrayContaining([
-        { path: "hostContext.maxSerializedBytes", message: "must be a positive integer" },
-        { path: "hostContext.maxStringLength", message: "must be a positive integer" },
-        { path: "hostContext.maxMetadataDepth", message: "must be a positive integer" },
-        { path: "hostContext.maxMetadataEntries", message: "must be a positive integer" },
+        {
+          path: "hostContext.maxSerializedBytes",
+          message: "must be a positive integer",
+        },
+        {
+          path: "hostContext.maxStringLength",
+          message: "must be a positive integer",
+        },
+        {
+          path: "hostContext.maxMetadataDepth",
+          message: "must be a positive integer",
+        },
+        {
+          path: "hostContext.maxMetadataEntries",
+          message: "must be a positive integer",
+        },
       ]),
     );
   });

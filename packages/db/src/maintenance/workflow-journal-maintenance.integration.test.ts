@@ -29,7 +29,9 @@ describe.skipIf(!configuredDatabaseUrl)("Postgres Workflow journal maintenance",
   it("archives all six tables and prunes only old, terminal, non-held bound runs", async () => {
     const eligible = await seedRun(inspectionPool, "eligible", {});
     const held = await seedRun(inspectionPool, "held", { legalHold: true });
-    const activeTurn = await seedRun(inspectionPool, "active-turn", { turnStatus: "open" });
+    const activeTurn = await seedRun(inspectionPool, "active-turn", {
+      turnStatus: "open",
+    });
     const activeWorkflow = await seedRun(inspectionPool, "active-workflow", {
       workflowStatus: "running",
       completedAt: undefined,
@@ -38,6 +40,7 @@ describe.skipIf(!configuredDatabaseUrl)("Postgres Workflow journal maintenance",
       completedAt: new Date("2026-03-01T00:00:00.000Z"),
     });
     const snapshots: WorkflowJournalSnapshot[] = [];
+    const expectedPrunedBytes = await measureJournalBytes(inspectionPool, eligible);
     const maintenance = createPostgresWorkflowJournalMaintenance({
       connectionString: databaseUrl,
       archive: (snapshot) => {
@@ -48,13 +51,17 @@ describe.skipIf(!configuredDatabaseUrl)("Postgres Workflow journal maintenance",
 
     try {
       await expect(maintenance.validateSchema()).resolves.toBeUndefined();
-      const result = await maintenance.sweep({ completedBefore: CUTOFF, batchLimit: 20 });
+      const result = await maintenance.sweep({
+        completedBefore: CUTOFF,
+        batchLimit: 20,
+      });
 
       expect(result).toMatchObject({
         lockAcquired: true,
         selectedRuns: 1,
         archivedRuns: 1,
         prunedRuns: 1,
+        prunedBytes: expectedPrunedBytes,
       });
       expect(snapshots).toHaveLength(1);
       expect(snapshots[0]).toMatchObject({ runId: eligible });
@@ -129,10 +136,15 @@ describe.skipIf(!configuredDatabaseUrl)("Postgres Workflow journal maintenance",
         await releaseArchive.promise;
       },
     });
-    const second = createPostgresWorkflowJournalMaintenance({ connectionString: databaseUrl });
+    const second = createPostgresWorkflowJournalMaintenance({
+      connectionString: databaseUrl,
+    });
 
     try {
-      const firstSweep = first.sweep({ completedBefore: CUTOFF, batchLimit: 10 });
+      const firstSweep = first.sweep({
+        completedBefore: CUTOFF,
+        batchLimit: 10,
+      });
       await archiveStarted.promise;
       await expect(
         second.sweep({ completedBefore: CUTOFF, batchLimit: 10 }),
@@ -142,7 +154,10 @@ describe.skipIf(!configuredDatabaseUrl)("Postgres Workflow journal maintenance",
         prunedRuns: 0,
       });
       releaseArchive.resolve();
-      await expect(firstSweep).resolves.toMatchObject({ lockAcquired: true, prunedRuns: 1 });
+      await expect(firstSweep).resolves.toMatchObject({
+        lockAcquired: true,
+        prunedRuns: 1,
+      });
       await expect(
         second.sweep({ completedBefore: CUTOFF, batchLimit: 10 }),
       ).resolves.toMatchObject({
@@ -172,13 +187,43 @@ describe.skipIf(!configuredDatabaseUrl)("Postgres Workflow journal maintenance",
       await maintenance.close();
     }
   });
+
+  it("reports only age metadata for the oldest effective non-terminal run", async () => {
+    const now = new Date("2026-01-03T00:00:00.000Z");
+    await seedRun(inspectionPool, "old-pending", {
+      workflowStatus: "pending",
+      completedAt: undefined,
+      workflowStartedAt: null,
+    });
+    await seedRun(inspectionPool, "young-running", {
+      workflowStatus: "running",
+      completedAt: undefined,
+      workflowStartedAt: new Date("2026-01-02T00:00:00.000Z"),
+    });
+    await seedRun(inspectionPool, "older-completed", {
+      workflowStartedAt: new Date("2025-12-01T00:00:00.000Z"),
+    });
+    const maintenance = createPostgresWorkflowJournalMaintenance({
+      connectionString: databaseUrl,
+    });
+
+    try {
+      await expect(maintenance.oldestNonterminalRun(now)).resolves.toEqual({
+        startedAt: OLD_COMPLETION,
+        ageMs: 2 * 24 * 60 * 60 * 1_000,
+      });
+    } finally {
+      await maintenance.close();
+    }
+  });
 });
 
 type SeedOptions = Readonly<{
   legalHold?: boolean;
   turnStatus?: "open" | "completed";
-  workflowStatus?: "running" | "completed";
+  workflowStatus?: "pending" | "running" | "completed";
   completedAt?: Date | undefined;
+  workflowStartedAt?: Date | null;
 }>;
 
 async function seedRun(pool: Pool, label: string, options: SeedOptions): Promise<string> {
@@ -233,7 +278,13 @@ async function seedRun(pool: Pool, label: string, options: SeedOptions): Promise
       turnStatus === "open" ? undefined : OLD_COMPLETION,
     ],
   );
-  await seedWorkflowRows(pool, runId, workflowStatus, completedAt);
+  await seedWorkflowRows(
+    pool,
+    runId,
+    workflowStatus,
+    completedAt,
+    options.workflowStartedAt === undefined ? OLD_COMPLETION : options.workflowStartedAt,
+  );
   return runId;
 }
 
@@ -267,21 +318,23 @@ async function seedTitleRun(
      values ($1, $2, $3, $4)`,
     [runId, workspaceId, conversationId, OLD_COMPLETION],
   );
-  await seedWorkflowRows(pool, runId, "completed", OLD_COMPLETION);
+  await seedWorkflowRows(pool, runId, "completed", OLD_COMPLETION, OLD_COMPLETION);
   return runId;
 }
 
 async function seedWorkflowRows(
   pool: Pool,
   runId: string,
-  status: "running" | "completed",
+  status: "pending" | "running" | "completed",
   completedAt: Date | undefined,
+  startedAt: Date | null,
 ): Promise<void> {
   await pool.query(
     `insert into workflow.workflow_runs
-       (id, deployment_id, status, name, attributes, created_at, updated_at, completed_at)
-     values ($1, 'deployment', $2, 'chat-turn', '{}'::jsonb, $3, $3, $4)`,
-    [runId, status, OLD_COMPLETION, completedAt],
+       (id, deployment_id, status, name, attributes, created_at, updated_at,
+        started_at, completed_at)
+     values ($1, 'deployment', $2, 'chat-turn', '{}'::jsonb, $3, $3, $4, $5)`,
+    [runId, status, OLD_COMPLETION, startedAt, completedAt],
   );
   await pool.query(
     `insert into workflow.workflow_events (id, type, created_at, run_id)
@@ -335,4 +388,19 @@ async function countRunRows(pool: Pool, runId: string): Promise<readonly number[
     [runId],
   );
   return result.rows[0]?.counts ?? [];
+}
+
+async function measureJournalBytes(pool: Pool, runId: string): Promise<number> {
+  const result = await pool.query<{ bytes: string }>(
+    `select (
+       (select pg_column_size(workflow_run.*) from workflow.workflow_runs workflow_run where id = $1) +
+       (select sum(pg_column_size(workflow_event.*)) from workflow.workflow_events workflow_event where run_id = $1) +
+       (select sum(pg_column_size(workflow_step.*)) from workflow.workflow_steps workflow_step where run_id = $1) +
+       (select sum(pg_column_size(workflow_hook.*)) from workflow.workflow_hooks workflow_hook where run_id = $1) +
+       (select sum(pg_column_size(workflow_wait.*)) from workflow.workflow_waits workflow_wait where run_id = $1) +
+       (select sum(pg_column_size(stream_chunk.*)) from workflow.workflow_stream_chunks stream_chunk where run_id = $1)
+     )::text as bytes`,
+    [runId],
+  );
+  return Number(result.rows[0]?.bytes ?? 0);
 }

@@ -42,6 +42,7 @@ export interface ClientToolDispatchStore {
     auth: AuthContext,
     runId: string,
     toolCallId: string,
+    clientToolCapabilityDigest: string,
   ): Promise<ClientToolDispatchLookup>;
   submit(
     dispatch: ClientToolDispatchRef,
@@ -64,7 +65,8 @@ export type ClientToolDispatchSnapshot = Readonly<{
 /** Durable operations used from Workflow step activities after a resume. */
 export interface ClientToolWorkflowStore {
   create(
-    dispatch: ClientToolDispatchIdentity & Readonly<{ toolName: string }>,
+    dispatch: ClientToolDispatchIdentity &
+      Readonly<{ toolName: string; clientToolCapabilityDigest: string }>,
   ): Promise<ClientToolDispatchSnapshot>;
   read(dispatch: ClientToolDispatchIdentity): Promise<ClientToolDispatchSnapshot | undefined>;
   claimTimeout(
