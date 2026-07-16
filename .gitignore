@@ -30,6 +30,7 @@ test-harness/widget-harness/vite.config.js.map
 .codex/agents/*
 !.codex/agents/*.toml
 .claude/
+.zed/settings.json
 .codex-run/
 .reference/
 .tmp*
