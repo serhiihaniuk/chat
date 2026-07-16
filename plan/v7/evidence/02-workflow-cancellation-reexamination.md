@@ -48,7 +48,7 @@ Build environment: Node 24, Windows, zero build issues (22 steps / 6 workflows c
 1. **Adopt Workflow now, pinned, with the one-line patch** isolated in one documented module, guarded by the permanent compatibility suite (breakage on any bump = failing test), with a recorded removal criterion (delete the patch when either upstream fix ships). Restores crash-resume, multi-instance, durable waits, and engine replay immediately. Risk: the patch mutates a sandbox global on a beta release train.
 2. **Stay on the ToolLoopAgent fallback; file both upstream issues; re-run the gate on every bump.** Zero patch risk; the durability features return on upstream's clock; Steps 03–04 proceed either way (substrate-agnostic).
 
-The original ADR 0016 rejection rationale ("fixing either path required compatibility code at a load-bearing cancellation boundary") is now qualified: cancellation semantics underneath are PROVEN correct; the patch fixes a name lookup, not behavior. Whether that distinction clears the no-compatibility-code rule is a product-owner decision, pending as of this document.
+The original ADR 0008 rejection rationale ("fixing either path required compatibility code at a load-bearing cancellation boundary") is now qualified: cancellation semantics underneath are PROVEN correct; the patch fixes a name lookup, not behavior. Whether that distinction clears the no-compatibility-code rule is a product-owner decision, pending as of this document.
 
 ## Upstream-issue material (drafts; not yet filed — filing requires user approval)
 

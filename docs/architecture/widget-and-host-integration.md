@@ -2,7 +2,7 @@
 
 Read this when: you embed the widget, provide host context, or expose browser-side tools.
 Source of truth for: the public widget branch, host bridge responsibilities, recovery, and originating-tab authority.
-Not source of truth for: visual tokens ([widget-design-system.md](widget-design-system.md)) or service tool execution ([client-tools.md](client-tools.md)).
+Not source of truth for: visual tokens and theme extension ([the widget README](../../packages/side-chat-widget/README.md)) or service tool execution ([client-tools.md](client-tools.md)).
 
 ## Public composition
 

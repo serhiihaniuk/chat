@@ -1,8 +1,6 @@
-# ADR 0016: Adopt the Workflow Durable Execution Substrate with a Pinned Compatibility Patch
+# ADR 0008: Adopt the Workflow Durable Execution Substrate with a Pinned Compatibility Patch
 
 Status: accepted 2026-07-11 (revised the same day: supersedes this ADR's own interim fallback decision after a re-examination with new evidence)
-
-Supersedes: ADR 0007 (connection-bound streaming) and ADR 0008 (crash-recovery lease/sweep).
 
 ## Context
 
@@ -50,9 +48,13 @@ Cancellation is signal-based: a durable abort hook raced with the agent call; th
 - The service build adopts the Nitro workflow compiler; the Postgres World adds workflow tables (own schema) and a worker to operate.
 - Steps may execute more than once (at-least-once semantics); mutating tools require idempotency keys.
 - Self-hosted deploys need drain discipline until an upstream deploy-versioning story exists; workflow function shapes must stay replay-compatible across deploys.
-- The interim `ToolLoopAgent` fallback remains recorded here and in the gate history as the contingency that briefly ran; exactly one substrate ships, with no parallel implementations behind a port.
+- Exactly one durable substrate ships. The short-lived request-bound fallback is
+  preserved only in git and plan evidence, not as a parallel implementation or
+  supported runtime mode.
 - Accepted risks: the patch mutates a sandbox global on a beta release train (bounded by exact pins plus the load-bearing test); upstream-issue material for both one-line fixes is drafted in the evidence file (filing requires user approval).
-- Remaining incomplete upstream area tracked separately: WorkflowAgent's compiled-path `needsApproval` gap (see the approvals plan step), which the approval design must gate on its own durable execution barrier until upstream proves otherwise.
+- Server-tool approval remains guarded by Side Chat's authenticated durable
+  decision row and hook barrier; provider or Workflow approval metadata alone is
+  not execution authority.
 
 ## Implementation findings (2026-07-11 rebuild; permanently tested in the compatibility suite)
 

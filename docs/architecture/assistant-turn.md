@@ -88,6 +88,6 @@ Workflow journal maintenance is a boot-and-interval service lifecycle. It valida
 
 ## Related decisions
 
-- [ADR 0016 — Workflow DevKit as durable execution substrate](../adr/0016-workflow-durable-execution-substrate.md)
-- [ADR 0017 — native conversation reconciliation](../adr/0017-native-conversation-reconciliation.md)
-- [ADR 0018 — terminal projection reconciliation](../adr/0018-terminal-projection-reconciliation.md)
+- [ADR 0008 — Workflow DevKit as durable execution substrate](../adr/0008-workflow-durable-execution-substrate.md)
+- [ADR 0009 — native conversation reconciliation](../adr/0009-native-conversation-reconciliation.md)
+- [ADR 0010 — terminal projection reconciliation](../adr/0010-terminal-projection-reconciliation.md)

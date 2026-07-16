@@ -43,7 +43,7 @@ Presentation invariants carried from the old reducer: terminal is final at the o
 
 ## Cut-list reconciliation
 
-The old `ACTIVITY_KINDS`/`ACTIVITY_STATUSES` reducer and ADR 0015 disposition were reconciled during implementation. Generic progress, provider metadata, host-command vocabulary, recovery markers, and local recovery UI remain cut. Native tool lifecycle, approval display, source/file presentation, and terminal safety states are expressed through existing component-library primitives; no new data parts or protocol behavior were introduced.
+The old `ACTIVITY_KINDS`/`ACTIVITY_STATUSES` reducer and ADR 0007 disposition were reconciled during implementation. Generic progress, provider metadata, host-command vocabulary, recovery markers, and local recovery UI remain cut. Native tool lifecycle, approval display, source/file presentation, and terminal safety states are expressed through existing component-library primitives; no new data parts or protocol behavior were introduced.
 
 ## Edge cases (each a test)
 

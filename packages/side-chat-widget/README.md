@@ -1,7 +1,7 @@
 # side-chat-widget
 
 Read this when: editing the embeddable React widget.
-Source of truth for: the widget public surface and browser-side boundaries.
+Source of truth for: the widget public surface, browser-side boundaries, and appearance extension points.
 Not source of truth for: service workflow or persistence details.
 
 ## Public surface
@@ -38,6 +38,22 @@ It receives no provider, database, approval, or service-internal DTO.
 - Keep AI SDK stream mechanics inside workflow-chat entity/feature slices.
 - Keep rendering separate from transport, execution, and approval authority.
 - Treat `src/shared/ai/**` as quarantined copied visual primitives.
+
+## Appearance
+
+`styles.css` owns the scoped widget tokens. `src/shared/lib/widget-themes.ts`
+owns the four supported light themes: Graphite, Sapphire, Sage, and Ocean.
+Graphite is the default token set; the other themes bind through
+`data-sidechat-theme` on the widget root. Appearance controls layer accent,
+radius, density, elevation, and typeface overrides over the selected palette.
+
+To add a theme:
+
+1. add its id and public description to `WIDGET_THEMES`;
+2. add matching widget-root and preview token blocks to `styles.css`;
+3. run `widget-themes.test.ts`, which requires both blocks for every non-default
+   theme;
+4. verify the settings preview and a mounted widget in the browser.
 
 ## Tests
 

@@ -7,7 +7,7 @@ cancellation intent, reconciliation, and their concurrency rules.
 Not source of truth for: ordinary turn order
 ([assistant-turn.md](assistant-turn.md)), journal retention
 ([../operations/database.md](../operations/database.md)), or decision rationale
-([ADR 0018](../adr/0018-terminal-projection-reconciliation.md)).
+([ADR 0010](../adr/0010-terminal-projection-reconciliation.md)).
 
 ## Durable ownership
 

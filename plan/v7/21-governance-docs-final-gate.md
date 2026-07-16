@@ -42,7 +42,7 @@ One owner per topic; link, don't duplicate. Update to implemented current state:
 - `docs/domain/vocabulary.md` — SDK naming adopted; retired terms removed or marked historical;
 - root `README.md` technology claims; package READMEs for the new app, db, widget;
 - `AGENTS.md` — Effect-specific rules replaced/scoped to the final reality (**user reviews this edit before it lands**);
-- ADRs from Step 01 and the Step 02 substrate verdict (ADR 0016)—verify none contradicts implemented state; fix drift.
+- ADRs from Step 01 and the Step 02 substrate verdict (ADR 0008)—verify none contradicts implemented state; fix drift.
 
 ## Plan disposition
 

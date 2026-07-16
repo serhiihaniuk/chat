@@ -1,11 +1,11 @@
-# ADR 0018: Derive Effective Turn Activity and Fence Orphaned Workflow Attempts
+# ADR 0010: Derive Effective Turn Activity and Fence Orphaned Workflow Attempts
 
 Status: accepted 2026-07-15
 
-Clarifies: ADR 0016 (Workflow durable execution substrate) and ADR 0017
+Clarifies: ADR 0008 (Workflow durable execution substrate) and ADR 0009
 (native conversation reconciliation).
 
-Does not restore: ADR 0008 (lease heartbeat and expired-owner sweep).
+This decision does not restore lease heartbeats or age-based death detection.
 
 ## Context
 

@@ -1,4 +1,4 @@
-# ADR 0017: Native Conversation Reconciliation — Atomic Finalization and Snapshot-Then-Changes
+# ADR 0009: Native Conversation Reconciliation — Atomic Finalization and Snapshot-Then-Changes
 
 Status: accepted 2026-07-14
 

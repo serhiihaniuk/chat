@@ -29,7 +29,7 @@ import {
  *   collapse to a safe code. Browser values and internal execution errors do
  *   not return through replay, logs, or a second tab.
  * - a native finish reason (`content-filter`, `length`, ...) is forwarded
- *   untouched — it already IS the blocked/length representation (ADR 0015).
+ *   untouched — it already IS the blocked/length representation (ADR 0007).
  * - exactly one terminal-class chunk reaches the client; a second is dropped
  *   (defense in depth — the SDK should already guarantee this).
  * - unknown chunk types are forwarded, never dropped, and counted.

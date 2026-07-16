@@ -16,4 +16,4 @@ Shipped configuration lives in [`apps/side-chat-service/sidechat.config.ts`](../
 - Wire `npm run verify` into the chosen CI service before an alpha tag so local and remote gates match.
 - Add the intended license before publishing the starter outside the owning organization.
 
-The [`plan/`](../../plan/00-overview.md) folder is planning history. Canonical architecture and operations docs describe shipped behavior directly.
+The [`plan/v7/`](../../plan/v7/README.md) folder is planning history. Canonical architecture and operations docs describe shipped behavior directly.

@@ -100,7 +100,7 @@ or restart/replay verification.
 
 Only Workflow-terminal runs older than the cutoff and bound to terminal Side Chat turns are eligible. Conversations under legal hold are excluded. The default `operational` class deletes eligible hot-journal rows; the `record` class requires an injected archive callback and archives a complete six-table snapshot before deletion. Archive storage must make `runId` idempotent because a later database rollback can cause a retry.
 
-[ADR 0018](../adr/0018-terminal-projection-reconciliation.md) replaces the
+[ADR 0010](../adr/0010-terminal-projection-reconciliation.md) replaces the
 ambiguous product `running` projection with product `open` plus joined Workflow
 activity. Reads show only Workflow `pending` or `running` as active; admission
 and cancel repair terminal or expired-missing mismatches under the product-row

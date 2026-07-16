@@ -114,6 +114,6 @@ invariants in the audit table still apply.
 ### New cuts discovered
 
 The canonical Step 01 cut list is the
-[ADR 0015 feature-disposition table](../../docs/adr/0015-native-ui-stream-tools-and-approval-profile.md#feature-disposition).
+[ADR 0007 feature-disposition table](../../docs/adr/0007-native-ui-stream-tools-and-approval-profile.md#feature-disposition).
 This audit added explicit dispositions for titles, content filtering,
 cancellation, step-limit semantics, per-turn usage details, and native replay.

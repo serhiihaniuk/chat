@@ -4,7 +4,7 @@ Read this when: building on, verifying, or upgrading the greenfield service foun
 
 Source of truth for: the step-02 history (both gate passes), the implemented WorkflowAgent/Nitro foundation, the realm patch and its removal criterion, the permanent compatibility suite, and the package boundary.
 
-Not source of truth for: production configuration (Step 03), providers/auth/telemetry (Step 04), or turn policy (Step 05). The substrate decision itself is owned by [ADR 0016](../../docs/adr/0016-workflow-durable-execution-substrate.md) and the verdict section of [`STATUS.md`](./STATUS.md).
+Not source of truth for: production configuration (Step 03), providers/auth/telemetry (Step 04), or turn policy (Step 05). The substrate decision itself is owned by [ADR 0008](../../docs/adr/0008-workflow-durable-execution-substrate.md) and the verdict section of [`STATUS.md`](./STATUS.md).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 
@@ -22,7 +22,7 @@ This step originally existed as two files (02a retained foundation, 02b compatib
 
 1. **First gate (early 2026-07-11):** the foundation was built on Workflow and the gate found cancellation could not reach an in-flight provider call inside a workflow (Workflow 4.6's VM lacks `AbortSignal`; a Workflow 5 beta signal failed AI SDK's `instanceof AbortSignal` check). A request-bound `ToolLoopAgent` fallback was selected and the Workflow code was deleted. The finding was correct, but the original evidence document was lost in an interrupted plan cleanup.
 2. **Re-examination (later 2026-07-11):** [`evidence/02-workflow-cancellation-reexamination.md`](./evidence/02-workflow-cancellation-reexamination.md) rebuilt the evidence from scratch on the newest versions: out of the box still broken, but the root cause is a one-line name-lookup bug (workflow VM's `AbortSignal` global is a plain object; AI SDK's `mergeAbortSignals` uses `instanceof`), while the DevKit's v5 cancellation semantics are proven correct end-to-end. A one-line in-workflow patch makes the docs-blessed cancellation pattern work (~2 ms abort delivery, reason intact). `run.cancel()` was confirmed to deliver zero abort events to a provider.
-3. **User decision:** adopt Workflow with the pinned realm patch (ADR 0016 revised to this outcome). Rationale: the adopt-with-patch and wait-for-upstream paths converge, minus the idle time; the durability features (crash-resume, multi-instance continuation, durable waits, replay) are product-owner-required.
+3. **User decision:** adopt Workflow with the pinned realm patch (ADR 0008 revised to this outcome). Rationale: the adopt-with-patch and wait-for-upstream paths converge, minus the idle time; the durability features (crash-resume, multi-instance continuation, durable waits, replay) are product-owner-required.
 4. **Rebuild:** the WorkflowAgent + Nitro foundation was rebuilt the same day and verified green; the interim `ToolLoopAgent` fallback code was deleted per the one-substrate rule.
 
 ## Implemented architecture
@@ -83,4 +83,4 @@ Scripted model: `apps/side-chat-service/src/testing/scripted-language-model.ts`
 
 Permanent suite: `apps/side-chat-service/src/composition/route/service-compatibility.integration.test.ts` (verified command: `npm run test:service:compatibility`, 3/3)
 
-Decision and findings recorded in: ADR 0016 (revised), `KNOWLEDGE.md` §2026-07-11 cancellation re-examination and §2026-07-11 foundation rebuild facts, `evidence/02-workflow-cancellation-reexamination.md`
+Decision and findings recorded in: ADR 0008 (revised), `KNOWLEDGE.md` §2026-07-11 cancellation re-examination and §2026-07-11 foundation rebuild facts, `evidence/02-workflow-cancellation-reexamination.md`

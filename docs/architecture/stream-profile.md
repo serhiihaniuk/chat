@@ -46,7 +46,7 @@ The dependency-free stream-profile schema rejects unknown/private fields. Live a
 
 ### `data-*` parts
 
-Baseline: **none.** Turn state derives from native parts, so no custom `data-*` part ships (ADR 0015). The extension point is `SideChatDataParts` in `packages/stream-profile`; adding a part requires a schema, a named consumer that cannot derive the concept from native parts, and a privacy review. Injection composes into the outbound transform chain, ordered relative to native parts.
+Baseline: **none.** Turn state derives from native parts, so no custom `data-*` part ships (ADR 0007). The extension point is `SideChatDataParts` in `packages/stream-profile`; adding a part requires a schema, a named consumer that cannot derive the concept from native parts, and a privacy review. Injection composes into the outbound transform chain, ordered relative to native parts.
 
 ## Errors
 

@@ -1,14 +1,14 @@
-# ADR 0015: Use the Native UI Stream, Tools, and Approval Vocabulary
+# ADR 0007: Use the Native UI Stream, Tools, and Approval Vocabulary
 
-Status: accepted 2026-07-11; lifecycle ownership amended by ADR 0017 on 2026-07-14
-
-Supersedes: ADR 0004 and ADR 0009 at the v7 cutover. Amends the live-state portion of ADR 0012.
+Status: accepted 2026-07-11; rebaselined after conversation reconciliation on 2026-07-16
 
 ## Context
 
-`sidechat.v1` currently owns a custom request/event union, validators, SSE codec, activity vocabulary, transport errors, and a RuntimeEvent-to-wire mapping. Host commands add a second custom tool lifecycle so a browser result can find an in-memory waiter on the owning service instance.
-
-AI SDK 7 publishes a versioned UI message stream and typed parts for text, reasoning, tools, approvals, sources, files, errors, abort, and finish. `WorkflowChatTransport` plus headless `Chat` consume that protocol directly. Dynamic/client tools represent the existing host-command use case without a Side Chat-specific model-facing vocabulary.
+AI SDK 7 publishes a versioned UI message stream and typed parts for text,
+reasoning, tools, approvals, sources, files, errors, abort, and finish. Using
+those native parts avoids a second event grammar and mapping layer. Side Chat
+still needs a narrow profile for safe errors, bounded metadata, terminal
+discipline, and authenticated client-tool settlement.
 
 ## Decision
 
@@ -23,7 +23,9 @@ The public stream contract is AI SDK UI message stream `v1`, identified by `x-ve
 
 ## Approval policy
 
-The current configured production/fake tool inventory contains one server tool, `mock_web_search`, and no host commands. Example/fixture tools are not shipped capabilities but establish the policy categories.
+The configured production and fake deployments expose the read-only
+`mock_web_search` server tool. Client-tool fixtures establish the browser-action
+policy categories without becoming production capabilities.
 
 | Tool or category                   | Policy                                     | Reason                                                                |
 | ---------------------------------- | ------------------------------------------ | --------------------------------------------------------------------- |
@@ -42,8 +44,10 @@ The gate persists the request before emitting `tool-approval-request`, then susp
 
 ## Client availability policy
 
-- On the Workflow substrate, a client tool waits durably for reattachment up to its configured timeout. Result persistence precedes hook resumption, so result-before-hook races cannot lose data.
-- On ToolLoopAgent fallback, no connected client produces an immediate typed result. The system does not rebuild polling, notification relay, or an in-memory cross-instance waiter.
+A client tool waits durably for the originating tab to reattach up to its
+configured timeout. Result persistence precedes hook resumption, so a
+result-before-hook race cannot lose data. The service does not maintain a
+request-bound fallback, polling relay, or in-memory cross-instance waiter.
 
 ## Public error profile
 

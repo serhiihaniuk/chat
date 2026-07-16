@@ -2,7 +2,7 @@
 
 Read this when: reviewing the historical Step 13 transport integration.
 
-Source of truth for: the Step 13 implementation record only. ADR 0017 and Step 16 own the current session/lifecycle architecture.
+Source of truth for: the Step 13 implementation record only. ADR 0009 and Step 16 own the current session/lifecycle architecture.
 
 Not source of truth for: part rendering (Step 14), tool/approval interactions (Step 15), or recovery/multi-tab (Step 16).
 
@@ -11,21 +11,21 @@ Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 > **Superseded ownership assumption (2026-07-14):** this step correctly adopted
 > native stream assembly, but incorrectly made `useChat` the conversation-state
 > authority. The current widget uses a widget-lifetime reducer session plus a
-> disposable transport-reader epoch. See [ADR 0017](../../docs/adr/0017-native-conversation-reconciliation.md).
+> disposable transport-reader epoch. See [ADR 0009](../../docs/adr/0009-native-conversation-reconciliation.md).
 
 Depends on: Steps 07, 10 (their endpoints). Unblocks: Steps 14, 15, 16.
 
 ## Outcome
 
-This step originally sent, streamed, and cancelled through `useChat` with `WorkflowChatTransport`, seeded from validated history. That transport adoption remains, but its lifecycle ownership was replaced by the Step 16/ADR 0017 session architecture. This section records the historical milestone rather than the current design.
+This step originally sent, streamed, and cancelled through `useChat` with `WorkflowChatTransport`, seeded from validated history. That transport adoption remains, but its lifecycle ownership was replaced by the Step 16/ADR 0009 session architecture. This section records the historical milestone rather than the current design.
 
 ## Current evidence to verify (the layer being replaced)
 
 - Being replaced: `packages/side-chat-widget/src/features/chat/model/run/{widget-run-reducer,widget-run-projection,widget-run-state,widget-run-store}.ts`, `entities/conversation/api/{sse/side-chat-sse-reader,run/side-chat-turn-stream,run/side-chat-run-client}.ts`.
 - Staying (updated shapes only): `entities/conversation/api/query/**` (TanStack Query reads).
-- Read `.claude/skills/sidechat-design-system` before touching any widget code.
+- Use the repository-local `side-chat-design-system` skill before changing widget design-system code.
 
-## Original target design (ownership superseded by ADR 0017)
+## Original target design (ownership superseded by ADR 0009)
 
 - One `useChat` per open conversation; `id` = conversation id; initial messages seeded from the Step 10 history read (validated `UIMessage[]`).
 - Transport: `WorkflowChatTransport` — `api` → Step 05 POST; auth headers/credentials/body via the prepare-hook functions (`prepareSendMessagesRequest`, `prepareReconnectToStreamRequest` — functions, so token refresh works); reconnect target Step 07's GET; `maxConsecutiveErrors` from config. (Reconnect _behavior_ is Step 16's scope; this step only wires the transport correctly.)

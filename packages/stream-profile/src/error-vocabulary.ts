@@ -7,7 +7,7 @@
  * the safe message and retry affordance from the code). Raw provider, database,
  * prompt, and tool text never appears here; a code is all that crosses the wire.
  *
- * Source of truth: ADR 0015 (public error profile). Adding a code without a
+ * Source of truth: ADR 0007 (public error profile). Adding a code without a
  * vocabulary entry fails `SIDE_CHAT_ERROR_VOCABULARY`'s exhaustive `Record`.
  */
 export const SIDE_CHAT_ERROR_CODES = {
