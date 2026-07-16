@@ -45,7 +45,12 @@ It receives no provider, database, approval, or service-internal DTO.
 owns the four supported light themes: Graphite, Sapphire, Sage, and Ocean.
 Graphite is the default token set; the other themes bind through
 `data-sidechat-theme` on the widget root. Appearance controls layer accent,
-radius, density, elevation, and typeface overrides over the selected palette.
+radius, density, elevation, text-scale, and typeface overrides over the selected
+palette. React persists the selected ids and exposes them as
+`data-sidechat-*` attributes; `styles.css` alone owns the corresponding design
+values. Tailwind utilities consume those cascading tokens, so appearance presets
+must not be implemented as React inline styles or duplicated TypeScript value
+tables.
 
 To add a theme:
 

@@ -63,11 +63,7 @@ export function WorkflowSideChatWidget({
   };
   if (!isOpen && renderClosedLauncher) {
     return (
-      <SideChatWidgetRoot
-        data-sidechat-accent={appearance.appearanceRootProps["data-sidechat-accent"]}
-        style={appearance.appearanceRootProps.style}
-        theme={theme.themeId}
-      >
+      <SideChatWidgetRoot {...appearance.appearanceRootProps} theme={theme.themeId}>
         <ClosedWidgetLauncher label={labels.title} onOpen={() => requestOpenChange(true)} />
       </SideChatWidgetRoot>
     );
@@ -76,13 +72,12 @@ export function WorkflowSideChatWidget({
   return (
     <WidgetLabelsProvider value={labels}>
       <ResizablePanel
+        {...appearance.appearanceRootProps}
         anchor="fixed"
         aria-label={labels.title}
-        data-sidechat-accent={appearance.appearanceRootProps["data-sidechat-accent"]}
         defaultSize={panelSize}
         onSizeChange={setPanelSize}
         role="region"
-        style={appearance.appearanceRootProps.style}
         theme={theme.themeId}
       >
         <WorkflowConversationPanel

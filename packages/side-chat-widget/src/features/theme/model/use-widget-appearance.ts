@@ -1,7 +1,5 @@
-import { useCallback, useState, type CSSProperties } from "react";
+import { useCallback, useState } from "react";
 import { parseJsonRecord } from "@side-chat/shared";
-
-import { widgetAppearanceStyle } from "#shared/lib/widget-appearance-style";
 
 /**
  * Persists appearance controls that re-skin the widget root through shared tokens.
@@ -75,7 +73,11 @@ export type WidgetAppearanceState = {
 
 export type WidgetAppearanceRootProps = {
   readonly "data-sidechat-accent"?: WidgetAccentId;
-  readonly style: CSSProperties;
+  readonly "data-sidechat-corners": WidgetCornersId;
+  readonly "data-sidechat-density": WidgetDensityId;
+  readonly "data-sidechat-elevation": WidgetElevationId;
+  readonly "data-sidechat-text-size": WidgetTextSizeId;
+  readonly "data-sidechat-typeface": WidgetTypefaceId;
 };
 
 export type WidgetAppearanceController = WidgetAppearanceState & {
@@ -180,9 +182,11 @@ function readTypefacePatch(value: string): Partial<WidgetAppearanceState> | unde
 
 const createAppearanceRootProps = (state: WidgetAppearanceState): WidgetAppearanceRootProps => ({
   ...(state.accent === "default" ? {} : { "data-sidechat-accent": state.accent }),
-  // The token values are single-sourced in shared/lib so the settings preview and
-  // the live root can never disagree.
-  style: widgetAppearanceStyle(state),
+  "data-sidechat-corners": state.corners,
+  "data-sidechat-density": state.density,
+  "data-sidechat-elevation": state.elevation,
+  "data-sidechat-text-size": state.textSize,
+  "data-sidechat-typeface": state.typeface,
 });
 
 const DEFAULTS: WidgetAppearanceState = {

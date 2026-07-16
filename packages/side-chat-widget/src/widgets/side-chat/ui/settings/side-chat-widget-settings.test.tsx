@@ -100,7 +100,7 @@ describe("SideChatWidget settings", () => {
 
     const root = widgetRoot();
     if (!(root instanceof HTMLElement)) throw new Error("Expected widget root.");
-    expect(root.style.getPropertyValue("--font-widget")).toContain("Plus Jakarta Sans");
+    expect(root.getAttribute("data-sidechat-typeface")).toBe("plus-jakarta");
   });
 
   it("keeps graphite attribute-free so it tracks the host light/dark", async () => {
@@ -116,7 +116,7 @@ describe("SideChatWidget settings", () => {
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("graphite");
   });
 
-  it("applies persisted appearance controls to the widget root tokens", async () => {
+  it("exposes persisted appearance ids for the stylesheet to apply", async () => {
     renderThemeWidget();
 
     await clickButton("Settings");
@@ -128,12 +128,12 @@ describe("SideChatWidget settings", () => {
 
     const root = widgetRoot();
     if (!(root instanceof HTMLElement)) throw new Error("Expected widget root.");
-    const rootStyle = root.style;
     expect(root.getAttribute("data-sidechat-accent")).toBe("blue");
-    expect(rootStyle.getPropertyValue("--space-unit")).toBe("0.3125rem");
-    expect(rootStyle.getPropertyValue("--text-md")).toBe("1rem");
-    expect(rootStyle.getPropertyValue("--font-widget")).toContain("Instrument Sans");
-    expect(rootStyle.getPropertyValue("--shadow-panel")).toBe("0 0 #0000");
+    expect(root.getAttribute("data-sidechat-density")).toBe("roomy");
+    expect(root.getAttribute("data-sidechat-elevation")).toBe("flat");
+    expect(root.getAttribute("data-sidechat-text-size")).toBe("large");
+    expect(root.getAttribute("data-sidechat-typeface")).toBe("instrument-sans");
+    expect(root.getAttribute("style")).not.toContain("--space-unit");
     expect(JSON.parse(window.localStorage.getItem(APPEARANCE_STORAGE_KEY) ?? "{}")).toMatchObject({
       accent: "blue",
       density: "roomy",

@@ -1,16 +1,9 @@
-import {
-  useCallback,
-  useState,
-  type CSSProperties,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import { useCallback, useState, type ReactElement, type ReactNode } from "react";
 
 import { Tabs } from "@base-ui/react/tabs";
 import { ChevronLeft, X } from "lucide-react";
 
 import { cn } from "#shared/lib/cn";
-import { widgetAppearanceStyle } from "#shared/lib/widget-appearance-style";
 import { ScrollArea } from "#shared/ui/scroll-area";
 import {
   createSettingsGroups,
@@ -70,24 +63,6 @@ const appliedAccent = (
 ): AccentOption["id"] | undefined => {
   if (!applyAppearance || accent === "default") return undefined;
   return accent;
-};
-
-const appliedAppearanceStyle = (
-  applyAppearance: boolean,
-  corners: string,
-  density: string,
-  textSize: string,
-  typeface: string,
-  elevation: string,
-): CSSProperties | undefined => {
-  if (!applyAppearance) return undefined;
-  return widgetAppearanceStyle({
-    corners,
-    density,
-    elevation,
-    textSize,
-    typeface,
-  });
 };
 
 export function SettingsPanel({
@@ -169,14 +144,11 @@ export function SettingsPanel({
       onValueChange={selectGroup}
       className="sc-settings-root"
       data-sidechat-accent={appliedAccent(applyAppearance, accent)}
-      style={appliedAppearanceStyle(
-        applyAppearance,
-        corners,
-        density,
-        textSize,
-        typeface,
-        elevation,
-      )}
+      data-sidechat-corners={applyAppearance ? corners : undefined}
+      data-sidechat-density={applyAppearance ? density : undefined}
+      data-sidechat-elevation={applyAppearance ? elevation : undefined}
+      data-sidechat-text-size={applyAppearance ? textSize : undefined}
+      data-sidechat-typeface={applyAppearance ? typeface : undefined}
     >
       {/* Both navigators render; the side-chat-widget container query shows either
           the rail or the top Select using the same breakpoint as the shell. */}

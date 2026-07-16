@@ -74,19 +74,19 @@
   --radius-xl: calc(var(--radius) * 1.4);
 
   /* Type scale and line height — each value is paired with its line-height so rhythm can't drift */
-  --text-2xs: 0.6875rem;
+  --text-2xs: var(--sc-text-2xs);
   --text-2xs--line-height: 1.4;
-  --text-xs: 0.75rem;
+  --text-xs: var(--sc-text-xs);
   --text-xs--line-height: 1.45;
-  --text-sm: 0.8125rem;
+  --text-sm: var(--sc-text-sm);
   --text-sm--line-height: 1.5;
-  --text-base: 0.875rem;
+  --text-base: var(--sc-text-base);
   --text-base--line-height: 1.55;
-  --text-md: 0.9375rem;
+  --text-md: var(--sc-text-md);
   --text-md--line-height: 1.6;
-  --text-lg: 1.125rem;
+  --text-lg: var(--sc-text-lg);
   --text-lg--line-height: 1.4;
-  --text-xl: 1.5rem;
+  --text-xl: var(--sc-text-xl);
   --text-xl--line-height: 1.25;
 
   /* leading the user bubble asks for explicitly (Message) — registered, never leading-[1.55] */
@@ -178,7 +178,16 @@
      utilities and widget tier-2 spacing tokens read --spacing. Bridge the two so
      the showcase density slider re-skins real components without a discrete
      --space-N scale in implementation code. */
-  --spacing: var(--space-unit, 0.25rem);
+  --radius: 0.625rem;
+  --space-unit: 0.25rem;
+  --spacing: var(--space-unit);
+  --sc-text-2xs: 0.6875rem;
+  --sc-text-xs: 0.75rem;
+  --sc-text-sm: 0.8125rem;
+  --sc-text-base: 0.875rem;
+  --sc-text-md: 0.9375rem;
+  --sc-text-lg: 1.125rem;
+  --sc-text-xl: 1.5rem;
   --font-widget:
     "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
@@ -270,7 +279,7 @@
   --convo-item-radius: var(--radius-md);
   --convo-title-fg: var(--sidebar-foreground);
   --convo-subtitle-fg: var(--muted-foreground);
-  --group-label-size: var(--text-2xs);
+  --group-label-size: var(--sc-text-2xs);
   --group-label-fg: var(--muted-foreground);
   --rail-group-gap: calc(var(--spacing) * 2);
   --rail-list-gap: 1px;
@@ -290,7 +299,7 @@
   --settings-item-px: calc(var(--spacing) * 2.5);
   --settings-item-py: calc(var(--spacing) * 2);
   --settings-item-radius: var(--radius-md);
-  --settings-label-size: var(--text-sm);
+  --settings-label-size: var(--sc-text-sm);
   --settings-label-fg: var(--foreground);
   --settings-hint-fg: var(--muted-foreground);
   --settings-field-bg: var(--field-bg);
@@ -310,7 +319,7 @@
   --agent-mark-radius: var(--radius-md);
 
   /* Header (Widget header) */
-  --header-title-size: var(--text-md);
+  --header-title-size: var(--sc-text-md);
 
   /* Composer context ring (Composer) — a subtle grey meter, not a bold primary arc */
   --context-ring-track: var(--border);
@@ -342,19 +351,19 @@
   --message-code-block-placeholder-height: calc(var(--spacing) * 32);
   --message-code-block-pad: calc(var(--spacing) * 3);
   --message-code-block-radius: var(--radius-md);
-  --message-code-font-size: var(--text-sm);
+  --message-code-font-size: var(--sc-text-sm);
   --message-list-indent: calc(var(--spacing) * 5);
   --message-ordered-list-indent: calc(var(--spacing) * 12);
   --message-heading-gap-before: calc(var(--spacing) * 6);
   --message-heading-gap-after: calc(var(--spacing) * 3);
   --message-heading-weight: 600;
-  --message-heading-1-font-size: var(--text-lg);
-  --message-heading-2-font-size: var(--text-md);
-  --message-heading-3-font-size: var(--text-base);
+  --message-heading-1-font-size: var(--sc-text-lg);
+  --message-heading-2-font-size: var(--sc-text-md);
+  --message-heading-3-font-size: var(--sc-text-base);
   --message-heading-line-height: 1.4;
   --message-quote-border-width: 2px;
   --message-quote-indent: calc(var(--spacing) * 3);
-  --message-table-font-size: var(--text-sm);
+  --message-table-font-size: var(--sc-text-sm);
   --message-table-cell-px: calc(var(--spacing) * 2);
   --message-table-cell-py: calc(var(--spacing) * 1);
 
@@ -839,7 +848,7 @@
   background: var(--cite-icon-bg);
   border: 1px solid var(--cite-icon-border);
   color: var(--cite-icon-fg);
-  font-size: var(--text-2xs);
+  font-size: var(--sc-text-2xs);
 }
 
 /* Citations — trailing source-number chip; marker tokens, non-interactive. A tight
@@ -855,7 +864,7 @@
   background: var(--cite-marker-bg);
   border: 1px solid var(--cite-marker-border);
   color: var(--cite-source-meta-fg);
-  font-size: var(--text-2xs);
+  font-size: var(--sc-text-2xs);
 }
 
 /* Citations — fold panel. Same Base UI height animation as sc-collapsible-panel
@@ -892,7 +901,7 @@ a.sc-cite-source:hover {
   background: var(--cite-marker-bg);
   border: 1px solid var(--cite-marker-border);
   color: var(--cite-source-meta-fg);
-  font-size: var(--text-2xs);
+  font-size: var(--sc-text-2xs);
   transition:
     background var(--dur) var(--ease-out),
     color var(--dur) var(--ease-out),
@@ -908,6 +917,90 @@ a.sc-cite-source:hover {
     stroke: var(--context-ring-indicator);
     transition: stroke-dashoffset var(--dur) var(--ease-out);
   }
+}
+
+/*
+ * Appearance controls expose only closed ids from React. Their design values stay
+ * here so the live root and the settings preview share one Tailwind token cascade.
+ * Default selectors are explicit because a nested preview must be able to reset a
+ * non-default value inherited from the live widget root.
+ */
+[data-sidechat-corners="sharp"] {
+  --radius: 0rem;
+}
+[data-sidechat-corners="default"] {
+  --radius: 0.625rem;
+}
+[data-sidechat-corners="rounded"] {
+  --radius: 1rem;
+}
+
+[data-sidechat-density="compact"] {
+  --space-unit: 0.1875rem;
+}
+[data-sidechat-density="cozy"] {
+  --space-unit: 0.25rem;
+}
+[data-sidechat-density="roomy"] {
+  --space-unit: 0.3125rem;
+}
+
+[data-sidechat-text-size="small"] {
+  --sc-text-2xs: 0.625rem;
+  --sc-text-xs: 0.6875rem;
+  --sc-text-sm: 0.75rem;
+  --sc-text-base: 0.8125rem;
+  --sc-text-md: 0.875rem;
+  --sc-text-lg: 1rem;
+  --sc-text-xl: 1.375rem;
+}
+[data-sidechat-text-size="default"] {
+  --sc-text-2xs: 0.6875rem;
+  --sc-text-xs: 0.75rem;
+  --sc-text-sm: 0.8125rem;
+  --sc-text-base: 0.875rem;
+  --sc-text-md: 0.9375rem;
+  --sc-text-lg: 1.125rem;
+  --sc-text-xl: 1.5rem;
+}
+[data-sidechat-text-size="large"] {
+  --sc-text-2xs: 0.75rem;
+  --sc-text-xs: 0.8125rem;
+  --sc-text-sm: 0.875rem;
+  --sc-text-base: 0.9375rem;
+  --sc-text-md: 1rem;
+  --sc-text-lg: 1.25rem;
+  --sc-text-xl: 1.625rem;
+}
+
+[data-sidechat-typeface="plus-jakarta"] {
+  --font-widget:
+    "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+[data-sidechat-typeface="dm-sans"] {
+  --font-widget:
+    "DM Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+[data-sidechat-typeface="instrument-sans"] {
+  --font-widget:
+    "Instrument Sans", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+}
+
+[data-sidechat-elevation="flat"] {
+  --shadow-card: 0 0 #0000;
+  --shadow-popover: 0 0 #0000;
+  --shadow-panel: 0 0 #0000;
+}
+[data-sidechat-elevation="soft"] {
+  --shadow-card: 0 1px 2px 0 oklch(0 0 0 / 0.05), 0 1px 3px 0 oklch(0 0 0 / 0.08);
+  --shadow-popover: 0 4px 12px -2px oklch(0 0 0 / 0.12), 0 2px 6px -2px oklch(0 0 0 / 0.08);
+  --shadow-panel: 0 12px 32px -8px oklch(0 0 0 / 0.2), 0 4px 12px -4px oklch(0 0 0 / 0.12);
+}
+[data-sidechat-elevation="raised"] {
+  --shadow-card: 0 4px 12px -4px oklch(0 0 0 / 0.16), 0 2px 4px -2px oklch(0 0 0 / 0.12);
+  --shadow-popover: 0 12px 28px -8px oklch(0 0 0 / 0.22), 0 6px 14px -8px oklch(0 0 0 / 0.16);
+  --shadow-panel: 0 24px 56px -14px oklch(0 0 0 / 0.28), 0 10px 22px -12px oklch(0 0 0 / 0.2);
 }
 
 /*
@@ -1186,7 +1279,7 @@ a.sc-cite-source:hover {
     border-radius: var(--settings-field-radius);
     padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3);
     font-family: inherit;
-    font-size: var(--text-sm);
+    font-size: var(--sc-text-sm);
     line-height: 1.55;
     color: var(--foreground);
     resize: none;
