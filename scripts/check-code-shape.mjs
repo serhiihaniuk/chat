@@ -10,37 +10,7 @@ const MAX_PRODUCTION_FUNCTIONS_PER_FILE = 28;
 const MAX_SOURCE_FILES_PER_DIRECTORY = 5;
 const MAX_NESTED_FUNCTIONS = 8;
 const COPIED_SHARED_AI_PREFIX = "packages/side-chat-widget/src/shared/ai/";
-// The docs app entered the gate after these compound components already
-// existed. Exact current ceilings keep them visible and prevent further growth
-// without pretending that a broad exemption is a readability rule.
-const nestedFunctionBudgetExceptions = new Map([
-  ["apps/docs/app/components/design-controls.tsx:DesignControlsProvider", 18],
-  ["apps/docs/app/components/design-controls.tsx:anonymous function", 13],
-  ["apps/docs/app/components/design-controls.tsx:ThemeComposer", 18],
-  ["apps/docs/app/components/term.tsx:Term", 10],
-  ["apps/docs/app/components/turn-explorer.tsx:TurnExplorer", 17],
-  ["apps/docs/app/components/turn-trace.tsx:TurnTrace", 12],
-]);
-const functionCountBudgetExceptions = new Map([
-  ["apps/docs/app/components/design-controls.tsx", 75],
-]);
 const directoryBudgetExceptions = new Map([
-  [
-    "apps/docs/app/components",
-    {
-      maxFiles: 12,
-      reason:
-        "the contributor site component catalog is already flat; this exact ceiling prevents further growth while component-group extraction is evaluated",
-    },
-  ],
-  [
-    "apps/docs/app/components/demos",
-    {
-      maxFiles: 28,
-      reason:
-        "one demo per documented surface keeps examples directly discoverable; this exact ceiling prevents unrelated helpers from accumulating in the catalog",
-    },
-  ],
   [
     "packages/side-chat-widget/src/shared/ui",
     {
@@ -52,7 +22,7 @@ const directoryBudgetExceptions = new Map([
   [
     "packages/side-chat-widget/src/shared/ai",
     {
-      maxFiles: 12,
+      maxFiles: 6,
       reason: "copied AI UI primitives are quarantined vendor-style source",
     },
   ],
@@ -65,83 +35,11 @@ const directoryBudgetExceptions = new Map([
     },
   ],
   [
-    "packages/side-chat-widget/src/widgets/side-chat/ui",
-    {
-      maxFiles: 6,
-      reason:
-        "the widget shell plus its co-located DOM test suites (interaction, conversations, conversation-titles, labels) that share one happy-dom harness (widget-test-env), kept flat so the shell surface reads with its behaviours beside it",
-    },
-  ],
-  [
-    "apps/partner-ai-service/src/composition/factories",
-    {
-      maxFiles: 22,
-      reason:
-        "service composition factory catalog: one factory plus its co-located test per bundle, kept flat so the composition root reads as a table of contents (see sidechat-complete-architecture/07-composition-root-and-factories.md)",
-    },
-  ],
-  [
     "packages/db/src/repositories/postgres-drizzle/records",
     {
       maxFiles: 11,
       reason:
-        "turn record work is split by responsibility: turn-events.ts owns the durable event log (append/notify, terminal guard, PK-conflict reconcile), turn-lookups.ts owns turn-record reads (by id, by request, active turn), turn-lease.ts owns the owner-lease fencing CAS (acquire/renew/reap) for crash recovery, and usage.ts owns token-usage recording (mirroring the memory adapter); conversation-create.ts owns the create-or-get-by-id-then-key path and conversation-title-runs.ts owns the title-run linkage write so conversations.ts stays within the source-line budget",
-    },
-  ],
-  [
-    "packages/db/src/repositories/memory/records",
-    {
-      maxFiles: 8,
-      reason:
-        "the memory adapter mirrors the postgres records split: turn-events.ts owns the durable event log (append/terminal guard, idempotent re-append), turn-lookups.ts owns the turn-record reads (by id, by request, active turn), and turn-lease.ts mirrors the owner-lease fencing CAS (acquire/renew/reap) so turns.ts stays within the per-file function-count budget",
-    },
-  ],
-  [
-    "packages/side-chat-widget/src/features/chat/model/reconnect",
-    {
-      maxFiles: 6,
-      reason:
-        "the run controller keeps three co-located test files, each owning one concern that would otherwise blow a single test file's line budget: base streaming/cancel/replay, transport recovery, and the mount lifecycle (StrictMode adoption, DOM-removal leak, two-widget isolation), alongside the controller, the reconnect triggers, and the durable run marker",
-    },
-  ],
-  [
-    "packages/partner-ai-core/src/application/stream-chat",
-    {
-      maxFiles: 6,
-      reason:
-        "the stream-chat workflow root keeps its three cross-cutting suites (stream-chat.test, stream-chat-guards.test, stream-chat-concurrency.test) beside the two files they exercise across the whole path — stream-chat-types (shared ports/input/prepared-turn types) and stream-chat-observability (the fail-open lifecycle recorder called from prestart, protocol, title, and finalization) — after the observability/ and guards/ one-file folders were flattened up",
-    },
-  ],
-  [
-    "packages/partner-ai-core/src/domain/capabilities",
-    {
-      maxFiles: 6,
-      reason:
-        "capability validation source (validation, validation-field-readers, validation-issue-helpers) sits beside the three behavioral suites that drive it (capabilities.test, capability-substrate-types.test, turn-policy-validation.test) after the one-file validation/ folder was flattened up; deeper contract types and turn-policy resolution keep their own child folders",
-    },
-  ],
-  [
-    "packages/partner-ai-core/src/domain/capabilities/contracts",
-    {
-      maxFiles: 6,
-      reason:
-        "the capability contract barrel (capabilities) re-exports its five sibling contract modules — capability-configuration, context, hashing, capability-ids, capability-validation-codes — kept flat so the ids/ and validation/ one-file folders collapse into one readable contracts surface",
-    },
-  ],
-  [
-    "apps/partner-ai-service/src/config/sidechat-config/options",
-    {
-      maxFiles: 6,
-      reason:
-        "the options-adapter spine plus its per-concern resolvers (resumability, history, runtime helpers) and their tests, kept flat as one boot-path options family",
-    },
-  ],
-  [
-    "packages/partner-ai-core/src/ports",
-    {
-      maxFiles: 7,
-      reason:
-        "the #ports barrel (index) plus the six port contracts it re-exports — capability-ports, context-manager, turn-guard, runtime-port, conversation-title-generation, turn-activity-history — kept flat so external importers stay on the stable #ports alias after the per-port one-file folders were flattened; the four turn-lifecycle refs keep their own lifecycle/ child folder",
+        "Postgres records are split by current persistence responsibility: conversations, turns, context, interactions, usage, client-tool dispatch, and title runs",
     },
   ],
 ]);
@@ -171,10 +69,7 @@ validateDirectoryFileBudgets(sourceFiles);
 failIfErrors(errors);
 
 function isWorkspaceSourceFile(file) {
-  return (
-    (/^(?:apps|packages|test-harness)\//u.test(file) && file.includes("/src/")) ||
-    file.startsWith("apps/docs/app/")
-  );
+  return /^(?:apps|packages|test-harness)\//u.test(file) && file.includes("/src/");
 }
 
 function isAnalyzableSourceFile(file) {
@@ -211,11 +106,9 @@ function validateFunctionShape(file, sourceFile) {
 
     const nestedFunctions = nestedFunctionCount(node);
     const name = functionName(node);
-    const nestedFunctionLimit =
-      nestedFunctionBudgetExceptions.get(`${file}:${name}`) ?? MAX_NESTED_FUNCTIONS;
-    if (!isTestLikeFile(file) && nestedFunctions > nestedFunctionLimit) {
+    if (!isTestLikeFile(file) && nestedFunctions > MAX_NESTED_FUNCTIONS) {
       errors.push(
-        `${file}:${lineOf(sourceFile, node)}: ${name} contains ${nestedFunctions} nested functions (max ${nestedFunctionLimit}).\n` +
+        `${file}:${lineOf(sourceFile, node)}: ${name} contains ${nestedFunctions} nested functions (max ${MAX_NESTED_FUNCTIONS}).\n` +
           "  Refactor prompt: move nested closures into module-level helpers or smaller factory modules so collaborators can scan responsibilities top-down without opening one everything-bag function.",
       );
     }
@@ -226,12 +119,10 @@ function validateFileResponsibilityBudget(file, sourceFile) {
   if (isTestLikeFile(file)) return;
 
   const count = functionLikeNodes(sourceFile).length;
-  const functionLimit =
-    functionCountBudgetExceptions.get(file) ?? MAX_PRODUCTION_FUNCTIONS_PER_FILE;
-  if (count <= functionLimit) return;
+  if (count <= MAX_PRODUCTION_FUNCTIONS_PER_FILE) return;
 
   errors.push(
-    `${file}: production source file declares ${count} function-like blocks (max ${functionLimit}).\n` +
+    `${file}: production source file declares ${count} function-like blocks (max ${MAX_PRODUCTION_FUNCTIONS_PER_FILE}).\n` +
       "  Refactor prompt: split the file by domain responsibility, prefer deep modules with small public surfaces, and move test-only builders to src/testing/** instead of adding more helpers here.",
   );
 }

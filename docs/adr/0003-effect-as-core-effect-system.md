@@ -81,6 +81,6 @@ The double learning curve (agents + Effect) is real and is managed by the
 containment line, not wished away. The line must hold: **Effect never spreads
 outward** — a change that adds Effect to the widget, the protocol, or an
 adopter-facing signature should be rejected in review and pointed here. The
-newcomer path is [effect.md](../architecture/effect.md), which owns what each
+The current newcomer path is [system-map.md](../architecture/system-map.md), which owns what each
 role actually needs to know. When v4 goes stable, bump the pin in one change
 and re-run the full gate.

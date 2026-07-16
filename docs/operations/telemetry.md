@@ -1,6 +1,6 @@
 # Telemetry and observability
 
-Read this when: operating the replacement service or adding a telemetry sink.
+Read this when: operating the service or adding a telemetry sink.
 Source of truth for: emitted signal meanings, bounded labels, privacy rules, and exporter posture.
 Not source of truth for: business analytics, provider configuration, or verification commands.
 

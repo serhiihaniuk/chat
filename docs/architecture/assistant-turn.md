@@ -1,389 +1,93 @@
 # Assistant Turn
 
-Read this when: you need the order, durability, or failure rules of one assistant turn.
-Source of truth for: the turn lifecycle, the pre-start/in-stream failure split, finalization, the in-memory event registry, replay/resume rules, cancel, and idempotency.
-Not source of truth for: the `sidechat.v1` event vocabulary and SSE transport ([runtime-and-protocol-events.md](runtime-and-protocol-events.md)), package roles ([system-map.md](system-map.md)), or the streaming decision record ([ADR 0007](../adr/0007-connection-bound-streaming.md)).
+Read this when: you need the order, durability, recovery, or failure rules of one assistant turn.
+Source of truth for: admission, durable Workflow execution, replay, cancellation, and terminal projection.
+Not source of truth for: package ownership ([system-map.md](system-map.md)) or public stream details ([runtime-and-protocol-events.md](runtime-and-protocol-events.md)).
 
-## AI SDK 7 replacement service
+## Core invariants
 
-The pre-alpha replacement under `apps/side-chat-service` deliberately uses a
-different lifecycle while the legacy service remains available for comparison.
-Its target is owned by [`plan/v7/05-turn-workflow-and-stream.md`](../../plan/v7/05-turn-workflow-and-stream.md)
-until cutover: authenticated `POST /api/chat` starts a durable Workflow run and
-returns its AI SDK UI-message stream; authenticated
-`POST /api/chat/:runId/cancel` resumes the run's durable abort hook.
-`GET /api/chat/:runId/stream?startIndex=N` proves tenant ownership, translates
-the public UI-chunk cursor over the raw Workflow journal, replays the prefix,
-and tails the same run; simultaneous subscribers receive independent readers.
-Workflow stores the live stream, execution journal, and recoverable terminal outcome.
-The route process projects that outcome through application-owned PostgreSQL
-ports before closing the response. The same durable projection supplies one
-tenant-scoped conversation snapshot: validated history plus a bound Workflow
-`runId` only when the product turn is `open` and the Workflow run is actually
-`pending` or `running`. Product `open` is not itself evidence of live
-execution. A terminal or missing Workflow run therefore cannot keep the
-snapshot active after a process crash.
-Workflow journal maintenance is a separate boot-and-interval lifecycle: it
-validates the pinned World schema, skips legal holds and non-terminal runs, and
-prunes eligible journals transactionally. [ADR 0018](../adr/0018-terminal-projection-reconciliation.md)
-defines the replacement service's effective-activity join, admission-time
-repair, durable cancellation intent, and pre-provider Workflow claim. Their
-ownership, failure behavior, and cost bounds live in
-[turn-terminal-reconciliation.md](turn-terminal-reconciliation.md). The legacy
-connection-bound lifecycle below remains authoritative only for
-`apps/partner-ai-service` during this transition.
+- Authentication and tenant, workspace, subject, and conversation ownership checks happen before execution.
+- Model, reasoning, tool, and host-context policy is resolved before admission or durable mutation.
+- A new turn acquires per-process admission before writing the user message or turn row.
+- Workflow DevKit owns durable execution and the replayable journal. PostgreSQL owns the durable product snapshot.
+- An exact `requestId` replay reuses the existing turn and Workflow run. It does not reserve capacity or start another run.
+- Every admitted turn reaches one durable terminal state: `completed`, `failed`, `cancelled`, or `timed_out`.
+- Raw client-tool capability secrets remain in the originating browser tab. Only their digest enters durable execution.
+- Provider errors, prompts, private context, tool payloads, and capability secrets never become public error detail.
 
-### Native terminal visibility
+## HTTP surface
 
-The replacement service exposes one externally visible terminal boundary. Its
-finalization repository transaction writes the optional assistant message, the
-terminal turn row (including usage and safe terminal metadata), the conversation
-timestamp, and the identity-only turn-activity notification together. The
-notification is delivered only after commit. Therefore a conversation snapshot
-that returns no run cannot omit an admitted terminal assistant message.
+| Request                                          | Purpose                                                                                  |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `POST /api/chat`                                 | Validate, admit, start or reuse a turn, then return its native AI SDK UI-message stream. |
+| `GET /api/chat/:runId/stream?startIndex=N`       | Prove ownership, replay from the public chunk cursor, and tail the same Workflow run.    |
+| `POST /api/chat/:runId/cancel`                   | Record cancellation intent and resume the run's durable abort hook.                      |
+| `POST /api/chat/:runId/tools/:toolCallId/output` | Authorize and submit an originating-tab client-tool result.                              |
+| `POST /api/chat/:runId/approvals/:approvalId`    | Submit a durable server-tool approval decision.                                          |
 
-The terminal fold deliberately separates two authorities. The provider's final
-result owns status, finish reason, and usage. The closed Workflow journal owns the
-assistant text and reasoning parts because it is the exact visible projection
-already published to subscribers. Successful, failed, timed-out, and cancelled
-turns all read that projection before finalization; the provider aggregate is only
-the completed-turn fallback when the journal contains no visible deltas. This
-keeps a completed thinking trace identical before and after refresh.
+Conversation history, catalogs, configuration, and activity routes are described in [system-map.md](system-map.md).
 
-This atomic handoff is required even though Workflow execution is durable. The
-Workflow journal owns replay; PostgreSQL owns the durable browser snapshot. The
-widget keeps its live session through a `settling` phase and releases it only
-after the authoritative conversation snapshot contains the terminal projection.
-See [ADR 0017](../adr/0017-native-conversation-reconciliation.md).
+## New-turn lifecycle
 
-The replacement route validates and translates the HTTP request; it does not
-choose a model. `PrepareTurnInput` carries the requested model and reasoning
-effort, while `PrepareTurnDependencies` owns the configured model policy.
-`prepareTurn` resolves that policy first, then checks the conversation, obtains
-admission, writes the user message and turn record, starts Workflow execution,
-and binds its run id. An unavailable model or reasoning effort therefore
-rejects before `assertCanBegin`, admission, persistence, or execution has any
-observable effect.
+1. **Authenticate and validate.** The route validates the bearer identity, JSON body, tenant/workspace/conversation scope, and request identifiers.
+2. **Resolve policy.** Application policy selects the configured model, reasoning effort, enabled server and client tools, host-context limits, and execution settings. Unsupported choices fail without durable residue.
+3. **Preflight the request.** `assertCanBegin` proves conversation authority and detects an exact request replay before capacity is reserved.
+4. **Acquire admission.** A per-process FIFO gate reserves one service slot. A full or expired queue returns `503` with `Retry-After: 5` before any durable turn write.
+5. **Begin the product turn.** One transaction appends the accepted user message and creates the open turn row under the request idempotency key.
+6. **Start and bind Workflow.** The service starts the chat Workflow and binds its `runId` to the product turn. Workflow input contains only validated, durable-safe values.
+7. **Claim provider execution.** The Workflow claim gate reconciles cancellation and terminal state before the first provider call, preventing stale or already-terminal work from spending provider capacity.
+8. **Run the agent loop.** AI SDK 7 streams native UI chunks while server tools execute in the service and client tools or approvals suspend on durable Workflow hooks.
+9. **Publish the journal.** Workflow stores the execution journal. The service exposes a scrubbed, cursor-addressable UI-message projection to each subscriber.
+10. **Finalize atomically.** The service folds provider terminal metadata together with the closed visible journal, then transactionally writes the optional assistant message, terminal turn row, conversation timestamp, and identity-only activity notification.
+11. **Release admission.** The route terminal handle releases the per-process reservation exactly once after terminal projection. Workflow separately owns durable queue and worker-slot lifecycle while the run is suspended.
 
-For a new request, admission is a per-service-process FIFO bound acquired before
-the durable write and held until the turn reaches a terminal outcome. A full or
-expired queue returns `503` with `Retry-After`; an aborted request is removed
-from the queue without consuming capacity or leaving turn residue. The
-read-only preflight identifies an exact request replay so reattachment does not
-acquire a second reservation. Workflow, not the route lease, owns durable job
-queueing and worker-slot release while hooks are suspended.
+The accepted user message remains the product-history value. Optional host context is rendered only into the execution copy of the latest user message, under explicit size/depth limits and as untrusted page reference—not as identity, authority, or system instructions.
 
-Optional host context is validated at the replacement HTTP boundary against the
-deployment's explicit size, string, depth, and entry limits. `prepareTurn` keeps
-the accepted user message unchanged for `beginTurn` and later title generation,
-then runs a named execution-only rendering stage. That stage augments only the
-latest accepted user message with a clearly delimited untrusted page-reference
-block. Its role remains `user`; earlier history is unchanged, and host context
-never becomes authentication, authorization, workspace authority, or system
-instructions.
+## Exact replay and reconnect
 
-## Legacy service model
+`requestId` is the turn idempotency key. Preflight resolves an existing request before admission:
 
-A turn is **server-owned and connection-bound** (ADR 0007). The browser starts
-it; generation runs on a background fiber that outlives any socket. In-flight
-events live in a per-instance, in-memory registry — the live stream is served
-by the instance that runs the turn. Postgres holds the durable **final** state:
-the conversation, messages, turn record and status, and cancel intent. A
-reconnect or reload can replay only while it reaches the owning instance and
-that instance still holds the buffer. Otherwise the widget waits for the
-durable terminal status and reads the answer from history.
+- A bound run is reused; the route returns or resumes that run's stream.
+- No second user message, turn row, admission reservation, Workflow run, or provider call is created.
+- A turn whose product row exists but whose run binding is not yet visible returns `409` with `Retry-After: 1`; callers retry the same request id.
+- `GET /api/chat/:runId/stream?startIndex=N` translates the public UI-chunk index over the Workflow journal, replays the suffix, and then tails the same run. Multiple subscribers receive independent readers.
 
-For shared terms (turn, terminal event, turn-event registry), see
-[../domain/vocabulary.md](../domain/vocabulary.md).
+The widget stores only a validated active-turn cursor and reconciles it against the authoritative conversation snapshot. Product status `open` alone is not proof of live execution: the snapshot exposes an active `runId` only while Workflow reports the run as pending or running.
 
-## The HTTP surface
+## Terminal projection
 
-A turn starts and streams over **one call** (ADR 0007): the POST response _is_
-the turn's SSE stream, which binds the stream to the owning instance by
-construction. `sidechat.started` at sequence 0 carries the turn identity —
-`assistantTurnId` on the envelope, `conversationId` on the event; the caller
-already knows its `requestId`.
+The provider final result owns status, finish reason, and usage. The closed Workflow journal owns visible assistant text and reasoning because it is the exact content subscribers saw. Finalization uses the provider aggregate only as a fallback when the journal has no visible deltas.
 
-| Call                                                  | Runs                                                                                              | Returns                                                                                                                                                                                                                                                             |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /chat/runs`                                     | Pre-start synchronously, forks generation, then streams                                           | SSE from `sidechat.started` to the terminal; pre-start failures are JSON errors. A repeated `requestId` replays the existing turn's stream, or fails closed: `404 replay_expired` (finished, buffer swept) / `409 stream_unavailable` (running on another instance) |
-| `GET /chat/turns/:assistantTurnId/stream?after=<seq>` | Same-instance resume: replay `sequence > after` from the registry, then tail live to the terminal | SSE; or JSON: `404` for unknown/cross-workspace/`replay_expired`, `409 stream_unavailable` for a running turn owned elsewhere, `400` for a malformed `after`                                                                                                        |
+| Outcome                     | Durable result                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Normal completion           | Assistant projection, usage, finish reason, and `completed` turn state commit together.                             |
+| Provider or service failure | Safe terminal metadata and `failed` state commit; private cause remains server-side.                                |
+| User cancellation           | Durable cancel intent aborts provider work or a suspended hook; final state is `cancelled`.                         |
+| Timeout                     | The durable timeout path aborts execution and finalizes `timed_out`.                                                |
+| Process crash               | Workflow recovers execution; admission-time reconciliation repairs stale product projection before new work begins. |
 
-The shipped widget speaks this flow: `createRun` consumes the POST stream and
-reads its identity from the started frame; `subscribeTurn` is its resume path.
+The post-commit notification contains identity and lifecycle information only. The widget keeps the live session in `settling` until the refreshed conversation snapshot contains the committed terminal projection, preventing a completed answer from disappearing between stream close and history refresh.
 
-Routes live in `apps/partner-ai-service/src/inbound/http/routes/chat/`: start
-in `runs/chat-runs.ts`, stream in `turns/chat-turns.ts`.
+## Cancellation and suspended work
 
-Supporting routes (all workspace-scoped, in `turns/chat-turns.ts` unless noted):
+Cancellation is durable intent, not a socket interruption. The cancel route proves ownership, records intent, and signals the Workflow abort hook. The running provider call observes the abort signal; client-tool and approval waits race the same durable abort path. Repeated cancel requests are idempotent.
 
-- `GET /chat/runs/:requestId` → recover a lost POST reply: `{ assistantTurnId, status }`.
-- `GET /chat/turns/:assistantTurnId` → JSON status snapshot.
-- `POST /chat/turns/:assistantTurnId/cancel` → `{ assistantTurnId, cancelRequested }`.
-- `POST /chat/turns/:assistantTurnId/host-commands/:commandId/result` → the browser posts a host-command result back to the awaiting turn (see [host-commands.md](host-commands.md)).
-- `GET /chat/activity` → a separate subject-scoped SSE stream of cross-conversation turn lifecycle (the "generating" dot). Snapshot plus live transitions, no replay, no terminal. `routes/chat/activity/activity.ts`.
+Client-tool output and approval decisions are accepted only while their durable wait is active and owned by the authenticated subject. Late, duplicate, cross-tenant, or mismatched submissions fail closed and cannot reopen a terminal run.
 
-## Lifecycle stages
+## Maintenance and recovery
 
-Stages 1-10 are **pre-start**: they run synchronously inside `POST /chat/runs`
-and any failure rejects setup as JSON. Stage 1 is the HTTP route; stages 2-10
-run in `prepareStreamChatTurn`
-(`packages/partner-ai-core/src/application/stream-chat/turn/prepare-stream-chat-turn.ts`).
-Stages 11-14 are **post-start**: they run on the forked fiber in
-`runTurnGeneration` (`.../stream-chat/protocol/run-turn-generation.ts`).
+Workflow journal maintenance is a boot-and-interval service lifecycle. It validates the pinned Workflow schema and prunes only eligible terminal journals, skipping active runs and legal holds. Product terminal reconciliation is documented in [turn-terminal-reconciliation.md](turn-terminal-reconciliation.md); Workflow storage ownership is documented in [workflow-substrate.md](workflow-substrate.md).
 
-|   # | Stage                                          | Proves / records / finalizes                                                           | Failure                                   |
-| --: | ---------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------- |
-|   1 | Validate request                               | Method, auth, JSON, parsed `ChatStreamRequest`                                         | JSON `400`                                |
-|   2 | Prove workspace authority                      | Subject may act in this workspace                                                      | Pre-start reject                          |
-|   3 | Record request received                        | Correlation + observation before any runtime work                                      | Pre-start reject                          |
-|   4 | Resolve the turn plan                          | Profile, validated model/reasoning, tools, executor, instructions, capability manifest | Pre-start reject                          |
-|   5 | Run turn guards                                | Profile-selected guards before private context, persistence, or tools                  | Pre-start reject                          |
-|   6 | Ensure authorized conversation                 | Load or create only a conversation this subject may access                             | Pre-start reject                          |
-|   7 | Reject a concurrent conversation turn          | No assistant turn is already running for this conversation                             | `409 conversation_busy`                   |
-|   8 | Append the user message                        | Store the user-visible message that starts the turn                                    | Pre-start reject                          |
-|   9 | Start the turn record                          | Durable turn, status `running`; idempotent on `(workspace_id, request_id)`             | Pre-start reject **and** mark turn failed |
-|  10 | Prepare and record context                     | History, host context, tool context, context manifest snapshot                         | Pre-start reject and mark turn failed     |
-|  11 | Acquire lease, emit `sidechat.started` (seq 0) | Owner claims the lease, then the started event opens the stream                        | In-stream terminal                        |
-|  12 | Execute the runtime                            | Run the executor; an `AbortController` lets a fiber interrupt abort the provider call  | In-stream terminal                        |
-|  13 | Map events, append to the registry             | `RuntimeEvent` → `sidechat.v1`; each emitted event lands in the per-instance registry  | In-stream terminal                        |
-|  14 | Finalize (always, via `onExit`)                | Write durable terminal status + assistant message; run post-success title generation   | See finalization                          |
+## Primary implementation anchors
 
-The boundary sits after stage 10: `POST /chat/runs` forks post-start into a
-`FiberMap` keyed by `assistantTurnId` — but only when the turn record was newly
-inserted (`turn-runner.ts:93`) — and then turns its response into the turn's
-SSE stream.
+- `apps/side-chat-service/src/http/` — authenticated route adapters and public error mapping.
+- `apps/side-chat-service/src/application/` — policy, admission, product persistence orchestration, and terminal reconciliation.
+- `apps/side-chat-service/src/workflows/` — durable chat execution, claim, timeout, tools, approvals, and abort waits.
+- `packages/db/src/` — product repositories, notifications, and Workflow journal maintenance adapters.
+- `packages/side-chat-widget/src/features/workflow-chat/` — live session, replay, terminal projection, and recovery behavior.
 
-## Finalization owns the terminal
+## Related decisions
 
-`runTurnGeneration` wraps the drain in `Effect.onExit`, so finalization runs on
-every exit path: success, provider error, cancel, shutdown, and lease-fence
-(`run-turn-generation.ts:52`). Terminal ownership splits by exit kind:
-
-- **Normal terminal.** The stream emits `sidechat.completed`, `sidechat.error`,
-  or `sidechat.blocked`; the drain appends it. `finalizeTurnGeneration` then
-  writes the durable turn status and assistant message.
-  `finalization/finalize-turn-generation.ts`.
-- **No-terminal success.** A provider stream that just ends (no finish or error
-  part) exits the drain successfully with no terminal: finalization appends the
-  synthetic terminal first — so tailing subscribers close instead of hanging —
-  and the status write then fails the turn honestly.
-- **Abnormal exit.** No terminal reached the registry, so finalization appends
-  exactly one synthetic terminal at `maxSequence + 1`, then writes the failure
-  status (`finalize-turn-generation.ts:60`).
-- **Interrupt after the stream's terminal.** The stream's terminal wins: a turn
-  the user watched complete persists as completed with its assistant message —
-  the late interrupt never re-terminalizes it (the registry's terminal guard
-  also refuses any racing synthetic append).
-
-`finalize-turn-generation.ts:116` classifies the abnormal terminal honestly
-from the exit cause plus durable cancel intent:
-
-| Exit cause               | Cancel intent?               | Status / code                         |
-| ------------------------ | ---------------------------- | ------------------------------------- |
-| Interrupt                | Yes (`cancel_requested_at`)  | `user_aborted` / `aborted`            |
-| Interrupt                | No (shutdown or lease-fence) | `provider_failed` / `timeout`         |
-| Defect or append failure | n/a                          | `provider_failed` / `provider_failed` |
-
-`sidechat.blocked` is a terminal safety-stop, not an error. In both service
-wings, title generation is post-success enrichment: it starts only after the
-completed terminal is durable, checks that the conversation is still untitled,
-and writes conditionally. A later completed turn retries the isolated job when
-an earlier title attempt timed out or failed; the first successful conditional
-write wins, so later turns cannot retitle. The new PostgreSQL wing performs that
-write inside the durable title workflow; its in-memory development fallback is
-process-local because the store itself is process-local. A timeout or failure is
-observed safely and can never create a second terminal or change the completed
-turn.
-
-## Failure split
-
-The split turns on one question: has the browser seen `sidechat.started`?
-
-| Phase             | Started seen? | Behavior                                                        |
-| ----------------- | ------------- | --------------------------------------------------------------- |
-| Pre-start (1-10)  | No            | Reject setup as a JSON error to the caller                      |
-| In-stream (11-14) | Yes           | Append exactly one terminal to the registry; no caller response |
-
-`POST /chat/runs` maps pre-start failures in `chat-runs.ts`:
-`PartnerAiCoreError` → its protocol code and HTTP status;
-`ProtocolValidationError` → `400`; anything else → `500`. A failure at or after
-stage 8 marks the started turn failed _and_ still rejects setup, so durable
-state exists without half-opening a stream.
-
-In-stream, a provider failure after `sidechat.started` is emitted as the
-terminal `sidechat.error`; the protocol state machine drops any event after a
-terminal (`protocol/protocol-stream-state-machine.ts:57`).
-
-## Live transport: the in-memory registry
-
-The live stream has no durable log. Core appends each mapped event to the
-per-instance registry
-(`apps/partner-ai-service/src/adapters/persistence/turn-events/in-memory-turn-event-log.ts`),
-which doubles as the SSE dispatcher (`service-composition.ts` wires one object
-as both).
-
-| Mechanism            | What it does                                                                                                                                                                                                                                                                                               | Where                                             |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Replay + tail        | A subscriber registers with the dispatcher first, replays `sequence > after` from the registry, then tails live behind a DENSE gate to the terminal: only the next sequence is emitted directly, and a gap (a dropped fan-out offer) triggers a re-read of the buffer so no event is ever permanently lost | `inbound/turn-stream/turn-subscription-stream.ts` |
-| Per-subscriber queue | Each subscriber gets a bounded dropping queue; a low-frequency safety poll re-reads the registry as the missed-signal backstop                                                                                                                                                                             | `in-memory-turn-event-log.ts`                     |
-| Terminal guard       | Once a terminal is recorded a turn's log is closed: later appends are no-ops, so a synthetic terminal racing a real one can never produce a second (the old durable log's partial-unique index, kept as a registry invariant)                                                                              | `in-memory-turn-event-log.ts`                     |
-| Sweep                | Terminal, unwatched turns are dropped from the registry lazily when the next turn starts on that instance                                                                                                                                                                                                  | `in-memory-turn-event-log.ts`                     |
-
-Consequences of connection-bound transport:
-
-- **Same-instance resume works.** An in-session reconnect with
-  `after=<lastSeenSequence>` replays the suffix from the registry and tails on.
-- **Cross-instance and cross-restart resume do not exist.** The registry dies
-  with the process. The widget's transport recovery retries the same instance
-  from its cursor (bounded backoff + inactivity watchdog); when that cannot
-  work it polls turn status until the server reports the terminal, then reads
-  the result from conversation history.
-- **Non-owner requests fail fast.** A stream request for a _running_ turn that
-  this instance's registry does not hold answers `409` with the transport code
-  `stream_unavailable` (`reason: not_stream_owner`) instead of opening an SSE
-  that would never produce data. The client polls turn status until the
-  terminal lands in history.
-- **Only the owner registers turns.** `POST /chat/runs` registers a fresh turn
-  in the registry before its response subscribes; subscribing never creates an
-  entry, so a foreign or swept turn is a typed miss, not a permanent ghost
-  entry.
-
-## Replay expiry
-
-A swept turn can no longer replay, so the stream route fails closed _before_
-opening SSE for **terminal** turns: it returns the `replay_expired` JSON error
-with HTTP `404` (`turns/chat-turns-resumability.ts`, `chat-turns.ts`). The
-widget maps `replay_expired` to a history fallback — it refetches the
-conversation and clears the run. A **running** turn never returns
-`replay_expired` — the non-owner case is `409 stream_unavailable` instead. A
-terminal turn that is still buffered serves its replay and ends without
-tailing, so a cursor at or past the terminal sequence closes immediately.
-
-## Durability and crash recovery
-
-What Postgres durably holds: conversations, user and assistant messages, the
-turn record and status, usage, context snapshots, audit events, and cancel
-intent. When turn-activity history is enabled (the default; `history.turnActivity`
-in `sidechat.config.ts`), a completed turn also stores its activity trace —
-reasoning summaries, tool calls, host commands, as the protocol activity events —
-in the assistant message's metadata, and history reads return it as
-`HistoryMessage.activity` so a reloaded transcript replays the thinking. What
-Postgres does not hold: the in-flight event stream.
-
-Generation acquires an owner lease and renews it on a heartbeat
-(`protocol/lease/turn-lease-heartbeat.ts`); a transient renew failure is
-retried with a short backoff, but a renew that succeeds and matches no row
-means the owner was fenced, and the drain self-interrupts. Clean shutdown
-interrupts generation first — each `onExit` finalizes — then tears down the
-reaper and dispatchers (SIGTERM/SIGINT in `server.ts`).
-
-A hard crash (not a clean shutdown) cannot finalize, so every instance runs a
-reaper sweep (`turn-runner/maintenance/turn-reaper.ts`, cadence
-`reaperInterval`): it terminalizes running turns whose lease expired — or whose
-lease was never acquired and whose `started_at` is past a grace of 2× the lease
-TTL — with honest classification (cancel intent → `user_aborted`, else
-`provider_failed`) and the activity NOTIFY in the same transaction, so the
-"generating" dot clears live and the conversation accepts new turns again.
-Concurrent sweeps claim disjoint rows (`FOR UPDATE SKIP LOCKED`), so no leader
-election. The full crash-recovery design — breadcrumbs, sweep, epoch fencing,
-client convergence — is
-[ADR 0008](../adr/0008-crash-recovery-lease-sweep.md).
-
-## Cancel
-
-`POST /chat/turns/:assistantTurnId/cancel` is durable intent plus interruption
-(`chat-turns.ts`). `requestTurnCancellation` CAS-sets `cancel_requested_at` and
-`pg_notify`s a cancel channel in one transaction, so cancelling a finished,
-unknown, or cross-workspace turn is a no-op ack. The route interrupts the local
-fiber directly; a cancel dispatcher interrupts the owning fiber on a remote
-instance. The fiber interrupt aborts the provider call for real (the
-`AbortController` reaches the AI SDK), and finalization writes
-`user_aborted` / `aborted`.
-
-## Concurrency, idempotency edges, and fail-open telemetry
-
-Pre-start rejects a second concurrent run in one conversation. After the
-conversation is resolved, `guardConcurrentConversationTurn` reads the
-conversation's in-flight turn (`findActiveConversationTurn`): a running turn from
-a _different_ request means another tab or client is mid-turn, so the request
-fails `conversation_busy` (HTTP 409) before any durable write; a running turn from
-the _same_ request is that request's own idempotent retry and passes through. It
-is best-effort — two genuinely simultaneous fresh requests can still both pass,
-which lease fencing and the reaper already tolerate.
-
-A conversationless request keys its conversation on the request id
-(`conversationless:<requestId>`), not on the freshly minted fallback id, so a
-retried create converges on one conversation instead of orphaning a new one each
-attempt; the returned `conversationId` is the winning record's. Concurrent
-`appendMessage`s to one conversation serialize on a `SELECT … FOR UPDATE` of the
-conversation row before reading `max(sequence_index)`, so they never collide on
-the sequence unique index.
-
-Telemetry is fail-open: `recordStreamObservationEffect` swallows a sink failure
-rather than rejecting the request or aborting generation (a sink runs on every
-runtime event). A pre-start 5xx returns a generic body naming only the request id;
-the real error, which may carry driver detail, goes to the diagnostic log. A
-forked generation fiber's non-interrupt exit is logged with its turn id, so a
-fault during generation or its finalizer is loud and reaper-recovered, never
-silent.
-
-## Connection resilience
-
-The three cross-instance wake signals — cancel, turn activity, and host-command
-result — each hold one dedicated Postgres `LISTEN` connection, separate from the
-query pool so they survive PgBouncer transaction pooling. All three share one
-reconnecting transport
-(`repositories/postgres-drizzle/notifications/reconnecting-listen-source.ts`): it
-registers node-postgres's `'error'` handler (an unhandled one crashes the
-process), closes the dropped connection, and reconnects with jittered,
-capped-exponential backoff. The query pool likewise logs its idle-client
-`'error'` instead of faulting. So a Postgres restart or a load-balancer
-idle-timeout no longer kills the service — the listeners re-establish and resume.
-
-`NOTIFY` is only a poke, so a signal delivered while a listener was disconnected
-would be lost. Each transport recovers differently: on every (re)connect the
-cancel source re-scans running turns with durable `cancel_requested_at`
-(`listRunningCancelRequestedTurns`) and re-feeds each as a synthetic cancel, so a
-cancel from the outage still interrupts; activity subscribers re-read their
-snapshot on their own reconnect; the host-command resolver polls the durable row.
-The reaper remains the ultimate backstop for anything a reconnect misses.
-
-## Idempotency
-
-Idempotency is `requestId`-only. A repeated `(workspace_id, request_id)`
-resolves to the existing turn record — a real unique constraint, not
-check-then-insert — and does **not** fork a second generation, gated by
-`turn.assistantTurn.inserted` (`turn-runner.ts:93`). No request-fingerprint or
-`409`-on-mismatch path exists.
-
-## Newcomer traps
-
-- **The registry is not a durable log.** Do not build features that assume a
-  turn's events survive a restart or exist on another instance. Final state
-  comes from history.
-- **Finalization is the runner's `onExit`, not a stream stage.** Durable
-  terminal persistence lives in `run-turn-generation.ts`.
-- **Normal vs abnormal terminal differ.** The stream's
-  `completed`/`error`/`blocked` is appended by the drain; the synthetic terminal
-  is appended only when the log would otherwise end without one (an abnormal
-  exit, or a stream that ended terminal-less).
-- **`replay_expired` is `404`, terminal-only.** A running turn never expires;
-  a running turn owned elsewhere is `409 stream_unavailable`.
-- **Generation is socket-independent.** Cancelling the SSE releases the local
-  subscriber only; it never interrupts the fiber.
-
-## Files to open
-
-- `packages/partner-ai-core/src/application/stream-chat/turn/prepare-stream-chat-turn.ts`
-- `packages/partner-ai-core/src/application/stream-chat/protocol/run-turn-generation.ts`
-- `packages/partner-ai-core/src/application/stream-chat/protocol/protocol-event-stream.ts`
-- `packages/partner-ai-core/src/application/stream-chat/protocol/protocol-stream-state-machine.ts`
-- `packages/partner-ai-core/src/application/stream-chat/protocol/finalization/finalize-turn-generation.ts`
-- `packages/partner-ai-core/src/application/stream-chat/protocol/lease/turn-lease-heartbeat.ts`
-- `apps/partner-ai-service/src/inbound/turn-runner/turn-runner.ts`
-- `apps/partner-ai-service/src/inbound/turn-stream/turn-subscription-stream.ts`
-- `apps/partner-ai-service/src/adapters/persistence/turn-events/in-memory-turn-event-log.ts`
-- `apps/partner-ai-service/src/inbound/http/routes/chat/runs/chat-runs.ts`
-- `apps/partner-ai-service/src/inbound/http/routes/chat/turns/chat-turns.ts`
-- `packages/db/src/repositories/postgres-drizzle/records/turn-lease.ts`
+- [ADR 0016 — Workflow DevKit as durable execution substrate](../adr/0016-workflow-durable-execution-substrate.md)
+- [ADR 0017 — native conversation reconciliation](../adr/0017-native-conversation-reconciliation.md)
+- [ADR 0018 — terminal projection reconciliation](../adr/0018-terminal-projection-reconciliation.md)

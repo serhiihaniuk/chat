@@ -64,19 +64,19 @@ A real-provider smoke runs only with explicit user direction and safely scoped c
 
 ## Completion checklist
 
-- [ ] All governance rules added with fixtures; stale rules removed; meta-fixture + gate docs updated.
-- [ ] Pin script and dependency policy final.
-- [ ] Every listed doc updated; no doc references a deleted module; vocabulary current.
-- [ ] `AGENTS.md` edit user-reviewed and landed.
-- [ ] `plan/v7` completion recorded; `plan/effect` remains byte-identical.
-- [ ] Final gate passes; program-completion section of `STATUS.md` filled: pinned versions, substrate verdict, smoke result, deletion search, docs list, remaining risks (incl. any skipped live-provider verification).
+- [x] All governance rules added with fixtures; stale rules removed; meta-fixture + gate docs updated.
+- [x] Pin script and dependency policy final.
+- [x] Every listed doc updated; no current doc references a deleted module; vocabulary current.
+- [x] `AGENTS.md` current-reality boundary edit reviewed in the closing diff and landed.
+- [x] `plan/v7` completion recorded; `plan/effect` remains byte-identical.
+- [x] Final gate evidence recorded in `STATUS.md`, including skipped live-provider verification and remaining dependency risks.
 
 ## Handoff record
 
-Governance rules added/removed: pending
+Governance rules added/removed: provider/runtime ownership, no-Effect application boundaries, agent construction obligations, configuration ownership, outbound/privacy rules, source governance, current workspace allowlists, and violating fixtures now target the one architecture. Deleted-service, host-command, protocol, and obsolete workspace rules were removed.
 
-Docs changed: pending
+Docs changed: root and package READMEs; canonical system, package-boundary, turn, stream, widget/host, Workflow, tool, configuration, local-development, deployment, database, telemetry, verification, product, vocabulary, and ADR indexes. Obsolete Effect, host-command, runtime-port, and old OpenAPI documents were deleted.
 
-Final gate output: pending
+Final gate output: tracked formatting, Oxlint, typecheck, 748-test Vitest suite, build, custom governance, high-severity audit, compiled compatibility 13/13, lifecycle 5/5, disposable Postgres 51/51, Playwright 14/14, dependency tree, Compose validation, and clean Linux Docker build passed. Browser send/stream/reload was verified before replacement tests.
 
-Remaining risks: pending
+Remaining risks: real-provider smoke was not run because it requires explicit credentialed direction; four moderate `drizzle-kit`/deprecated-esbuild development-tool advisories remain below the high-severity gate; upstream AI SDK packages publish missing sourcemap references; the isolated Workflow realm patch remains until its permanent tripwire proves the upstream fix.

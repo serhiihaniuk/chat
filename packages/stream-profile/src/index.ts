@@ -30,3 +30,10 @@ export {
   type SideChatReasoningEffort,
   type SideChatReasoningSupport,
 } from "./reasoning/reasoning-efforts.js";
+export {
+  TURN_ACTIVITY_EVENT_TYPE,
+  TURN_ACTIVITY_SYNC_EVENT_TYPE,
+  type TurnActivityEvent,
+  type TurnActivityStreamEvent,
+  type TurnActivitySyncEvent,
+} from "./activity/turn-activity.js";

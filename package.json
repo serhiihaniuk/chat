@@ -3,9 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "workspaces": [
-    "apps/*",
-    "packages/*",
-    "test-harness/*"
+    "apps/side-chat-service",
+    "packages/db",
+    "packages/host-bridge",
+    "packages/shared",
+    "packages/side-chat-widget",
+    "packages/stream-profile",
+    "test-harness/widget-harness"
   ],
   "type": "module",
   "scripts": {

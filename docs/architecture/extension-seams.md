@@ -1,213 +1,84 @@
 # Extension Seams
 
-Read this when: you adopt Side Chat and need to add a tool, provider/model, guard, executor, host command, observability sink, or persistence adapter.
-Source of truth for: the adoption seams, where each seam's contract type lives, and where you bind it in service composition.
-Not source of truth for: package import rules (see [package-boundaries.md](package-boundaries.md)), the turn lifecycle (see [assistant-turn.md](assistant-turn.md)), or runtime/protocol events (see [runtime-and-protocol-events.md](runtime-and-protocol-events.md)).
+Read this when: you need to add a tool, provider/model, host context source, telemetry sink, stream extension, or widget renderer.
+Source of truth for: supported extension points in the current service and browser architecture.
+Not source of truth for: import rules ([package-boundaries.md](package-boundaries.md)), lifecycle order ([assistant-turn.md](assistant-turn.md)), or public stream grammar ([runtime-and-protocol-events.md](runtime-and-protocol-events.md)).
 
-## Migration status
+## Extension rule
 
-The seam map below describes the legacy `apps/partner-ai-service` wing. The
-replacement `apps/side-chat-service` keeps providers, persistence, auth, and
-telemetry behind app-local ports and composition; it uses native server tools,
-durable [client tools](client-tools.md), and durable [tool approvals](tool-approvals.md).
-Its Workflow boundary is documented in [workflow-substrate.md](workflow-substrate.md).
-Do not add a new legacy registration when the adopter is targeting the
-replacement stack; use the replacement service's config catalogs and app-local
-composition seams instead.
+Extend the owner of the behavior. The service owns policy, durable execution, providers, tools, and outbound privacy. Browser packages own page integration and rendering. Shared packages own only stable, dependency-light contracts used by more than one package.
 
-## How extension works
+Prefer a registered catalog entry or an existing app-local port before adding a new abstraction. A change that alters the public UI-message stream, product schema, Workflow input, or authorization contract is an architecture change and requires its canonical document and focused tests to change with it.
 
-Side Chat keeps each extension point as a typed contract in a `packages/*` package, then lets the deployable service bind a concrete implementation at startup. You write the implementation against the contract; you register it in `apps/partner-ai-service`. The split keeps core and runtime provider-neutral and lets one host app swap tools, models, or storage without forking them.
+## Available seams
 
-Two binding shapes exist:
+| Need                         | Contract and binding point                                                                                                                                           | Boundary                                                                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Add a server tool            | Add a `ServerToolDefinition` under `apps/side-chat-service/src/application/turn/tools/server-tools/` and register it in the closed service catalog/config selection. | Executes inside the service; validate input and return durable-safe model output.                                |
+| Add a client tool            | Register a `HostClientToolDefinition` with `@side-chat/host-bridge`; advertise its bounded definition in the turn request.                                           | Executes only in the originating tab under the raw capability. See [client-tools.md](client-tools.md).           |
+| Require server-tool approval | Apply the registered approval policy and durable Workflow approval wait.                                                                                             | Approval UI and decisions use native AI SDK parts; see [tool-approvals.md](tool-approvals.md).                   |
+| Add a provider/model         | Add a provider adapter and model descriptor under the service adapters/composition/config catalogs.                                                                  | Provider SDK types and credentials stay inside `apps/side-chat-service`.                                         |
+| Change model settings        | Extend the validated model descriptor/config and map it in the provider adapter.                                                                                     | The browser may select only values published by the model catalog.                                               |
+| Add host context             | Extend `@side-chat/host-bridge` context production and the service's bounded host-context validator/rendering stage.                                                 | Context is untrusted user data, never authority or system instructions.                                          |
+| Add telemetry                | Implement the app-local `TelemetrySink` and register it during service composition.                                                                                  | Records must be bounded and scrubbed; never include prompts, provider output, secrets, or private tool payloads. |
+| Add an outbound transform    | Register a transform in the service stream composition around the shared scrub transform.                                                                            | Preserve native UI-message ordering, terminal discipline, cursor meaning, and privacy.                           |
+| Add a public `data-*` part   | Define and validate it in `@side-chat/stream-profile`, then add named producer and consumer tests.                                                                   | Use only when native AI SDK parts cannot represent the concept; requires privacy review.                         |
+| Render an activity item      | Pass `renderActivityItem` to `SideChatWidget`.                                                                                                                       | Presentation only; it cannot change execution, approval, or authority.                                           |
+| Change persistence           | Implement the app-local repository port in `@side-chat/db` and bind it in service composition.                                                                       | `pg` and Drizzle remain inside `packages/db`; preserve both schema ownership and transactions.                   |
+| Change authentication        | Implement the app-local `RequestAuthorizer` and bind it before route composition.                                                                                    | Every resource read/write remains tenant, workspace, and subject scoped.                                         |
 
-- **Bundled (tools, providers):** one registration carries both the declaration (manifest/identity) and the executable. The registry asserts the names match, so the manifest and the runtime cannot drift.
-- **Injected ports (guards, executors, observability, persistence, policy):** core and runtime expose a port type; the service passes a concrete adapter into `composePartnerAiService` ([service-composition.ts:105](../../apps/partner-ai-service/src/composition/service-composition.ts)).
+## Server tools
 
-The composition root assembles every port into one `StreamChatPorts` object at [create-stream-chat-ports.ts:47](../../apps/partner-ai-service/src/composition/ports/create-stream-chat-ports.ts). Routes receive that object; they never build adapters.
+Server tools are declared in the service's closed registry. A registration joins the model-visible name/schema with the executable so policy cannot advertise a tool that composition cannot run.
 
-## Seam map
+When adding one:
 
-Contract types live in `packages/*`; binding happens in `apps/partner-ai-service`. Paths use `file:line` for the contract and the wiring point.
+1. define the input schema and service-side implementation;
+2. register the definition in the server-tool catalog;
+3. add its name to the validated `serverTools` configuration where the deployment should expose it;
+4. choose approval policy explicitly;
+5. add focused execution, schema, timeout, cancellation, and scrub tests.
 
-| Seam                      | Contract type (location)                                                                                                                                                                                                                                                           | Bind / register at                                                                                                                                                                                                                                                                           | Shape                                                                                                              |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Add a tool                | `RuntimeTool` / `createRuntimeToolFromPromise` ([runtime-tool.ts:49](../../packages/agent-runtime/src/tools/runtime-tool.ts)) + manifest `ToolCapability` ([capabilities.ts:158](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts))                | `createServiceToolRegistration`, then a map entry in [tool-registrations.ts](../../apps/partner-ai-service/src/adapters/tools/tool-registrations.ts) (config-driven) or `options.runtime.tools` (programmatic)                                                                               | Bundled: one `ServiceToolRegistration` = capability + composition-local executable                                 |
-| Add a provider/model      | `ServiceProviderRegistration` ([service-provider-registry.ts:66](../../apps/partner-ai-service/src/composition/providers/service-provider-registry.ts))                                                                                                                            | `createServiceProviderRegistry` builds the concrete `ModelProvider`; first registration is the default                                                                                                                                                                                       | Bundled: declaration + transport/secret + runtime build                                                            |
-| Add a guard/policy        | `TurnGuard` / `TurnGuardRegistryPort` ([turn-guard.ts:36](../../packages/partner-ai-core/src/ports/turn-guard.ts))                                                                                                                                                                 | `options.turnGuards` ([service-composition.ts:106](../../apps/partner-ai-service/src/composition/service-composition.ts)); turn-policy resolver via [create-service-capability-bundle.ts:58](../../apps/partner-ai-service/src/composition/capabilities/create-service-capability-bundle.ts) | Injected port; decision is `allow` / `allow_with_warning` / `block`                                                |
-| Add an executor           | `AgentExecutor` ([agent-executor.ts:38](../../packages/agent-runtime/src/runtime/executors/agent-executor.ts))                                                                                                                                                                     | `AgentRuntimeOptions.executors`, passed by the runtime bundle                                                                                                                                                                                                                                | Injected port; default id `ai_sdk.tool_loop`                                                                       |
-| Wire a host command       | `HostCommandCapability` (core manifest shape, [capabilities.ts](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)) + the host-bridge dispatch shapes ([capability.ts](../../packages/host-bridge/src/commands/capability.ts))                      | Record it in `sidechat.config.ts`; advertise it per page through `packages/host-bridge`; the request declaration is exposed to the model                                                                                                                                                     | Deployment catalog + per-turn browser declaration; performed in the browser ([host-commands.md](host-commands.md)) |
-| Add an observability sink | `ObservabilitySinkPort` ([observability.ts:54](../../packages/partner-ai-core/src/services/observability.ts))                                                                                                                                                                      | `options.observability` ([service-composition.ts:137](../../apps/partner-ai-service/src/composition/service-composition.ts)); default `NOOP_OBSERVABILITY_SINK`                                                                                                                              | Injected port; receives redacted records only                                                                      |
-| Add a persistence adapter | `SidechatRepositories` + `RepositoryAdapterKind` (`@side-chat/db`)                                                                                                                                                                                                                 | `options.repositories` / `options.persistence`, resolved by `createServicePersistenceBundle`                                                                                                                                                                                                 | Injected port; repos must declare `adapterKind` or fail closed                                                     |
-| Change model parameters   | `RuntimeCallSettings` ([ai-runtime-contract](../../packages/ai-runtime-contract/src/index.ts)) / `SideChatCallSettings` ([types.ts](../../apps/partner-ai-service/src/config/sidechat-config/types.ts))                                                                            | `chat.turnProfile.callSettings` in `sidechat.config.ts`; threads profile → `TurnPolicyDecision` → `buildModelTurnRequest` → the runtime call                                                                                                                                                 | Config bag: `temperature`, `maxOutputTokens`, `topP`, `stopSequences`, `maxToolSteps`                              |
-| Plug in auth              | `ServiceAuthVerifier` ([service-auth.ts:37](../../apps/partner-ai-service/src/adapters/auth/service-auth.ts)); returns an `AuthContext` (`@side-chat/partner-ai-core`)                                                                                                             | `options.authVerifier` ([app.ts:95](../../apps/partner-ai-service/src/inbound/http/app.ts)); when absent the static-token adapter from `auth` config is the dev default                                                                                                                      | Injected port; `AuthContext.subject.subjectId` is the identity every read/write scopes by                          |
-| Render an activity item   | `RenderActivityItem` / `SideChatActivityItem` ([side-chat-activity-item.ts](../../packages/side-chat-widget/src/entities/activity/model/side-chat-activity-item.ts), both exported from `@side-chat/side-chat-widget`)                                                             | `renderActivityItem` prop on either `SideChatWidget` transport branch                                                                                                                                                                                                                        | Rendering seam only: return a node to replace one eligible item's default rendering, `undefined` to keep it        |
-| Feed a context source     | `ContextManagerPort` ([context-manager.ts:11](../../packages/partner-ai-core/src/ports/context-manager.ts)); source types are the closed `CONTEXT_CANDIDATE_SOURCE_TYPES` ([capabilities.ts:39](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)) | Tune admission via `options.capabilities` (config). No options hook to swap the port yet; a **new source type** is a cross-package change — see [Feed a context source](#feed-a-context-source)                                                                                              | Config tunes limits; replacing the manager or adding a source type is code, not config                             |
+Do not read environment variables inside the tool module. Inject configured clients or credentials through service composition. Tool failures must collapse to safe model/public errors while private causes stay in scrubbed telemetry.
 
-The capability rule keeps three stages separate: a manifest `ToolCapability` is a declaration, not model access; the per-turn policy decides which names are allowed; runtime executes only registered `RuntimeTool`s named in that allowlist. Declaring a tool capability without an executable is impossible because one registration supplies both.
+## Client tools
 
-## How to add one
+Browser-side implementations use `@side-chat/host-bridge`; the service owns the durable dispatch and result authority. Do not add a parallel browser-action protocol. The native AI SDK dynamic tool part, originating-tab capability, output endpoint, and Workflow hook are the one supported path.
 
-Each seam follows the same loop: write against the contract, then register or inject in composition. Steps below start with the verb you run.
+The full lifecycle and security rules live in [client-tools.md](client-tools.md).
 
-### Add a tool
+## Providers and model catalog
 
-A config-driven tool is exactly three edits — a tool file, a map entry, a config entry — and nothing in the validator or the options adapter changes.
+Provider adapters live under `apps/side-chat-service/src/adapters/providers/`; production selection and model construction live under service composition. Model descriptors own public ids, labels, reasoning-effort subsets/defaults, and supported settings. `/api/models` publishes only the safe descriptor.
 
-1. **Write the tool file** under `apps/partner-ai-service/src/adapters/tools/`. The beginner path is a plain async function via `createRuntimeToolFromPromise({ name, description, inputSchema, run })` — no Effect needed; return the JSON result or throw, and a thrown error is scrubbed to a stable `tool_failed`. The advanced path writes `RuntimeTool.execute` as an Effect directly. The worked example shows both flavors: [jira-search-issues-tool.ts](../../apps/partner-ai-service/src/adapters/tools/examples/jira-search-issues-tool.ts). Wrap the tool with `createServiceToolRegistration({ capability, runtimeTool, defaultEnabled, label })` so one factory returns the manifest capability and the executable together — the registry rejects any registration whose capability and tool names disagree.
-2. **Add one map entry** in [tool-registrations.ts](../../apps/partner-ai-service/src/adapters/tools/tool-registrations.ts) mapping the tool name to a factory that reads the config-derived `ConfiguredToolInput` and returns the registration. `DEFAULT_TOOL_REGISTRATIONS` is the seam: the config validator accepts exactly the names it holds, and the options adapter dispatches the configured name through it. An unknown configured name fails boot with an error naming the available tools.
-3. **Add one config entry** to `tools.availableTools` in `sidechat.config.ts`, and allowlist the name in the turn profile's `tools.names`. The config block controls the default exposure mode (`enabled` or `disabled` before the per-turn `enabledToolNames` selection). The profile allowlist is the security upper bound.
+Credentials, provider model objects, provider options, and provider response metadata remain inside the service. The Workflow rebuilds provider delegates in the current realm rather than serializing SDK objects into durable input.
 
-A tool that needs an injected dependency (a Jira/HTTP client, a secret) cannot be built from config alone — wire it programmatically through `PartnerAiServiceOptions.runtime.tools` with the same `createServiceToolRegistration`, bypassing steps 2–3.
+## Host context
 
-Most registrations pass a ready `runtimeTool`. A tool that must call the
-composition's own `AgentRuntime` passes `createRuntimeTool(getRuntime)` instead.
-The tool registry realizes that factory once per service composition and later
-binds that composition's runtime through the accessor. Never store the runtime
-on the module or registration: registrations may be reused by multiple service
-instances in one process, and each instance must retain its own runtime binding.
+Add context production to `@side-chat/host-bridge` and validate it at the service HTTP boundary. If the shape changes, update both direct and iframe contracts. Keep a single named execution-only rendering stage so the accepted product message remains unchanged.
 
-### Add a provider/model
+Every added field must have explicit string, collection, nesting, entry, and total-size behavior. Treat all content as untrusted user-provided reference material.
 
-1. Add a `ServiceProviderRegistration` (kind `fake` / `openai` / `azure`, plus ids, secret, and transport fields) to provider config.
-2. Declare reasoning intent there via `ServiceReasoningPolicy`; secrets stay in the registration and never reach the manifest or browser.
-3. Let `createServiceProviderRegistry` validate and build the concrete `ModelProvider`. The first registration becomes the default.
+## Public stream extensions
 
-### Add a guard/policy
+Native AI SDK parts are the default. Add a `data-*` part only when the UI cannot derive the concept from native text, reasoning, source, file, tool, approval, start, finish, abort, or message-metadata parts.
 
-1. Implement your guards and a `TurnGuardRegistryPort` under `apps/partner-ai-service/src/adapters/guards/`.
-2. Pass the registry as `options.turnGuards`.
-3. Select each `guardId` in the profile's safety policy. Registering a guard alone does not run it ([service-composition.ts:112](../../apps/partner-ai-service/src/composition/service-composition.ts)).
+A new part requires:
 
-For per-turn policy decisions (profile, model, tools, guards, executor), provide a turn-policy resolver through the capability bundle. Keep policy in core, not in routes or runtime.
+- a dependency-free schema and type in `packages/stream-profile`;
+- a service producer and outbound scrub rule;
+- a widget consumer with replay/history behavior;
+- cursor and terminal-order tests;
+- a privacy classification documented in [stream-profile.md](stream-profile.md).
 
-### Add an executor
+## Telemetry and diagnostics
 
-1. Implement an `AgentExecutor` that produces `RuntimeEvent`s only. The runtime has already chosen the model, messages, and tools.
-2. Add it to the runtime config `executors` list, injected via the runtime bundle.
-3. Do not expose executor ids as browser or manifest capabilities; they are runtime-internal.
+The service's app-local telemetry port receives bounded records and must never become a second event bus. Turn telemetry describes safe lifecycle measurements and classifications. Boot/config/process diagnostics use the shared diagnostic logger. Neither channel may contain secrets, prompts, model output, raw errors, private context, or tool bodies.
 
-Need more than a custom loop — a different engine entirely, possibly remote or in another language? That is the next level up: implement `AiRuntimePort` itself. See [runtime-port.md](runtime-port.md) for the three integration levels and the remote-agent adapter pattern.
+## Widget rendering
 
-### Wire a host command
+`renderActivityItem` receives a normalized `SideChatActivityItem` and may replace eligible default rows. Tool visibility policy and native approval cards remain authoritative. The callback is a rendering seam only and cannot mutate chat state, dispatch client tools, or submit approvals.
 
-Full walkthrough with a runnable example: [host-commands.md](host-commands.md). In short:
+## Verification
 
-1. Record a `HostCommandCapability` in `hostCommands.availableCommands` ([sidechat.config.ts](../../apps/partner-ai-service/sidechat.config.ts)) so the deployment manifest and diagnostics describe the command.
-2. Handle the command in the host app through the bridge in `packages/host-bridge/src/`, and advertise it in the bridge's `getCapabilities`. The browser sends that page-specific declaration with each turn; the runtime exposes it to the model, and the action itself runs in the browser. The `open_resource` example in [host-commands.md](host-commands.md) demonstrates the handling path.
-3. Ship a separate `RuntimeTool` only if the backend must also perform the action.
-
-### Add an observability sink
-
-1. Implement an `ObservabilitySinkPort` and pass it as `options.observability` — an explicit sink always wins over the profile default.
-2. Treat every record as already redacted; never log raw prompts, provider output, or tool payloads. Core redacts records before your sink receives them.
-3. A real sink already ships: [`createConsoleObservabilitySink`](../../apps/partner-ai-service/src/adapters/observability/console-observability-sink.ts) renders each `ObservabilityRecord` as one compact line and doubles as the copy-me recipe. Development installs it by default; production defaults to `NOOP_OBSERVABILITY_SINK`. The contract and no-op default live in [observability.ts](../../packages/partner-ai-core/src/services/observability.ts).
-4. For events that have no turn (boot, config fallback, LISTEN drops, shutdown), use the second channel — the `DiagnosticLogger` ([@side-chat/shared](../../packages/shared/src/diagnostic-logger.ts)), a plain leveled logger, not the turn-scoped sink (ADR [0011](../adr/0011-observability-channels-and-console-first-dev.md)).
-
-### Add a persistence adapter
-
-1. Provide `SidechatRepositories` tagged with a valid `adapterKind` (`memory`, `postgres-drizzle`, or `custom`) via `options.repositories`, or set `persistence` config to select a built-in.
-2. `createServicePersistenceBundle` picks memory or postgres by `PersistenceConfig.kind`; a custom kind needs explicit persistence metadata or composition fails closed.
-3. Keep `pg` and `drizzle-orm` inside `@side-chat/db`; the boundary lints forbid them elsewhere.
-
-### Plug in your auth verifier
-
-The default authority is a static bearer token for local development — every caller of one token resolves to one subject. Production plugs in a real check by implementing `ServiceAuthVerifier` and passing it as `options.authVerifier`; when present it fully replaces the static-token adapter, so there are **no edits to `app.ts`**.
-
-The contract is one method — request headers in, an `AuthContext` (or `undefined` to reject) out:
-
-```ts
-import type { ServiceAuthVerifier } from "@side-chat/partner-ai-service";
-import type { AuthContext } from "@side-chat/partner-ai-core";
-
-const jwtVerifier: ServiceAuthVerifier = {
-  resolveAuthContext: async ({ bearerToken }) => {
-    const claims = await verifyJwt(bearerToken); // your library; return undefined on failure
-    if (!claims) return undefined;
-    return {
-      tenantId: claims.tenantId,
-      workspaceId: claims.workspaceId,
-      subject: { subjectId: claims.sub, userId: claims.sub },
-      actor: { subjectId: claims.sub, userId: claims.sub },
-      roles: ["member"],
-      scopes: ["conversation:read", "conversation:write", "message:write"],
-      source: "signed_service_token",
-      issuedAt: new Date(claims.iat * 1000).toISOString(),
-    } satisfies AuthContext;
-  },
-};
-```
-
-Then, in `apps/partner-ai-service/src/server.ts`, replace the options line inside
-`createBootConfig` (the config adapter is already imported there):
-
-```ts
-const options = {
-  ...createPartnerAiServiceOptionsFromConfig(config),
-  authVerifier: jwtVerifier,
-};
-```
-
-`AuthContext.subject.subjectId` is the per-user identity **everything scopes by**: conversation lists and history, the activity stream, and every turn read/write. A turn belongs to the subject that started it, so a leaked turn id from another user resolves to not-found on status, stream, and host-command result, and its cancel is a durable no-op. Return `undefined` for an unverifiable token and the request is answered `401`; the built-in comparisons are constant-time and normalize the `Bearer ` prefix on either side.
-
-### Change model parameters
-
-Ordinary model knobs live on the turn profile, beside reasoning. Add a `callSettings` block to `chat.turnProfile` in `sidechat.config.ts`:
-
-```ts
-chat: {
-  turnProfile: {
-    // …id, systemInstructions, tools, safety…
-    callSettings: {
-      temperature: 0.4,
-      maxOutputTokens: 1024,
-      topP: 0.95,
-      stopSequences: ["\n\nUser:"],
-      maxToolSteps: 8, // tool-loop cap; omit for the default of 20
-    },
-  },
-},
-```
-
-Each field is optional, so an absent block (or field) keeps the runtime/provider default — no behavior change for existing configs. The block threads profile → `TurnPolicyDecision` → `buildModelTurnRequest` → the runtime, which applies them as top-level model call settings (not provider-native options). A turn stopped at `maxToolSteps` completes with the `tool_step_limit` finish reason so a truncated turn is observable, not a silent `stop`. A provider may ignore a setting it does not support (OpenAI drops `temperature`/`topP` for reasoning models); `maxOutputTokens` is the portable one.
-
-### Render an activity item
-
-Both widget transports expose the same activity-rendering seam. The callback receives a widget-owned, transport-neutral `SideChatActivityItem`; protocol events and native AI SDK parts are normalized before the callback. Tool and host-command variants expose only their stable widget detail (`tool` or `hostCommand`). Provider DTOs, protocol detail objects, sources, images, approval payloads, and execution authority never cross this seam.
-
-To replace one eligible item — usually a custom card for a known tool result — pass `renderActivityItem`:
-
-```tsx
-<SideChatWidget
-  client={client}
-  renderActivityItem={
-    (item) =>
-      item.kind === "tool" && item.tool.toolName === "ticket_lookup" ? (
-        <TicketCard result={item.tool.result} status={item.status} />
-      ) : undefined // every other item keeps the default rendering
-  }
-/>
-```
-
-The callback receives each eligible `SideChatActivityItem` (`id`, discriminating `kind`, `status`, `title`, optional `body`, and normalized tool/host detail) and returns a replacement node or `undefined` to fall through. Reasoning always tries the callback before its default. Tool-detail policy stays authoritative: `hidden` drops a tool without invoking the callback, `name` keeps the compact default without invoking it, and `full` tries the callback before the existing detailed/default row. Native approval cards are security-owned interaction surfaces and never invoke or yield to the custom renderer. The callback cannot change event projection, tool execution, approval decisions, or host-command dispatch.
-
-### Feed a context source
-
-Core assembles each turn's model context from a fixed set of source types (the current message, conversation history, host page context, turn profile, tool capabilities, tool results). What you can change depends on how far you want to go — the three levels cost very differently.
-
-**Tune admission (config, no code).** The likeliest change — a longer history window or a different budget — is `options.capabilities`. `ServiceCapabilityConfig.history` sets the recent-message window; `contextAdmission` sets the input/output token budget and whether the selector is `include_all` or `budgeted`. No source-type change, no code.
-
-**Replace the whole context manager (code, no config hook yet).** The clean core seam is `ContextManagerPort.prepareTurnContext` ([context-manager.ts:11](../../packages/partner-ai-core/src/ports/context-manager.ts)) — implement it and core gathers context however you say. Caveat: the bundled `partner-ai-service` builds its own with `createServiceContextManager` ([service-context-manager.ts](../../apps/partner-ai-service/src/composition/context/context-manager/service-context-manager.ts)) and does **not** expose an `options` override for it today, so replacing it means composing your own service or forking that builder. (This is a known seam gap — there is no `options.contextManager`.)
-
-**Add a new source type (cross-package change).** The most-requested example — "feed our CRM record into context" — is the hardest, because the source-type set is a closed union threaded through exhaustive switches. Adding one touches:
-
-- **Core.** Add the value to `CONTEXT_CANDIDATE_SOURCE_TYPES` ([capabilities.ts:39](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)). If you budget the new source separately, also widen `ContextSourceTokenBudgets` ([context.ts:103](../../packages/partner-ai-core/src/domain/capabilities/contracts/context.ts)) — today it is `{ history: number }` only, so a per-source cap reshapes a core contract.
-- **Service.** Add a gatherer beside the existing ones ([context-manager/sources/](../../apps/partner-ai-service/src/composition/context/context-manager/sources/)), turn its output into candidates in [context-candidate-creation.ts](../../apps/partner-ai-service/src/composition/context/context-manager/candidates/context-candidate-creation.ts), and add a `case` to the **two exhaustive switches** in [context-admission.ts](../../apps/partner-ai-service/src/composition/context/context-manager/candidates/context-admission.ts) (`sourceRank` and the per-source budget switch) — TypeScript's `noFallthroughCasesInSwitch` makes a missed case a build error, which is the safety net here.
-
-**Redaction is classification, not masking.** Every `ContextCandidate` carries a `redactionClass` (`public` → `secret`, [capabilities.ts:61](../../packages/partner-ai-core/src/domain/capabilities/contracts/capabilities.ts)). Admission **drops** a `secret` candidate whole (`REDACTION_BLOCKED`); there is no hook to mask or transform sub-strings before the content becomes model-visible. If your source can carry secrets, classify it `secret` (dropped) rather than expecting field-level redaction.
-
-## Where adapters live
-
-For folder placement inside the service, see [adapters/README.md](../../apps/partner-ai-service/src/adapters/README.md). Folders that ship implementations today: `auth/`, `guards/`, `host-commands/` (the connection-bound result resolver), `persistence/` (including the in-memory turn-event registry), `policy/`, and `tools/`. The rest (`agents/`, `memory/`, `observability/`, `rag/`, `title/`) are reserved and empty.
-
-Both seams adopters most often ask for are now injectable: config-driven custom tools through the [tool-registrations.ts](../../apps/partner-ai-service/src/adapters/tools/tool-registrations.ts) map (or `options.runtime.tools` programmatically), and auth through `options.authVerifier`.
+Run focused tests for the owner you changed, then the repository boundary and type gates. For stream or durable execution seams, also run replay/restart tests. The canonical command matrix is [verification.md](../operations/verification.md).

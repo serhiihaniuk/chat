@@ -123,9 +123,7 @@ const initialActivityState = (): WorkflowActivityStreamState => ({
   synchronized: false,
 });
 
-const markUnsynchronized = (
-  current: WorkflowActivityStreamState,
-): WorkflowActivityStreamState =>
+const markUnsynchronized = (current: WorkflowActivityStreamState): WorkflowActivityStreamState =>
   current.synchronized ? { ...current, synchronized: false } : current;
 
 const synchronizedState = (event: TurnActivitySyncEvent): WorkflowActivityStreamState => ({

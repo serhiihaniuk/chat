@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  assistantTurns,
-  conversations,
-  messages,
-  toolInvocations,
-} from "#drizzle/schema";
+import type { assistantTurns, conversations, messages, toolInvocations } from "#drizzle/schema";
 import {
   toAssistantTurnRecord,
   toConversationRecord,

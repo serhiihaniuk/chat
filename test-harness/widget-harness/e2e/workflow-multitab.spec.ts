@@ -27,6 +27,7 @@ test("keeps two workflow tabs isolated while both replay one accepted run", asyn
   await expect
     .poll(() => secondTab.evaluate((key) => sessionStorage.getItem(key), recoveryStorageKey))
     .toBeNull();
+  await expect.poll(async () => (await readFixtureCounters(request)).activitySubscribers).toBe(2);
 
   await page.getByLabel("Message").fill("Share this answer across tabs");
   await page.getByRole("button", { name: "Send" }).click();
@@ -170,6 +171,7 @@ test("lets only one simultaneous tab start a turn and keeps the conflict bounded
 });
 
 type FixtureCounters = Readonly<{
+  activitySubscribers: number;
   chatAccepted: number;
   chatConflicts: number;
   conversations: number;
@@ -196,6 +198,7 @@ async function readFixtureCounters(request: APIRequestContext): Promise<FixtureC
   }
   const counters = value["counters"];
   return {
+    activitySubscribers: readCounter(value, "activitySubscribers"),
     chatAccepted: readCounter(counters, "chatAccepted"),
     chatConflicts: readCounter(counters, "chatConflicts"),
     conversations: readCounter(counters, "conversations"),

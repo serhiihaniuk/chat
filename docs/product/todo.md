@@ -1,19 +1,19 @@
 # Product TODO
 
-Read this when: a capability idea is intentionally deferred, or a known code gap needs tracking before it becomes a feature.
-Source of truth for: product work that should not appear as active runtime configuration or public contracts yet.
-Not source of truth for: implemented behavior, package ownership, or lifecycle order.
+Read this when: a capability is intentionally deferred or a known product gap needs tracking.
+Source of truth for: work that must not appear as shipped configuration or public contract yet.
+Not source of truth for: implemented behavior, ownership, or lifecycle order.
 
-This doc tracks work the system deliberately does not do yet. Each entry names a deferred capability or a known gap plus the prerequisites that gate it. Nothing here is configurable today; do not treat an entry as a hidden feature flag. For shipped configuration, see [the service config](../../apps/partner-ai-service/sidechat.config.ts). For event vocabulary, see [runtime-and-protocol-events.md](../architecture/runtime-and-protocol-events.md).
+Shipped configuration lives in [`apps/side-chat-service/sidechat.config.ts`](../../apps/side-chat-service/sidechat.config.ts). Current stream behavior lives in [runtime-and-protocol-events.md](../architecture/runtime-and-protocol-events.md).
 
-## Context Management
+## Context management
 
-- History summary context, working name `recent_plus_summary`: support long conversations by admitting recent same-conversation messages plus a generated summary of older history. Before reintroducing this as configuration, define the summary generation owner, persistence timing, refresh policy, token budget accounting, health diagnostics, and tests that prove only authorized history can become model-visible context. Shipped history mode is `recent_messages` only ([sidechat.config.ts](../../apps/partner-ai-service/sidechat.config.ts)).
-- Long-term memory and retrieval context: persist durable user, workspace, or project facts and admit retrieved knowledge into model context. Before reintroducing DB schema, capability source types, configuration, or manifests, define the data model, write ownership, retention and deletion policy, tenant/subject authorization, retrieval strategy, redaction and audit behavior, token budgeting, and tests that prove only authorized memory can become model-visible context.
+- **History summaries.** Support long conversations with recent authorized messages plus a generated summary of older history. Before exposing configuration, define generation ownership, persistence timing, refresh policy, token accounting, privacy classification, health signals, and tests proving only authorized history becomes model-visible.
+- **Long-term memory and retrieval.** Persist and retrieve durable user, workspace, or project facts. Before adding schema or configuration, define write ownership, retention/deletion, tenant and subject authorization, retrieval policy, redaction/audit behavior, token budgets, and deletion tests.
 
 ## Release engineering
 
-- CI is adopter-owned. Before an alpha tag, wire the repository's `npm run verify` command into the chosen CI service so the local and remote quality gates are identical.
-- Add the intended open-source license before publishing the starter outside the owning organization.
+- Wire `npm run verify` into the chosen CI service before an alpha tag so local and remote gates match.
+- Add the intended license before publishing the starter outside the owning organization.
 
-The working [`plan/`](../../plan/00-overview.md) folder is implementation history and planning material, not the source of truth for shipped behavior. Canonical architecture and operations docs must describe the current code directly.
+The [`plan/`](../../plan/00-overview.md) folder is planning history. Canonical architecture and operations docs describe shipped behavior directly.

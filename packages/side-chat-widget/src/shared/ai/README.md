@@ -24,7 +24,7 @@ tokens; callers provide only layout and reading-measure classes.
 - Side Chat business logic.
 - Protocol event mapping.
 - Runtime, provider, tool, or Effect workflow knowledge.
-- Persistence, auth, service, or host-command behavior.
+- Persistence, auth, service, or client-tool behavior.
 - New project-owned patterns that other layers should copy.
 
 Project behavior belongs in `widgets`, `features`, or `entities`. Project-owned

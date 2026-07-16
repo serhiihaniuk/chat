@@ -13,9 +13,7 @@ export const HOST_TOOL_CALL_MESSAGE_TYPE = "sidechat.widget.hostToolCall";
 export const HOST_TOOL_RESULT_MESSAGE_TYPE = "sidechat.widget.hostToolResult";
 const DEFAULT_TOOL_TIMEOUT_MS = 5_000;
 
-const TOOL_STATUSES: readonly HostToolResult["status"][] = Object.values(
-  HOST_TOOL_RESULT_STATUSES,
-);
+const TOOL_STATUSES: readonly HostToolResult["status"][] = Object.values(HOST_TOOL_RESULT_STATUSES);
 
 export type PostMessageHostBridgeOptions = {
   readonly capabilities?: HostCapabilities | undefined;

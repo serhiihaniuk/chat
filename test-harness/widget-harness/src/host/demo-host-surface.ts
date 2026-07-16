@@ -86,10 +86,7 @@ const withOpenedRecord = (state: DemoHostState, id: string, label: string): Demo
   };
 };
 
-const withLoggedTool = (
-  state: DemoHostState,
-  entry: DemoHostToolLogEntry,
-): DemoHostState => ({
+const withLoggedTool = (state: DemoHostState, entry: DemoHostToolLogEntry): DemoHostState => ({
   ...state,
   log: [entry, ...state.log].slice(0, MAX_LOG_ENTRIES),
 });

@@ -57,7 +57,7 @@ The role model already fits this future: `sidechat_migrator` owns DDL and `sidec
 
 ## Postgres vs in-memory
 
-`SIDECHAT_DATABASE_URL` selects the persistence backend at service boot. In the v7 service it is the `persistence.databaseUrl` config field (declared in the `sidechat*.config.ts` variants); production composition builds the Postgres turn store when it is set and the in-memory store when it is absent:
+`SIDECHAT_DATABASE_URL` selects product persistence at service boot. It is the `persistence.databaseUrl` config field declared in the `sidechat*.config.ts` variants; production requires PostgreSQL, while the fake development configuration may use the in-memory store:
 
 | State       | Development        | Production         |
 | ----------- | ------------------ | ------------------ |

@@ -6,6 +6,7 @@ import {
   type HostCapabilities,
   type HostContextSnapshot,
   type HostToolCall,
+  type HostToolResult,
 } from "../index.js";
 
 const capabilities: HostCapabilities = {
@@ -56,13 +57,15 @@ describe("createHostBridge", () => {
   });
 
   it("dispatches only client tools supported by the current capabilities", async () => {
-    const dispatchToolCall = vi.fn(async (call: HostToolCall) => ({
-      toolCallId: call.toolCallId,
-      toolName: call.toolName,
-      status: "applied" as const,
-      resultCode: "opened",
-      resolvedAt: "2026-07-16T00:00:01.000Z",
-    }));
+    const dispatchToolCall = vi.fn<(call: HostToolCall) => Promise<HostToolResult>>(
+      async (call) => ({
+        toolCallId: call.toolCallId,
+        toolName: call.toolName,
+        status: "applied" as const,
+        resultCode: "opened",
+        resolvedAt: "2026-07-16T00:00:01.000Z",
+      }),
+    );
     let currentCapabilities: HostCapabilities = { ...capabilities, tools: [] };
     const bridge = createHostBridge({
       capabilityProvider: {
@@ -86,7 +89,7 @@ describe("createHostBridge", () => {
   });
 
   it("rejects a supported tool name when its resource type is unsupported", async () => {
-    const dispatchToolCall = vi.fn();
+    const dispatchToolCall = vi.fn<(call: HostToolCall) => Promise<HostToolResult>>();
     const bridge = createHostBridge({
       capabilities,
       toolDispatcher: { dispatchToolCall },

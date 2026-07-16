@@ -367,8 +367,7 @@ function isIgnoredPath(file) {
 
 function isProjectSourceFile(file) {
   return (
-    (/^(?:apps|packages|test-harness)\/.+\/src\//u.test(file) ||
-      file.startsWith("apps/docs/app/")) &&
+    /^(?:apps|packages|test-harness)\/.+\/src\//u.test(file) &&
     /\.(?:ts|tsx|js|jsx|mjs)$/u.test(file) &&
     !file.endsWith(".d.ts")
   );

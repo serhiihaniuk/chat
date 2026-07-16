@@ -13,23 +13,24 @@ services:
       timeout: 5s
       retries: 12
 
-  partner-ai-service:
+  side-chat-service:
     build:
       context: ../..
-      dockerfile: infra/docker/partner-ai-service.Dockerfile
+      dockerfile: infra/docker/side-chat-service.Dockerfile
     environment:
       PORT: "8787"
-      SIDECHAT_PROFILE: development
-      SIDECHAT_AUTH_BEARER_TOKEN: local-compose-token
-      SIDECHAT_TENANT_ID: tenant_local
-      SIDECHAT_WORKSPACE_ID: workspace_local
-      SIDECHAT_POLICY_MODE: allow_all
+      SIDECHAT_CONFIG: fake
       SIDECHAT_DATABASE_URL: postgres://sidechat:sidechat@postgres:5432/sidechat
+      WORKFLOW_POSTGRES_URL: postgres://sidechat:sidechat@postgres:5432/sidechat
     depends_on:
       postgres:
         condition: service_healthy
     ports:
       - "8787:8787"
+    command:
+      - sh
+      - -c
+      - npm run db:reset && npm run db:workflow:setup && npm run start --workspace @side-chat/side-chat-service
     healthcheck:
       test:
         [

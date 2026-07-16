@@ -1,17 +1,15 @@
 import {
-  TURN_ACTIVITY_EVENT_TYPE,
-  TURN_ACTIVITY_SYNC_EVENT_TYPE,
-  type TurnActivityEvent,
-  type TurnActivityStreamEvent,
-  type TurnActivitySyncEvent,
+  TURN_ACTIVITY_KIND,
+  TURN_ACTIVITY_STATUS,
+  type TurnActivity,
+  type TurnActivitySnapshot,
+  type TurnActivityTransition,
 } from "#domain/turn-activity";
 
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { TurnActivityNotification } from "#application/ports/turn/activity/turn-activity-source";
 import type { AuthContext } from "#domain/auth-context";
 import type { ActivitySubscription, TurnActivityDispatcher } from "./turn-activity-dispatcher.js";
-
-const TERMINAL_ACTIVITY_STATUS = "terminal";
 
 /**
  * Register before reading the synchronization snapshot, then verify every
@@ -21,7 +19,7 @@ export function createActivitySubscriptionStream(
   dispatcher: TurnActivityDispatcher,
   queries: Pick<ConversationQueryStore, "listActiveTurns">,
   auth: AuthContext,
-): ReadableStream<TurnActivityStreamEvent> {
+): ReadableStream<TurnActivity> {
   let subscription: ActivitySubscription | undefined;
   let eventReader: ReadableStreamDefaultReader<TurnActivityNotification> | undefined;
   let cancelled = false;
@@ -32,7 +30,7 @@ export function createActivitySubscriptionStream(
     await subscription?.release();
   };
 
-  return new ReadableStream<TurnActivityStreamEvent>({
+  return new ReadableStream<TurnActivity>({
     start: (controller) => {
       void pumpActivityEvents(controller).catch((error: unknown) => {
         if (cancelled) return;
@@ -44,7 +42,7 @@ export function createActivitySubscriptionStream(
   });
 
   async function pumpActivityEvents(
-    controller: ReadableStreamDefaultController<TurnActivityStreamEvent>,
+    controller: ReadableStreamDefaultController<TurnActivity>,
   ): Promise<void> {
     subscription = await dispatcher.subscribe({
       workspaceId: auth.workspaceId,
@@ -71,10 +69,10 @@ export function createActivitySubscriptionStream(
 const readSnapshot = async (
   queries: Pick<ConversationQueryStore, "listActiveTurns">,
   auth: AuthContext,
-): Promise<TurnActivitySyncEvent> => {
+): Promise<TurnActivitySnapshot> => {
   const turns = await queries.listActiveTurns(auth);
   return {
-    type: TURN_ACTIVITY_SYNC_EVENT_TYPE,
+    kind: TURN_ACTIVITY_KIND.SNAPSHOT,
     activeTurns: turns.map((turn) => ({
       conversationId: turn.conversationId,
       assistantTurnId: turn.turnId,
@@ -86,7 +84,7 @@ async function resolveActivityEvent(
   queries: Pick<ConversationQueryStore, "listActiveTurns">,
   auth: AuthContext,
   notification: TurnActivityNotification,
-): Promise<TurnActivityEvent | undefined> {
+): Promise<TurnActivityTransition | undefined> {
   try {
     const activeTurns = await queries.listActiveTurns(auth);
     const isRunning = activeTurns.some(
@@ -95,10 +93,10 @@ async function resolveActivityEvent(
         turn.turnId === notification.assistantTurnId,
     );
     return {
-      type: TURN_ACTIVITY_EVENT_TYPE,
+      kind: TURN_ACTIVITY_KIND.TRANSITION,
       conversationId: notification.conversationId,
       assistantTurnId: notification.assistantTurnId,
-      status: isRunning ? "running" : TERMINAL_ACTIVITY_STATUS,
+      status: isRunning ? TURN_ACTIVITY_STATUS.RUNNING : TURN_ACTIVITY_STATUS.TERMINAL,
     };
   } catch {
     // A notification is only an invalidation hint. If durable state cannot be

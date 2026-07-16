@@ -1,288 +1,86 @@
-# Runtime And Protocol Events
+# Runtime and Public Stream Events
 
-Read this when: you change event shapes, the mapping between them, the SSE wire format, or the widget stream reader.
-Source of truth for: the three event vocabularies, the mapping chain, and the streaming/transport contract.
-Not source of truth for: the turn lifecycle (`assistant-turn.md`), import/data boundaries (`package-boundaries.md`), or term definitions (`../domain/vocabulary.md`).
+Read this when: you need to understand what crosses the service/widget stream boundary.
+Source of truth for: native AI SDK UI-message streaming, Side Chat profiling, replay cursors, and the separate activity stream.
+Not source of truth for: turn order ([assistant-turn.md](assistant-turn.md)) or package ownership ([package-boundaries.md](package-boundaries.md)).
 
-## AI SDK 7 replacement stream
+## One public chat stream
 
-`apps/side-chat-service` does not use the three-hop legacy mapping chain. Its
-Step 05 HTTP edge converts Workflow `ModelCallStreamPart` values once with
-`createModelCallToUIChunkTransform()`, then encodes the AI SDK UI-message stream
-v1 with `createUIMessageStreamResponse()`. The response carries
-`x-workflow-run-id`; idle SSE comments are injected only after encoding and are
-transparent to the AI SDK decoder. Step 06 narrows this vendor stream into
-the Side Chat profile through the `outboundTransforms` seam.
+Side Chat exposes the native AI SDK 7 UI-message stream. The service does not translate provider output through a second internal event vocabulary or a custom chat envelope. AI SDK produces `UIMessageChunk` values; the service validates and scrubs them through `@side-chat/stream-profile`; the widget consumes the same profiled chunks through its AI SDK transport.
 
-At terminal, the replacement service reads the closed Workflow journal and
-rebuilds the same visible text/reasoning parts that were sent on that stream.
-Those parts become the durable assistant message; the provider result separately
-supplies status, finish reason, and usage. History therefore cannot drop a
-reasoning trace merely because the provider's final aggregate omitted it.
+This boundary keeps provider-native objects private while retaining the standard AI SDK stream contract. Provider SDK values, Workflow journal records, database rows, prompts, and raw errors never cross it.
 
-Until cutover, the remainder of this document is authoritative only for the
-legacy `apps/partner-ai-service` and current widget.
+## Profiled chunk categories
 
-### Native tool-approval lifecycle
+The supported surface follows AI SDK UI-message chunks, including:
 
-For a gated server tool, the workflow writes the AI SDK-native
-`tool-approval-request` part only after the Side Chat approval row exists. The
-part contains `approvalId` and `toolCallId`; the authenticated decision endpoint
-persists `approved` or `denied` before waking the deterministic Workflow hook.
-The hook payload is only a serializable wake signal. The database row is the
-decision authority.
+- message start and finish metadata;
+- text and reasoning start, delta, and end parts;
+- source URL and source document parts;
+- file parts;
+- server-tool and client-tool input/output state;
+- approval requests and decisions;
+- Side Chat `data-*` parts explicitly registered by `@side-chat/stream-profile`.
 
-After wake or replay, the workflow reloads and revalidates ownership, tool
-identity, input digest, current schema, and current approval policy. Approval
-enters a separately journaled idempotent execution step; denial, expiry, tool
-removal, schema drift, or policy drift becomes the native-normalizable
-`tool-output-denied` lifecycle. Approval decisions are binary and free-text
-reasons are unsupported. Native tool input is private conversation content: it
-may enter the authenticated turn stream and durable journal so client tools can
-execute and the `full` tool-detail view can replay, but it never enters activity
-notifications, approval audit fields, logs, or public error payloads. Approval
-rows bind only the input digest.
+The stream-profile package owns the closed error vocabulary, finish-reason normalization, message metadata schema, terminal metadata, reasoning-effort values, and registered Side Chat data parts. Unknown or private shapes are rejected or removed at the service boundary; the widget does not infer provider-specific fields.
 
-### Native cross-conversation activity
+## Stream start and replay
 
-`GET /api/activity` is a separate authenticated, subject-scoped SSE stream. It
-uses the browser-safe `sidechat.turn-activity-sync` and
-`sidechat.turn-activity` contracts from `chat-protocol`, not AI SDK UI-message
-parts. The service registers the subscriber, reads the complete set of bound
-running turns, emits exactly one sync frame (including an empty set), then
-forwards queued and future transitions. The sync frame is the application-level
-connection barrier: only after consuming it may a browser call the feed current.
+`POST /api/chat` starts or reuses a turn and returns the run's UI-message stream. `GET /api/chat/:runId/stream?startIndex=N` resumes an owned run.
 
-PostgreSQL publishes the running transition after a Workflow `runId` is bound.
-It publishes a terminal transition in the same transaction as the optional
-assistant message and terminal turn state. Notifications contain identity only;
-message content, prompts, reasoning, and provider payloads never enter
-`pg_notify`. The widget replaces its running-id set from every sync frame and
-uses later transitions only as reconciliation hints. Durable conversation
-snapshots and Workflow replay remain the correctness sources.
+The public cursor is a zero-based emitted UI-chunk index, not a Workflow journal offset. The service scans the durable journal, counts only public chunks, replays chunks at or after `startIndex`, and tails the run. Internal Workflow records therefore do not create holes in the browser cursor.
 
-One assistant turn produces a stream of events. That stream is rewritten three
-times as it crosses package boundaries, so the browser never sees a raw provider
-part. This doc names each event family, the function that maps one to the next,
-and the rules the SSE wire must obey. For the turn lifecycle around this stream,
-read [`assistant-turn.md`](./assistant-turn.md).
+Important transport rules:
 
-## Legacy three-event mapping
+- ownership is proven before any replay data is returned;
+- malformed or out-of-range cursors fail with safe JSON errors;
+- simultaneous subscribers receive independent stream readers;
+- keepalive frames maintain the HTTP connection but do not advance the UI-chunk cursor;
+- reconnecting with the last confirmed public index is idempotent;
+- the stream closes only after the Workflow journal reaches its terminal boundary or the request is aborted.
 
-Each vocabulary lives in exactly one package. Never import one where another
-belongs — the boundary is the point.
+## Scrubbing and error mapping
 
-| Vocabulary                            | Package               | Visible to             | Enum source                                                                            |
-| ------------------------------------- | --------------------- | ---------------------- | -------------------------------------------------------------------------------------- |
-| AI SDK stream part (`TextStreamPart`) | `agent-runtime`       | runtime internals only | AI SDK `ai` package                                                                    |
-| `RuntimeEvent` (`runtime.*`)          | `ai-runtime-contract` | core <-> runtime       | `RUNTIME_EVENT_TYPES`, `packages/ai-runtime-contract/src/index.ts:113`                 |
-| `SidechatStreamEvent` (`sidechat.*`)  | `chat-protocol`       | browser <-> service    | `SIDECHAT_EVENT_TYPES`, `packages/chat-protocol/src/sidechat-v1/events/event-union.ts` |
+The outbound scrubber allows only public UI-message structure and profile-owned metadata. It removes or replaces:
 
-`RuntimeEvent` and `SidechatStreamEvent` look alike but are different types:
-different enum strings (`runtime.*` vs `sidechat.*`) and different id brands.
-REST history messages are resource DTOs, not members of either event union.
+- provider identifiers and raw provider error objects;
+- prompts, private context, and model request details;
+- server and client tool implementation payloads not intended for UI display;
+- raw client-tool capability secrets and internal authority records;
+- Workflow storage and queue details;
+- stack traces and database information.
 
-## The Mapping Chain
+Public errors use the closed vocabulary exported by `@side-chat/stream-profile`. HTTP setup failures remain JSON responses. Once streaming begins, terminal state is represented by the profiled message finish/error shape and later reconciled from the durable conversation snapshot.
 
-Events flow one direction only, browser-bound. Each hop names the function that
-performs it:
+## Message metadata
 
-```txt
-AI SDK stream part        (agent-runtime, private)
-  -> mapAiSdkStreamPart / mapAiSdkToolActivity
-RuntimeEvent              (ai-runtime-contract)
-  -> mapRuntimeEvent
-SidechatStreamEvent       (chat-protocol, "sidechat.v1")
-  -> encodeSseEvent
-SSE wire frame            (id/event/data lines, text/event-stream)
-  -> decodeChunkedSseStream + parseSidechatStreamEvent
-SidechatStreamEvent       (re-validated in the widget)
-  -> widgetRunReducer
-WidgetRunState            (UI state, pure reducer)
-```
+Message metadata is transport-safe and versioned by the stream profile. It may carry Side Chat-owned values such as usage, normalized finish reason, and terminal status. It must not carry provider response bodies, private policy decisions, raw tool results, or authorization data.
 
-| Hop                                     | Function                 | File                                                                                       |
-| --------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------ |
-| AI SDK part -> `RuntimeEvent`           | `mapAiSdkStreamPart`     | `packages/agent-runtime/src/runtime/ai-sdk/streaming/stream-part-mapper.ts`                |
-| AI SDK tool parts -> activity row       | `mapAiSdkToolActivity`   | `packages/agent-runtime/src/runtime/ai-sdk/streaming/tool-activity-mapper.ts`              |
-| `RuntimeEvent` -> `SidechatStreamEvent` | `mapRuntimeEvent`        | `packages/partner-ai-core/src/application/stream-chat/protocol/runtime-event-mapper.ts:52` |
-| `SidechatStreamEvent` -> SSE text       | `encodeSseEvent`         | `packages/chat-protocol/src/sidechat-v1/codec/sse-codec.ts`                                |
-| SSE bytes -> validated event            | `decodeChunkedSseStream` | `packages/side-chat-widget/src/entities/conversation/api/sse/side-chat-sse-reader.ts`      |
-| event -> `WidgetRunState`               | `widgetRunReducer`       | `packages/side-chat-widget/src/features/chat/model/run/widget-run-reducer.ts`              |
+The durable conversation API returns validated UI messages using the same profile. That lets live projection and refreshed history share one browser representation without storing the HTTP byte stream itself.
 
-Two rules surprise newcomers:
+## Separate activity stream
 
-- **`runtime.started` is dropped, not forwarded.** The server-owned generation
-  fiber acquires its owner lease and emits `sidechat.started` before opening the
-  runtime stream, so `mapRuntimeEvent` returns `undefined` for
-  `runtime.started`.
-- **Sequence is renumbered at the core boundary.** Runtime keeps an internal
-  sequence; core assigns the browser sequence fresh (`sidechat.started` = 0,
-  then +1 per emitted event). Runtime numbers never leak to the browser.
+Cross-conversation activity is intentionally not part of the chat UI-message stream. The service exposes a small authenticated SSE feed for the current subject:
 
-## RuntimeEvent Taxonomy
+- `sidechat.turn-activity-sync` is the initial active-turn snapshot;
+- `sidechat.turn-activity` is a later lifecycle transition.
 
-Provider-neutral, internal to the core <-> runtime boundary. Every event carries
-`requestId`, `assistantTurnId`, and `sequence`. Defined in
-`packages/ai-runtime-contract/src/index.ts`.
+Activity events contain only the identity and state required for conversation-list indicators. They do not contain assistant content, reasoning, prompts, tool payloads, or terminal error detail. PostgreSQL `LISTEN`/`NOTIFY` is a wake-up signal; the authoritative state remains in the product tables and is re-read after notification or reconnect.
 
-| `type`                 | Key fields                                                           |
-| ---------------------- | -------------------------------------------------------------------- |
-| `runtime.started`      | `providerId`, `modelId`                                              |
-| `runtime.output_delta` | `content`                                                            |
-| `runtime.activity`     | `activityId`, `activityKind`, `status`, `title`, `body?`, `details?` |
-| `runtime.completed`    | `finishReason`, `usage?`                                             |
-| `runtime.error`        | `code`, `message`, `retryable`                                       |
-| `runtime.blocked`      | `reason`, `publicMessage`                                            |
+## Ownership
 
-`RuntimeTerminalEvent` = `completed | error | blocked`. Activity kinds are
-`progress`, `reasoning`, `tool`, and `host_command`
-(`runtime-activity.ts:12`) — the runtime emits `host_command` when the model
-calls a declared host command through the tool adapter. `progress` is reserved:
-no runtime code produces it today. Error codes and finish reasons are fixed
-enums; specific SDK or provider error objects never appear in this contract.
+| Concern                                   | Owner                                            |
+| ----------------------------------------- | ------------------------------------------------ |
+| Native chunk production                   | AI SDK execution inside `apps/side-chat-service` |
+| Durable run journal                       | Workflow DevKit storage in the `workflow` schema |
+| Public chunk profile and scrub vocabulary | `packages/stream-profile`                        |
+| HTTP stream/replay translation            | `apps/side-chat-service/src/http/`               |
+| Browser transport and projection          | `packages/side-chat-widget`                      |
+| Activity state and notifications          | `packages/db` plus the service activity route    |
 
-## sidechat.v1 Event Taxonomy
+## Verification anchors
 
-The browser-facing contract. The protocol version literal is `sidechat.v1`
-(`packages/chat-protocol/src/sidechat-v1/version.ts:1`). Every event carries
-`protocolVersion`, `eventId`, `assistantTurnId`, `sequence`, and `createdAt`.
-Defined in `packages/chat-protocol/src/sidechat-v1/events/event-union.ts`.
-
-| `type`               | Key fields                                                           |
-| -------------------- | -------------------------------------------------------------------- |
-| `sidechat.started`   | `conversationId?`                                                    |
-| `sidechat.delta`     | `content`                                                            |
-| `sidechat.activity`  | `activityId`, `activityKind`, `status`, `title`, `body?`, `details?` |
-| `sidechat.completed` | `finishReason`, `usage?`                                             |
-| `sidechat.error`     | `code` (`ProtocolErrorCode`), `message`, `retryable`                 |
-| `sidechat.blocked`   | `reason`, `publicMessage` (terminal safety stop)                     |
-
-`TerminalEvent` = `completed | error | blocked`; `sidechat.blocked` is a terminal
-safety stop, not a completed answer. `ProtocolErrorCode` (`errors.ts`) is a
-larger set than the runtime codes; `mapRuntimeErrorCode` collapses runtime codes
-into it and defaults unknown ones to `provider_failed`.
-
-Tool, reasoning, and source output stay inside activity `details`. They never
-become top-level conversation messages.
-
-## Transport Contract (SSE)
-
-The per-turn stream is Server-Sent Events. Streaming is connection-bound
-([ADR 0007](../adr/0007-connection-bound-streaming.md)):
-[`assistant-turn.md`](./assistant-turn.md) owns the lifecycle and the in-memory
-registry. This doc owns the wire format and validation.
-
-- **Open:** `POST /chat/runs` streams the turn as SSE on its own response, from
-  `sidechat.started` (sequence 0, carrying the turn identity) to the terminal.
-  `GET /chat/turns/:assistantTurnId/stream?after=<seq>` is the same-instance
-  resume: it replays the per-instance registry from `<seq>` and tails.
-  `after=-1` replays from `sidechat.started`.
-- **Frame format:** one frame per event, `id`/`event`/`data` lines, blank-line
-  separated (`encodeSseEvent`, `sse-codec.ts`):
-
-```txt
-id: <eventId>
-event: <type>
-data: <JSON of the event>
-
-```
-
-- **Server transport:** `streamSseResponse` maps the Effect `Stream` through
-  `encodeSseEvent`, merges the heartbeat (below), then `Stream.encodeText` ->
-  `Stream.toReadableStream`
-  (`apps/partner-ai-service/src/inbound/http/response/sse.ts`). Headers:
-  `content-type: text/event-stream; charset=utf-8`,
-  `cache-control: no-cache, no-transform`, `connection: keep-alive`,
-  `x-accel-buffering: no`. No hand-rolled controller loop; browser disconnect
-  cancels the `ReadableStream` and releases only this subscriber.
-- **Heartbeat:** both the turn and `/chat/activity` streams merge an SSE comment
-  keepalive (`: hb`) every `SIDECHAT_SSE_HEARTBEAT_MS` (default 20 s) so an idle
-  stream stays under a proxy idle timeout. It is a comment, not an event: it
-  carries no `data`, never advances the sequence, and both decoders skip it per
-  the SSE spec (`sse-frame.ts`). `haltStrategy: "left"` ties the heartbeat's life
-  to the events stream, so a terminal still closes the response.
-- **Sequence numbers:** strictly increasing, starting at `sidechat.started` = 0.
-  The server emits a gap-free stream by construction via
-  `advanceProtocolStream` (`protocol-stream-state-machine.ts:57`): one
-  `started`, one terminal, nothing after the terminal. Validators accept gaps
-  because a resume with `after=<seq>` replays a suffix.
-- **Terminal event:** `completed | error | blocked` ends the stream. The widget
-  reader throws `missing_terminal` if the body ends without one, or
-  `malformed_stream` on leftover bytes (`side-chat-sse-reader.ts`).
-- **Replay expired:** a `404` before the SSE body means the terminal turn was
-  swept from the registry. The widget maps it to `replay_expired` and falls
-  back to history. A `409 stream_unavailable` means the turn is still running
-  but another instance owns its live stream — the client polls turn status
-  instead. Transport error codes stay separate from in-stream event `code`s.
-
-## Validation And Anti-Spoofing
-
-The widget re-decodes and re-validates every frame; it trusts the wire, not the
-sender. `decodeChunkedSseStream` splits on blank-line boundaries, drops
-comment-only keepalive frames, and calls `parseSidechatStreamEvent`
-(`sse-codec.ts`, `validation/validation.ts:38`), which whitelists fields per
-event type and rejects DB rows, runtime events, and unknown fields
-(`requireKnownKeys`). The frame `id`/`event` lines must match the JSON payload's
-`eventId`/`type`, or `assertFrameMatchesPayload` throws (`sse-codec.ts:34`), so a
-malformed frame cannot impersonate another event.
-
-The whole-stream validator `validateSidechatEventSequence`
-(`ordering/sequence.ts`) checks a complete stream offline (used in tests and
-finalization): non-empty, increasing, exactly one terminal, nothing after it.
-
-Terminality is owned by `isTerminalEvent` alone (completed/error/blocked); the
-offline validator never re-enumerates it, and the hand-maintained schema JSON
-(`packages/chat-protocol/src/sidechat-v1.schema.json`) is held to the union by
-a completeness test, so a new event cannot ship half-recognized.
-
-## The Two Activity Streams
-
-Two event families share the word "activity" but ride different streams and
-codecs. Do not conflate them.
-
-|                                | `sidechat.activity`                                   | `sidechat.turn-activity-sync` / `sidechat.turn-activity` |
-| ------------------------------ | ----------------------------------------------------- | -------------------------------------------------------- |
-| Scope                          | reasoning/tool/host_command steps **inside one turn** | turn lifecycle **across conversations**                  |
-| Stream                         | the per-turn `/chat/turns/:id/stream`                 | a separate subject-scoped activity SSE stream            |
-| Purpose                        | render activity rows in the open chat                 | synchronize and update cross-conversation running state  |
-| Part of `SidechatStreamEvent`? | yes                                                   | no — own union, no sequence, no terminal                 |
-| Codec                          | `sse-codec.ts`                                        | `activity-sse-codec.ts`                                  |
-
-The cross-conversation stream is already scoped to one (workspace, subject), so
-its wire events carry no scope and the stream stays open until the browser
-disconnects. Every connection begins with one complete sync frame, including an
-empty set; only later transition frames may be applied incrementally. The widget
-consumes it through `useActivityStream`
-(`packages/side-chat-widget/src/features/chat/model/activity/use-activity-stream.ts`).
-
-## Where Boundaries Are Enforced
-
-This doc states the event-level boundaries; the full import matrix lives in
-[`package-boundaries.md`](./package-boundaries.md).
-
-- **AI SDK / provider DTOs stay in `agent-runtime`.** `ai` and `@ai-sdk/*` are
-  importable only inside that package (`check-runtime-boundaries.mjs`).
-  Downstream packages receive `RuntimeEvent`s, not AI SDK parts.
-- **Raw provider errors are scrubbed at the runtime edge.** `toRuntimeError`
-  reduces any foreign throw to a stable `AiRuntimeError`; a content-filter
-  finish becomes `runtime.blocked` with a fixed `publicMessage`, and the raw
-  reason never leaves the package (`stream-part-mapper.ts`).
-- **`chat-protocol` is Effect-free and provider-DTO-free.** It holds plain DTOs
-  plus hand-written validators — no `effect`, no `ai-runtime-contract`, no
-  provider types. Effect appears only at the transport edge (`sse.ts`).
-- **The browser never gets runtime, Effect, DB, or provider values.** Core emits
-  only `SidechatStreamEvent` through `mapRuntimeEvent`, and
-  `mapUnknownRuntimeError` turns stray throws into a public `provider_failed`
-  error. The widget is Effect-free and provider-free.
-
-## Files To Open
-
-- RuntimeEvent union + ports: `packages/ai-runtime-contract/src/index.ts`
-- AI SDK -> RuntimeEvent: `packages/agent-runtime/src/runtime/ai-sdk/streaming/`
-- RuntimeEvent -> sidechat.v1: `packages/partner-ai-core/src/application/stream-chat/protocol/runtime-event-mapper.ts`
-- Stream gating + state machine: `packages/partner-ai-core/src/application/stream-chat/protocol/protocol-event-stream.ts`
-- sidechat.v1 events: `packages/chat-protocol/src/sidechat-v1/events/event-union.ts`
-- SSE codec + validation + ordering: `packages/chat-protocol/src/sidechat-v1/`
-- Live server transport: `apps/partner-ai-service/src/inbound/http/response/sse.ts`
-- Widget decode + state: `packages/side-chat-widget/src/entities/conversation/api/sse/side-chat-sse-reader.ts`
+- `packages/stream-profile/src/stream-profile.test.ts`
+- `apps/side-chat-service/src/http/` stream and route tests
+- `packages/side-chat-widget/src/entities/workflow-chat/api/workflow-chat-transport.test.ts`
+- `packages/side-chat-widget/src/features/workflow-chat/model/use-workflow-widget-chat.recovery.test.tsx`

@@ -94,7 +94,11 @@ export const clickButton = async (name: string): Promise<void> => {
 export const fakeWorkflowChat = (): WorkflowChatClient => ({
   baseUrl: "https://service.example",
   fetch: vi.fn<typeof fetch>((input) => {
-    const path = new URL(String(input)).pathname;
+    let url: string;
+    if (input instanceof Request) url = input.url;
+    else if (input instanceof URL) url = input.href;
+    else url = input;
+    const path = new URL(url).pathname;
     if (path === "/api/conversations") {
       return Promise.resolve(Response.json({ conversations: [], runningConversationIds: [] }));
     }

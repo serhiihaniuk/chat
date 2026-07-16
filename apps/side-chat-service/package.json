@@ -59,6 +59,7 @@
   },
   "dependencies": {
     "@ai-sdk/azure": "4.0.11",
+    "@ai-sdk/deepseek": "3.0.7",
     "@ai-sdk/openai": "4.0.11",
     "@ai-sdk/provider": "4.0.3",
     "@ai-sdk/workflow": "1.0.22",

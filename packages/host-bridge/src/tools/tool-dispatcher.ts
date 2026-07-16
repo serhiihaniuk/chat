@@ -1,8 +1,4 @@
-import {
-  supportsTool,
-  type HostCapabilities,
-  type HostToolCall,
-} from "./tool-capability.js";
+import { supportsTool, type HostCapabilities, type HostToolCall } from "./tool-capability.js";
 import {
   createFailedToolResult,
   createUnsupportedToolResult,

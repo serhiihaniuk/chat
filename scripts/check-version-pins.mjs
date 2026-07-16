@@ -36,14 +36,11 @@ const requiredRoot = {
 };
 
 const requiredByPackage = {
-  "@side-chat/partner-ai-service": {
-    hono: "4.12.27",
-    "@hono/node-server": "2.0.3",
-    effect: "4.0.0-beta.70",
-    "@effect/platform-node": "4.0.0-beta.70",
-  },
   "@side-chat/side-chat-service": {
     ai: "7.0.22",
+    "@ai-sdk/azure": "4.0.11",
+    "@ai-sdk/deepseek": "3.0.7",
+    "@ai-sdk/openai": "4.0.11",
     "@ai-sdk/provider": "4.0.3",
     "@ai-sdk/workflow": "1.0.22",
     workflow: "5.0.0-beta.30",
@@ -52,16 +49,7 @@ const requiredByPackage = {
     nitro: "3.0.260610-beta",
     rollup: "4.62.2",
     hono: "4.12.27",
-  },
-  "@side-chat/agent-runtime": {
-    ai: "6.0.191",
-    "@ai-sdk/azure": "3.0.65",
-    "@ai-sdk/provider": "3.0.10",
-    effect: "4.0.0-beta.70",
     zod: "4.4.3",
-  },
-  "@side-chat/partner-ai-core": {
-    effect: "4.0.0-beta.70",
   },
   "@side-chat/db": {
     pg: "8.21.0",

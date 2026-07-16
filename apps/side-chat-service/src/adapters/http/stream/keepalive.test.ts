@@ -16,7 +16,7 @@ describe("withIdleSseKeepalive", () => {
       start: (controller) => provideUpstream(controller),
     });
     const upstream = await upstreamAvailable;
-    const onKeepalive = vi.fn();
+    const onKeepalive = vi.fn<() => void>();
     const reader = withIdleSseKeepalive(source, 100, {
       onKeepalive,
     }).getReader();

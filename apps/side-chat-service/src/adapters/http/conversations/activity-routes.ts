@@ -1,11 +1,16 @@
 import { Hono } from "hono";
+import {
+  TURN_ACTIVITY_EVENT_TYPE,
+  TURN_ACTIVITY_SYNC_EVENT_TYPE,
+  type TurnActivityStreamEvent,
+} from "@side-chat/stream-profile";
 
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import { recordTelemetrySafely } from "#application/telemetry/record-telemetry-safely";
 import { createActivitySubscriptionStream } from "#application/turn/activity/activity-subscription-stream";
 import type { TurnActivityDispatcher } from "#application/turn/activity/turn-activity-dispatcher";
-import type { TurnActivityStreamEvent } from "#domain/turn-activity";
+import { TURN_ACTIVITY_KIND, type TurnActivity } from "#domain/turn-activity";
 
 import type { AuthVariables } from "../auth-middleware.js";
 import { HTTP_HEADERS, QUERY_HTTP_ROUTES } from "../http-contract.js";
@@ -53,17 +58,30 @@ function recordKeepalive(telemetry: Pick<TelemetrySink, "record">): void {
   });
 }
 
-function encodeActivityEvents(
-  events: ReadableStream<TurnActivityStreamEvent>,
-): ReadableStream<Uint8Array> {
+function encodeActivityEvents(events: ReadableStream<TurnActivity>): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return events.pipeThrough(
     new TransformStream({
       transform: (event, controller) => {
-        controller.enqueue(encoder.encode(encodeTurnActivitySseEvent(event)));
+        controller.enqueue(encoder.encode(encodeTurnActivitySseEvent(toWireEvent(event))));
       },
     }),
   );
+}
+
+function toWireEvent(event: TurnActivity): TurnActivityStreamEvent {
+  if (event.kind === TURN_ACTIVITY_KIND.SNAPSHOT) {
+    return {
+      type: TURN_ACTIVITY_SYNC_EVENT_TYPE,
+      activeTurns: event.activeTurns,
+    };
+  }
+  return {
+    type: TURN_ACTIVITY_EVENT_TYPE,
+    conversationId: event.conversationId,
+    assistantTurnId: event.assistantTurnId,
+    status: event.status,
+  };
 }
 
 const encodeTurnActivitySseEvent = (event: TurnActivityStreamEvent): string =>

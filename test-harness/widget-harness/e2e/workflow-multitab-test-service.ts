@@ -1,9 +1,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
-import { SIDE_CHAT_ERROR_CODES, SIDE_CHAT_ERROR_VOCABULARY } from "@side-chat/stream-profile";
+import {
+  SIDE_CHAT_ERROR_CODES,
+  SIDE_CHAT_ERROR_VOCABULARY,
+  TURN_ACTIVITY_EVENT_TYPE,
+  TURN_ACTIVITY_SYNC_EVENT_TYPE,
+} from "@side-chat/stream-profile";
 
-const TURN_ACTIVITY_EVENT_TYPE = "turn.activity";
-const TURN_ACTIVITY_SYNC_EVENT_TYPE = "turn.activity.sync";
 type TurnActivityStatus = "running" | "completed";
 
 const PORT = readPort("SIDECHAT_WORKFLOW_FIXTURE_PORT", 8788);
@@ -341,6 +344,7 @@ function publishActivityTo(response: ServerResponse, status: TurnActivityStatus)
 
 function publicState(): Readonly<Record<string, unknown>> {
   return {
+    activitySubscribers: state.activitySubscribers.size,
     completed: state.completed,
     conversationId: state.conversationId,
     counters: state.counters,

@@ -86,7 +86,7 @@ describe("ToolDetailRow", () => {
     expect(html).toContain("found context");
   });
 
-  it("leads a resolved host command with its status line", () => {
+  it("leads a resolved client tool with its status line", () => {
     const html = renderToStaticMarkup(
       <ToolDetailRow
         defaultOpen

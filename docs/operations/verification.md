@@ -36,17 +36,17 @@ npx -p node@24.16.0 -p npm@11.15.0 npm run verify
 
 Every command below is a root `package.json` script (`package.json:11-31`).
 
-| Command                    | What it proves                                                                                           |
-| -------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `npm run format:check`     | Oxfmt would not rewrite any tracked file.                                                                |
-| `npm run lint:oxlint`      | Oxlint and TypeScript-aware rules pass; warnings fail.                                                   |
-| `npm run lint:custom`      | The 15 custom governance gates pass (see below).                                                         |
-| `npm run lint`             | Both lint layers pass: Oxlint, then custom gates.                                                        |
-| `npm run typecheck`        | Strict TypeScript compiles with no emit.                                                                 |
-| `npm run build`            | The project-reference build (`tsc -b`) succeeds.                                                         |
-| `npm test`                 | Deterministic Vitest scenarios (unit, service, adoption) pass.                                           |
-| `npm run verify`           | The full local gate passes in order; `lint:custom` runs last.                                            |
-| `npm run verify:container` | CI parity: `verify` + `test:db:container` + `test:e2e:persistent` pass inside the dev-test Docker image. |
+| Command                    | What it proves                                                 |
+| -------------------------- | -------------------------------------------------------------- |
+| `npm run format:check`     | Oxfmt would not rewrite any tracked file.                      |
+| `npm run lint:oxlint`      | Oxlint and TypeScript-aware rules pass; warnings fail.         |
+| `npm run lint:custom`      | The 15 custom governance gates pass (see below).               |
+| `npm run lint`             | Both lint layers pass: Oxlint, then custom gates.              |
+| `npm run typecheck`        | Strict TypeScript compiles with no emit.                       |
+| `npm run build`            | The project-reference build (`tsc -b`) succeeds.               |
+| `npm test`                 | Deterministic Vitest scenarios (unit, service, adoption) pass. |
+| `npm run verify`           | The full local gate passes in order; `lint:custom` runs last.  |
+| `npm run verify:container` | Runs the repository's containerized verification wrapper.      |
 
 ### Database lanes
 
@@ -60,13 +60,11 @@ Every command below is a root `package.json` script (`package.json:11-31`).
 
 ### Browser, smoke, and audit lanes
 
-| Command                          | What it proves                                                                       | Needs Docker |
-| -------------------------------- | ------------------------------------------------------------------------------------ | ------------ |
-| `npm run test:e2e`               | Playwright drives the widget in a browser (direct page and iframe host).             | No           |
-| `npm run test:e2e:persistent`    | History survives a service restart, with the service plus a Testcontainers Postgres. | Yes          |
-| `npm run test:service:lifecycle` | Compiled boot, streaming, cancel, crash-resume, bounded drain, and compatibility.    | Yes          |
-| `npm run smoke:provider:openai`  | A live OpenAI run streams end to end on the connection-bound POST.                   | No           |
-| `npm run audit`                  | `npm audit` reports no high-or-above advisory.                                       | No           |
+| Command                          | What it proves                                                                    | Needs Docker |
+| -------------------------------- | --------------------------------------------------------------------------------- | ------------ |
+| `npm run test:e2e`               | Playwright drives the widget in a browser (direct page and iframe host).          | No           |
+| `npm run test:service:lifecycle` | Compiled boot, streaming, cancel, crash-resume, bounded drain, and compatibility. | Yes          |
+| `npm run audit`                  | `npm audit` reports no high-or-above advisory.                                    | No           |
 
 The native iframe host-context contract has a narrower no-Docker lane. It proves the
 public parent/child adapter, default-off user choice, request correlation, and exclusion
@@ -75,10 +73,6 @@ of the harness auth query:
 ```sh
 npx playwright test workflow-iframe.spec.ts --config test-harness/widget-harness/e2e/workflow.playwright.config.ts
 ```
-
-The provider smoke refuses to run until you set **both** acknowledgement flags:
-`SIDECHAT_OPENAI_API_KEY` and `SIDECHAT_LIVE_PROVIDER_SMOKE=approved`
-(`scripts/smoke-openai-provider.mjs:5-12`).
 
 ## Custom governance gates
 
@@ -94,9 +88,9 @@ Run them in this order:
 | 3   | `check-unused-dependencies.mjs`            | Every declared dependency is actually imported in that package.                                                                                                                                                                                                                                           |
 | 4   | `check-package-exports.mjs`                | Each workspace `package.json` matches the scoped, private, ESM export contract.                                                                                                                                                                                                                           |
 | 5   | `check-boundaries.mjs`                     | Per-area forbidden imports and cross-package relative imports stay out.                                                                                                                                                                                                                                   |
-| 6   | `check-side-chat-service-architecture.mjs` | The v7 service's dependency law, Workflow physical seams, and production/testing isolation hold.                                                                                                                                                                                                          |
+| 6   | `check-side-chat-service-architecture.mjs` | The service dependency law, Workflow physical seams, and production/testing isolation hold.                                                                                                                                                                                                               |
 | 7   | `check-widget-layers.mjs`                  | The widget honours its Feature-Sliced Design layering.                                                                                                                                                                                                                                                    |
-| 8   | `check-runtime-boundaries.mjs`             | `pg`/`drizzle` stay in `db`, `hono` in the service, `ai`/`@ai-sdk/*` in `agent-runtime`, and `process.env` reads only in tests or the service config subsystem.                                                                                                                                           |
+| 8   | `check-runtime-boundaries.mjs`             | `pg`/Drizzle stay in `db`, Hono and provider SDKs stay in the service, and `process.env` reads stay in approved service/config or script boundaries.                                                                                                                                                      |
 | 9   | `check-outbound-rules.mjs`                 | Outbound calls (`fetch`, `WebSocket`, `EventSource`) live only in approved files.                                                                                                                                                                                                                         |
 | 10  | `check-undefined-optional-contracts.mjs`   | Optional-contract anti-patterns stay out: removed `optionalField(`, `\|\| undefined` coercion, empty-object optional shapes, untyped repository `kind` probing.                                                                                                                                           |
 | 11  | `check-code-shape.mjs`                     | AST budgets hold: cognitive complexity, nesting, blocks per file, files per directory.                                                                                                                                                                                                                    |
@@ -110,9 +104,9 @@ Gate 15 is the meta-gate: it proves no gate silently stops running, so add a new
 
 ## Docker vs. no-Docker
 
-Three lanes need a Docker daemon: `verify:container`, `test:db:container` (and its
-`test:db:local` alias), and `test:e2e:persistent`. They build images or start
-Testcontainers Postgres.
+The `verify:container`, `test:db:container` (and its `test:db:local` alias), and
+`test:service:lifecycle` lanes need Docker. They build an image or start disposable
+PostgreSQL containers.
 
 To work without Docker, run the in-memory stack with `node scripts/run-local-fake.mjs`
 — see [embed-widget-iframe.md](embed-widget-iframe.md). For day-to-day checks,

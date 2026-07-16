@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { defineConfig } from "nitro";
 
 // The workflow Nitro module compiles every `"use workflow"` / `"use step"`
@@ -7,6 +9,13 @@ import { defineConfig } from "nitro";
 // everything else. The compatibility suite supplies its own entry override
 // through the programmatic builder; this production config never names it.
 const config = {
+  alias: {
+    "#drizzle": resolve(import.meta.dirname, "../../packages/db/src/drizzle"),
+    "#schema-contract": resolve(
+      import.meta.dirname,
+      "../../packages/db/src/schema-contract/index.ts",
+    ),
+  },
   preset: "node_middleware",
   modules: ["workflow/nitro"],
   workflow: { dirs: ["src/workflows/production"] },

@@ -1,14 +1,8 @@
 import { omitUndefinedProperties } from "@side-chat/shared";
 
-import {
-  type HostCapabilities,
-  type HostToolCall,
-} from "#tools/tool-capability";
+import { type HostCapabilities, type HostToolCall } from "#tools/tool-capability";
 import type { HostToolResult } from "#tools/tool-result";
-import {
-  dispatchSupportedToolCall,
-  type HostToolDispatcher,
-} from "#tools/tool-dispatcher";
+import { dispatchSupportedToolCall, type HostToolDispatcher } from "#tools/tool-dispatcher";
 import {
   toHostContext,
   type HostContext,
@@ -42,7 +36,8 @@ export function createHostBridge(options: HostBridgeOptions): WidgetHostBridge {
   const toolDispatcher = options.toolDispatcher;
 
   const getContext = contextProvider
-    ? async (request: HostContextRequest) => toHostContext(await contextProvider.getContext(request))
+    ? async (request: HostContextRequest) =>
+        toHostContext(await contextProvider.getContext(request))
     : undefined;
   const dispatchToolCall =
     resolveCapabilities && toolDispatcher

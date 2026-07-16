@@ -25,7 +25,7 @@ Use this priority order when two findings have similar impact: readability, simp
 - Deliverable: write `CODE-REVIEW-<YYYY-MM-DD>.md` in the repository root unless the caller names another output path. Do not overwrite an existing report; add a suffix when necessary.
 - Include production code, tests, configuration, database schema and repositories, migrations, scripts, infrastructure, package manifests, documentation, and generated-artifact policy where relevant.
 - Exclude `node_modules`, build output, coverage, test results, and generated files unless they are tracked, deployed, or create a source-of-truth problem.
-- Inspect both browser and server paths. Follow one representative assistant turn from browser request through service, core, runtime/provider, persistence, stream transport, and widget state.
+- Inspect both browser and server paths. Follow one representative assistant turn from the widget through the service, durable workflow, model/provider, persistence, native stream, and back into widget state.
 - Do not edit files during the review. Do not run destructive commands, reset databases, send real provider requests, or expose secrets.
 
 ## Required repository context
@@ -69,9 +69,9 @@ Separate confirmed findings, likely risks that need measurement, and questions t
 
 Review authentication, authorization, tenant/workspace/conversation isolation, user identity resolution, host-app trust, iframe and browser boundaries, CORS, CSRF, origin checks, request validation, protocol validation, SSE behavior, error responses, and logging.
 
-Check secrets and sensitive data handling: environment variables, provider credentials, tokens, prompts, conversation content, retrieved content, tool arguments/results, host-command payloads, diagnostics, traces, and database rows. Verify that raw provider/tool/database errors cannot leak through HTTP, protocol events, logs, metrics, or UI.
+Check secrets and sensitive data handling: environment variables, provider credentials, tokens, prompts, conversation content, retrieved content, tool arguments/results, client-tool payloads, diagnostics, traces, and database rows. Verify that raw provider/tool/database errors cannot leak through HTTP, native stream parts, logs, metrics, or UI.
 
-Review prompt-injection and tool-abuse paths. Check whether model-visible content can cause unauthorized host commands, data access, network calls, SSRF, excessive tool loops, unsafe mutations, or cross-user disclosure. Check tool allowlists, input schemas, output limits, timeouts, cancellation, quotas, rate limits, replay/idempotency, and denial-of-service controls.
+Review prompt-injection and tool-abuse paths. Check whether model-visible content can cause unauthorized client tools, server tools, data access, network calls, SSRF, excessive tool loops, unsafe mutations, or cross-user disclosure. Check tool allowlists, input schemas, output limits, timeouts, cancellation, quotas, rate limits, replay/idempotency, and denial-of-service controls.
 
 Review dependency and supply-chain exposure, unsafe dynamic code, path or command construction, untrusted URL handling, deserialization, XML/HTML/Markdown rendering, XSS, open redirects, prototype pollution, and insecure defaults. Check database roles and whether runtime code has more privilege than it needs.
 
@@ -104,7 +104,7 @@ Check idempotency, ordering, replay, resume, deduplication, optimistic concurren
 
 ### 6. Architecture and boundaries
 
-Verify dependency direction and ownership against the canonical package-boundary docs. Check that browser packages remain Effect-free and provider-free, AI SDK/provider details remain in the runtime, database details remain in the database package, HTTP details remain in the service, and `sidechat.v1` remains a deliberate browser/service contract.
+Verify dependency direction and ownership against the canonical package-boundary docs. Check that browser packages remain provider-free, AI SDK/provider execution remains in the service, database details remain in the database package, HTTP details remain in the service, and the shared native stream profile remains a deliberate browser/service contract.
 
 Look for business logic leaking into transport, protocol DTOs leaking into core, database rows leaking outward, duplicated type shapes, bypassed ports, relative cross-package imports, boundary conversions performed more than once, and abstractions whose names hide which layer owns behavior.
 
@@ -147,7 +147,7 @@ When possible, inspect generated SQL and run safe `EXPLAIN` or `EXPLAIN (ANALYZE
 
 ### 10. Scaling and operability
 
-Evaluate horizontal scaling across multiple service instances, load-balancer behavior, connection affinity, instance-local state, cross-instance turn ownership, cancellation, host-command results, notifications, retries, and reconnects. Identify every feature that silently assumes one process.
+Evaluate horizontal scaling across multiple service instances, load-balancer behavior, durable workflow ownership, cancellation, client-tool outputs, notifications, retries, and reconnects. Identify every feature that silently assumes one process.
 
 Check capacity limits and failure domains: active streams, concurrent model calls, tool loops, provider quotas, database connections, memory per turn, event fan-out, message size, request size, queue depth, and cold-start or deploy behavior. Review graceful shutdown, rolling deploys, crash recovery, health checks, readiness, observability, alertable metrics, correlation IDs, and safe degradation when Postgres or the provider is slow or unavailable.
 

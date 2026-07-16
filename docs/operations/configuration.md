@@ -1,149 +1,76 @@
 # Configuration
 
-Read this when: you need to change what the service runs — its provider, models, tools, policy, context budgets, or resumability timers.
-Source of truth for: the human-readable `SideChatConfig` object, its top-level keys, and how the service loads it.
-Not source of truth for: gate commands (see [verification.md](verification.md)), local-run env wiring (see [embed-widget-iframe.md](embed-widget-iframe.md)), or the turn lifecycle these settings tune (see [../architecture/assistant-turn.md](../architecture/assistant-turn.md)).
+Read this when: you need to change the service's provider, model catalog, tools, host-context limits, capacity, persistence, telemetry, or Workflow settings.
+Source of truth for: the readable `SideChatConfig` declarations and their resolution rules.
+Not source of truth for: turn order ([assistant-turn.md](../architecture/assistant-turn.md)), database procedures ([database.md](database.md)), or gate commands ([verification.md](verification.md)).
 
-Side Chat's runnable app, `apps/partner-ai-service`, declares its entire behavior in one typed object: `defineSideChatConfig({...}) satisfies SideChatConfig` in [`apps/partner-ai-service/sidechat.config.ts`](../../apps/partner-ai-service/sidechat.config.ts). The server loads that object at boot and builds its options from it. Process inputs (secrets, port, profile) are declared _inside_ the same object as `readEnv(...)` references, so the config stays the single, readable map of what the service does. Reading `process.env` ad-hoc anywhere else fails a governance gate.
+`apps/side-chat-service` declares deployment behavior in one typed object per app-root variant:
 
-The AI SDK 7 replacement wing follows the same readable-declaration rule in [`apps/side-chat-service/sidechat.config.ts`](../../apps/side-chat-service/sidechat.config.ts), with standalone `azure` and testing-only `fake` variants. Each file declares the provider connection, the default request model, every request-selectable model and its exact reasoning policy, the conversation-title job, and the selected server tools. Catalog modules provide typed constants and registered executors remain in application code, but neither may hide which capabilities a deployment selects.
+- [`sidechat.config.ts`](../../apps/side-chat-service/sidechat.config.ts) — production OpenAI configuration;
+- [`sidechat.azure.config.ts`](../../apps/side-chat-service/sidechat.azure.config.ts) — production Azure OpenAI configuration;
+- [`sidechat.fake.config.ts`](../../apps/side-chat-service/sidechat.fake.config.ts) — credential-free testing/local configuration.
 
-The file's shape is a recorded decision, not an accident: it is one big, deliberately repetitive file per deployment variant, with no loops, factories, or shared fragments — do not "clean it up" ([ADR 0010](../adr/0010-readable-declarative-config.md)).
+`SIDECHAT_CONFIG` selects the bundled declaration (`default`, `azure`, or `fake`). Unknown names and invalid relationships fail boot. Each file stays deliberately readable and complete; do not hide deployment choices behind factories or loops.
 
-## Replacement service config object
+## Configuration sections
 
-The replacement config uses these behavior-owning sections:
+| Section             | Owns                                                                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `models`            | Provider connection references, request-selectable model catalog, default model, context windows, reasoning effort subsets/defaults, and provider-specific routing. |
+| `conversationTitle` | Title model and bounded enrichment timeout.                                                                                                                         |
+| `serverTools`       | Deployment-selected names from the closed registered server-tool catalog.                                                                                           |
+| `hostContext`       | Enablement and serialized/string/depth/entry limits for untrusted page context.                                                                                     |
+| `auth`              | Development/production profile, bearer reference, and workspace mapping.                                                                                            |
+| `timeouts`          | Admission queue, provider execution, and client-tool wait deadlines.                                                                                                |
+| `capacity`          | Active-turn count, queue size/deadline, and shutdown drain budget.                                                                                                  |
+| `agent`             | System instructions and maximum model/tool steps.                                                                                                                   |
+| `persistence`       | Product PostgreSQL URL; absence is permitted only by the development/test configuration.                                                                            |
+| `keepalive`         | Idle interval for HTTP SSE heartbeat comments.                                                                                                                      |
+| `telemetry`         | `off`, bounded `console`, or optional `otlp` mode.                                                                                                                  |
+| `workflow`          | Worker concurrency, pool size, journal retention/sweep, journal class, and Workflow PostgreSQL URL.                                                                 |
 
-```ts
-defineSideChatConfig({
-  models: {
-    provider: OPENAI_PROVIDER.KIND,
-    connection: {
-      apiKey: readEnv.secret(OPENAI_PROVIDER.SECRET_ENV_KEYS.API_KEY, {
-        description: "OpenAI API key used to create provider clients.",
-      }),
-      baseUrl: readEnv(OPENAI_PROVIDER.TRANSPORT_ENV_KEYS.BASE_URL, {
-        description: "Optional OpenAI-compatible API base URL override.",
-      }),
-    },
-    reasoningSummary: OPENAI_PROVIDER.REASONING_SUMMARIES.CONCISE,
-    defaultModelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
-    availableModels: [
-      {
-        id: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
-        contextWindowTokens: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.CONTEXT_WINDOW_TOKENS,
-        reasoning: {
-          defaultEffort: OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
-          efforts: [
-            OPENAI_PROVIDER.REASONING_EFFORTS.LOW,
-            OPENAI_PROVIDER.REASONING_EFFORTS.MEDIUM,
-            OPENAI_PROVIDER.REASONING_EFFORTS.HIGH,
-          ],
-        },
-      },
-    ],
-  },
-  conversationTitle: {
-    modelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
-    timeoutMs: 10_000,
-  },
-  serverTools: [],
-  hostContext: {
-    enabled: true,
-    maxSerializedBytes: 16_384,
-    maxStringLength: 4_096,
-    maxMetadataDepth: 8,
-    maxMetadataEntries: 128,
-  },
-  capacity: {
-    maxActiveTurns: 16,
-    queueSize: 32,
-    queueTimeoutMs: 5_000,
-  },
-  // auth, timeouts, agent, persistence, keepalive, telemetry, workflow
-});
-```
+## Models and tools
 
-`models.availableModels` is the request allowlist. `models.defaultModelId` must name one entry, each model id must be unique, and a reasoning default must be one of that model's listed efforts. `/api/models` publishes the whole list plus the default. `prepareTurn` resolves the request against this catalog before conversation checks, admission, persistence, or Workflow start.
+`models.availableModels` is the request allowlist. The default must name one entry; ids must be unique; each reasoning default must belong to that model's advertised effort list. `/api/models` publishes only this safe catalog. Request values may select or narrow it but cannot introduce an unconfigured model or effort.
 
-Azure keeps credentials, endpoint, and API version in `models.connection`, but each `availableModels` entry owns its deployment name. The adapter therefore resolves `modelId` to the selected model's deployment instead of treating one deployment as provider-wide. The scripted variant lists only request-selectable scripted behaviors; its separate title model stays visible under `conversationTitle`.
+Azure deployment routing belongs to each model descriptor. Provider credentials and SDK objects remain private to the service and are reconstructed in the current Workflow realm; they are never serialized into durable input.
 
-`serverTools` is the deployment's selected list of registered server-tool names. Boot rejects duplicates and names absent from the registered executor catalog. The filtered definitions are the only tools published by `/api/tools` and the only server tools installed in the Workflow agent; the widget therefore discovers every deployment-selected tool through `/api/tools` and renders it in the `+` menu without a second browser registry. A per-turn `enabledToolNames` request may narrow that list but cannot widen it. The OpenAI deployment exposes the approval-gated `mock_web_search` fixture. After approval, it uses the hidden `gpt-5.4-mini` model to synthesize search-shaped results and falls back to one deterministic local result only when that nested generation fails. Hidden tool models do not appear in the user-selectable model catalog. The Azure and scripted deployments remain empty unless they explicitly configure a compatible registered tool.
+`serverTools` contains registered names only. Boot rejects unknown or duplicate names. The filtered set is both the HTTP catalog and the set installed in Workflow execution, so browser discovery and execution cannot drift. Per-turn `enabledToolNames` may narrow this set but cannot widen it.
 
-`hostContext.enabled` is deployment policy, not a UI default. Authenticated `/api/capabilities` publishes it to the widget. When false, the `+` menu cannot offer **Include page context** and `/api/chat` rejects any request that still supplies `hostContext`. When true, the option still requires a host-registered provider and explicit user opt-in; enabled configuration alone never causes collection.
+## Environment references
 
-The remaining `hostContext` fields bound optional browser-supplied page reference data before a turn reaches application policy. The HTTP boundary rejects unknown host-context keys, strings over `maxStringLength`, non-finite metadata numbers, metadata deeper than `maxMetadataDepth`, metadata with more than `maxMetadataEntries` nested object properties and array items, or a normalized UTF-8 serialization over `maxSerializedBytes`. The accepted value remains untrusted user-level data: it may be rendered into the current user message for model execution, but it never supplies identity, authorization, workspace scope, or system instructions.
+Config files use `readEnv`, `readEnv.secret`, and `readEnv.number`; production code does not read `process.env` ad hoc. The complete accepted key vocabulary is `SERVICE_ENV_KEYS` in [`src/config/declaration/side-chat-config.ts`](../../apps/side-chat-service/src/config/declaration/side-chat-config.ts). Provider catalogs own provider-specific secret and transport key constants.
 
-The replacement declares admission capacity separately from transport and execution timeouts. `capacity.maxActiveTurns` limits admitted turns per service process, `capacity.queueSize` bounds the local waiting queue, `capacity.queueTimeoutMs` limits how long a request may wait for admission, and `capacity.drainBudgetMs` bounds graceful shutdown waiting for accepted turns. Their defaults are `16`, `32`, `5_000` ms, and `20_000` ms. `timeouts.queueMs` remains the Workflow readiness timeout; it is not the admission queue timeout.
+Important service-owned inputs include:
 
-The Postgres Workflow world declares `workflow.workerConcurrency` and `workflow.maxPoolSize` through `WORKFLOW_POSTGRES_WORKER_CONCURRENCY` and `WORKFLOW_POSTGRES_MAX_POOL_SIZE`. Worker concurrency defaults to `50`; the pool size is required in Postgres deployments because the upstream fallback is only the `pg` default of `10`. Boot validation keeps four workers above the maximum active-turn count and requires `maxPoolSize >= max(10, workerConcurrency + 2)`, so the default worker setting needs a pool of at least `52`. These values size the Workflow engine as a whole, including workflow and step jobs; they are not provider-only concurrency controls.
+- `SIDECHAT_CONFIG`
+- `SIDECHAT_AUTH_TOKEN`
+- `SIDECHAT_WORKSPACE_ID`
+- `SIDECHAT_DATABASE_URL`
+- `SIDECHAT_DRAIN_BUDGET_MS`
+- `SIDECHAT_OTLP_ENDPOINT`
+- `SIDECHAT_OTEL_SERVICE_NAME`
+- `WORKFLOW_POSTGRES_URL`
+- `WORKFLOW_POSTGRES_WORKER_CONCURRENCY`
+- `WORKFLOW_POSTGRES_MAX_POOL_SIZE`
+- `WORKFLOW_LOCAL_DATA_DIR`
+- `WORKFLOW_LOCAL_BASE_URL`
 
-The replacement also retains provider, client-tool, and title timeouts; agent instructions and step cap; persistence; SSE keepalive interval; telemetry; and Workflow journal retention, sweep, class, and database settings. It deliberately has no request timeout, agent token budgets, active-generation count separate from admission, or proxy-idle budget.
+Secret references are resolved only during boot and are excluded from readable settings, logs, Workflow input, and browser catalogs.
 
-The replacement service consumes `hostContext.enabled` in both capability publication and request admission, and consumes every limit directly in request validation. The native widget collects a fresh snapshot only for an opted-in send; reconnect and replay never recollect it.
+## Capacity and database pools
 
-## Legacy service config object
+`capacity.maxActiveTurns` is a per-service-process admission bound. It must be sized with the Workflow worker concurrency and both database pools; the relationship is documented in [capacity-and-deployment.md](capacity-and-deployment.md). Overload is rejected before durable turn mutation.
 
-One file, one default export: `defineSideChatConfig({...}) satisfies SideChatConfig` (`sidechat.config.ts:32`, `:227-229`). It is one production OpenAI config, not a local/openai switchboard. A second standalone file, [`sidechat.azure.config.ts`](../../apps/partner-ai-service/sidechat.azure.config.ts), holds the Azure OpenAI variant; the local launcher boots it by pointing `SIDECHAT_CONFIG_PATH` at it.
+Product persistence and Workflow persistence are separate configured connections and schemas. `workflow.maxPoolSize` must support the configured Workflow worker concurrency. Database setup and ownership live in [database.md](database.md).
 
-## Top-level keys
+## Loading and validation
 
-Every key below lives in `sidechat.config.ts` at the cited line. Each owns one slice of behavior:
-
-| Key                  | Owns                                                                                                                                                                                                                                  | Line   |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `environment`        | Deployment shape and secrets via `readEnv`: port, profile, bearer token, database URL, tenant/workspace ids.                                                                                                                          | `:33`  |
-| `models`             | Provider connection (kind, secret API key, optional endpoint), reasoning summary, the `default` model, and `availableModels` with per-model reasoning options.                                                                        | `:61`  |
-| `executors`          | The executor catalog and default; ships only `AI_SDK_TOOL_LOOP`.                                                                                                                                                                      | `:105` |
-| `tools`              | Backend tools the assistant may call; ships only `mock_web_search` (prompt, parameters, and default exposure).                                                                                                                        | `:109` |
-| `hostCommands`       | App-owned commands the host runs; ships with an empty command catalog.                                                                                                                                                                | `:126` |
-| `turnGuards`         | Per-turn safety guards; ships empty.                                                                                                                                                                                                  | `:131` |
-| `requestPolicy`      | Request gating mode (`CONFIGURED`) and the model entitlements a request may select.                                                                                                                                                   | `:134` |
-| `chat.turnProfile`   | The default profile: system instructions, Markdown output, allowlisted tools, and standard safety.                                                                                                                                    | `:143` |
-| `context`            | History window (`recent_messages`, 12 messages / 4k tokens) and `contextAdmission` token budgets.                                                                                                                                     | `:167` |
-| `auxiliaryModelJobs` | Side model jobs; ships the enabled conversation-title job.                                                                                                                                                                            | `:180` |
-| `history`            | Turn-activity retention (`turnActivity`, `SIDECHAT_TURN_ACTIVITY_HISTORY`): `full` (default) stores the turn's activity trace with the assistant message and serves it on history reads; `disabled` keeps the trace live-stream-only. | `:211` |
-| `streaming`          | The delta coalescing window (`outputDeltaFlushInterval`): provider text and reasoning batched into ~4 events/s per active block — fewer SSE frames and widget re-renders.                                                             | `:214` |
-| `resumability`       | Lease and heartbeat timers, the per-process `instanceId`, the crash-recovery sweep cadence (`reaperInterval`, `reaperBatchLimit` — ADR 0008), and the `sseHeartbeatInterval` SSE keepalive.                                           | `:189` |
-
-## Declaring process inputs with `readEnv`
-
-The config never reads `process.env` directly. Each process input is a `readEnv` reference carrying a `description` and an optional `defaultValue`, which the boot path resolves to a value. Use the variant that matches the input:
-
-| Reference                    | Use for                                  | Example                                       |
-| ---------------------------- | ---------------------------------------- | --------------------------------------------- |
-| `readEnv(key, ...)`          | A plain string with a default.           | `environment.profile` (`:38`)                 |
-| `readEnv.secret(key, ...)`   | A secret never logged.                   | `environment.databaseUrl` (`:45`)             |
-| `readEnv.number(key, ...)`   | A numeric value.                         | `resumability.leaseTtl` (`:200`)              |
-| `readEnv.boolean(key, ...)`  | A boolean flag.                          | `environment.demoSeedConversations` (`:48`)   |
-| `readEnv.optional(key, ...)` | An optional override, absent by default. | `models.provider.connection.endpoint` (`:68`) |
-
-Env variable names are centralized, not typed inline. They live in `SERVICE_ENV_KEYS` ([`src/config/env/service-env-contract.ts`](../../apps/partner-ai-service/src/config/env/service-env-contract.ts)), a dependency-free leaf the config files and the boot-path resolvers share. Add a key there, then reference it from the config. Provider secrets keep their canonical names in the provider catalog (`PROVIDERS.*.SECRET_ENV_KEYS`).
-
-Diagnostic logging is configured the same way: `environment.logLevel` (`SIDECHAT_LOG_LEVEL`, default `info`) and `environment.logFormat` (`SIDECHAT_LOG_FORMAT`, default `pretty` in development and `json` in production) select the console log verbosity and shape. For what each level prints, see [local-development.md](./local-development.md) "Run with logs".
-
-The Postgres query pool is tunable through `environment.databasePool`; each key is optional and absence keeps the node-postgres default. Set them only to override:
-
-| Env variable                                   | Pool option               | Default       |
-| ---------------------------------------------- | ------------------------- | ------------- |
-| `SIDECHAT_DATABASE_POOL_MAX`                   | `max`                     | 10            |
-| `SIDECHAT_DATABASE_POOL_IDLE_TIMEOUT_MS`       | `idleTimeoutMillis`       | node-postgres |
-| `SIDECHAT_DATABASE_POOL_CONNECTION_TIMEOUT_MS` | `connectionTimeoutMillis` | node-postgres |
-| `SIDECHAT_DATABASE_POOL_SSL`                   | `ssl` (TLS on/off)        | off           |
-
-These apply to the shared query pool. The three dedicated `LISTEN` connections (cancel, activity, host-command result) are not pooled; enable TLS for them through the connection string's `sslmode`. Both the pool and the `LISTEN` connections now survive a database restart — see [assistant-turn.md](../architecture/assistant-turn.md) "Connection resilience".
-
-## How the service loads it
-
-The typed config object is the ONE config system — there is no fallback:
-
-1. `server.ts` calls `loadSelectedSideChatConfig()` and builds options via `createPartnerAiServiceOptionsFromConfig(config)`.
-2. The loader ([`config-selection.ts`](../../apps/partner-ai-service/src/config/sidechat-config/selection/config-selection.ts)) imports the config module. `SIDECHAT_CONFIG_PATH` overrides the module path; the default is the app-root `sidechat.config.ts`.
-3. `SIDECHAT_CONFIG` selects a named config when the module exports a `SIDECHAT_CONFIGS` registry; otherwise the default export is used. An unknown name throws.
-4. **A config that cannot load is a fatal boot error.** A missing file, a syntax error, or a throw at module scope prints the module path and reason and exits non-zero — the service never silently boots different behavior.
+Boot resolves the selected declaration against the process environment, validates types and cross-field relationships, freezes the resulting settings, builds safe public catalogs, and only then composes routes and Workflow execution. A missing required secret, invalid number, unknown tool, invalid model/default relationship, or unsupported provider is fatal; the service never silently switches behavior.
 
 ## Rules
 
-- **No ad-hoc `process.env`.** `check-runtime-boundaries.mjs:22-28` fails any production source that reads `process.env` outside a `*.test.ts` file or the config adapter (anything under `apps/partner-ai-service/src/config/`). New tunables go in `sidechat.config.ts` plus `SERVICE_ENV_KEYS`, never as inline reads. This gate runs inside `npm run lint:custom` — see [verification.md](verification.md).
-- **Single DB owner.** The service is the only reader of the database URL (`SIDECHAT_DATABASE_URL`); `drizzle.config.ts` and DB tooling deliberately do not re-read it.
-- **Development maps `configured` policy to `allow_all`.** The development profile deliberately relaxes the request policy so local runs work without entitlements; production enforces the configured entitlements as declared.
+- Add tunables to `SideChatConfig` and `SERVICE_ENV_KEYS`; do not add inline `process.env` reads.
+- Keep provider secrets in provider/config adapters and database URLs in service configuration.
+- Keep fake/scripted models and testing workflows out of the production Workflow graph.
+- Update this document, the app README, and focused config tests when a configuration section or public catalog changes.

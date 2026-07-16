@@ -13,7 +13,7 @@ describe("chat stream response", () => {
     const source = new ReadableStream<UIMessageChunk>({
       start: (controller) => controllerReady.resolve(controller),
     });
-    const onKeepalive = vi.fn();
+    const onKeepalive = vi.fn<() => void>();
     const response = createChatStreamResponse({
       stream: source,
       runId: "run-1",

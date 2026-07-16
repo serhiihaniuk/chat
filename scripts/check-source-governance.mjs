@@ -33,22 +33,6 @@ const sourceLineBudgetExceptions = new Map([
   // as one cohesive contract rather than split across the schema-contract dir's
   // file budget.
   ["packages/db/src/schema-contract/repositories.ts", 444],
-  // Declaration-only public configuration contract. Keeping the complete
-  // starter-owned shape together is easier to scan than fragmenting it by key;
-  // the exact ceiling prevents behavioral helpers from accumulating here.
-  ["apps/partner-ai-service/src/config/sidechat-config/types.ts", 312],
-  // The config->options adapter. Already relieved once by extracting
-  // history-options.ts; the remaining config-to-runtime mapping is one cohesive
-  // translation, and the options dir is at its file budget, so it stays together.
-  ["apps/partner-ai-service/src/config/sidechat-config/options/options-adapter.ts", 301],
-  // The docs app predates source-shape coverage. These exact ceilings make its
-  // existing catalogs and compound explorers ratchets: they may shrink, but a
-  // new line must first pay down the existing readability debt.
-  ["apps/docs/app/data/glossary.ts", 747],
-  ["apps/docs/app/components/design-controls.tsx", 698],
-  ["apps/docs/app/components/turn-explorer.tsx", 500],
-  ["apps/docs/app/components/turn-trace.tsx", 404],
-  ["apps/docs/app/data/tokens.ts", 339],
 ]);
 
 validateTsconfigPolicy();
@@ -170,10 +154,6 @@ function validateTypeSafetyEscapes(file, source) {
 }
 
 function validateTypeScriptSuppressions(file, source) {
-  // Fumadocs regenerates this ignored directory and owns its emitted `@ts-nocheck`.
-  // Repository-authored TypeScript remains fully governed.
-  if (file.startsWith("apps/docs/.source/")) return;
-
   const directivePattern = /^\s*(?:\/\/|\/\*)\s*@ts-(ignore|nocheck|expect-error)\b(.*)$/u;
 
   for (const [index, line] of source.split("\n").entries()) {
@@ -217,7 +197,7 @@ function validateSourceLineBudget(file, source) {
 }
 
 function isGovernedProductionSource(file) {
-  return file.includes("/src/") || file.startsWith("apps/docs/app/");
+  return file.includes("/src/");
 }
 
 function isTestLikeSourceFile(file) {

@@ -15,10 +15,7 @@ export {
   type HostToolResultStatus,
   type ToolResultInput,
 } from "./tools/tool-result.js";
-export {
-  dispatchSupportedToolCall,
-  type HostToolDispatcher,
-} from "./tools/tool-dispatcher.js";
+export { dispatchSupportedToolCall, type HostToolDispatcher } from "./tools/tool-dispatcher.js";
 export {
   createHostBridge,
   type HostBridge,

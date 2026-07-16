@@ -316,6 +316,26 @@ describe("cancelChatTurn", () => {
     expect(order).toEqual(["durable-hook", "provider-abort-stream"]);
   });
 
+  it("retries the provider wake when restart recovery registers its abort stream late", async () => {
+    const signalInFlightAbort = vi
+      .fn<(runId: string) => Promise<boolean>>()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const waitForRetry = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+
+    await expect(
+      cancelChatTurn("run-1", "user_requested_cancellation", {
+        maxAttempts: 3,
+        resume: () => Promise.resolve(),
+        signalInFlightAbort,
+        waitForRetry,
+      }),
+    ).resolves.toBe(true);
+
+    expect(signalInFlightAbort).toHaveBeenCalledTimes(2);
+    expect(waitForRetry).toHaveBeenCalledOnce();
+  });
+
   it("returns not found for a missing run without hiding infrastructure failures", async () => {
     const missing = vi
       .fn<(token: string, payload: { reason: string }) => Promise<void>>()

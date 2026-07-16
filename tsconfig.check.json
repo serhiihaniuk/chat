@@ -9,6 +9,5 @@
     "test-harness/**/*.tsx",
     "playwright.config.ts",
     "vitest.config.ts"
-  ],
-  "exclude": ["apps/docs/**"]
+  ]
 }

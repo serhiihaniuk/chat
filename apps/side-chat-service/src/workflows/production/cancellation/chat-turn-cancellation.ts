@@ -35,7 +35,7 @@ export async function cancelChatTurn(
   for (let attempt = 1; attempt <= dependencies.maxAttempts; attempt += 1) {
     try {
       await dependencies.resume(token, { reason });
-      await dependencies.signalInFlightAbort(runId);
+      await wakeRecoveredProviderStep(runId, dependencies);
       return true;
     } catch (error) {
       if (isMissingOrExpiredRun(error)) return false;
@@ -45,6 +45,16 @@ export async function cancelChatTurn(
     }
   }
   return false;
+}
+
+async function wakeRecoveredProviderStep(
+  runId: string,
+  dependencies: CancelChatTurnDependencies,
+): Promise<void> {
+  for (let attempt = 1; attempt <= dependencies.maxAttempts; attempt += 1) {
+    if (await dependencies.signalInFlightAbort(runId)) return;
+    if (attempt < dependencies.maxAttempts) await dependencies.waitForRetry();
+  }
 }
 
 function defaultCancelDependencies(): CancelChatTurnDependencies {

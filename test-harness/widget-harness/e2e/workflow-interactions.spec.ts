@@ -146,7 +146,7 @@ test("dispatches a native client tool through the host and posts one durable out
   await expect(page.getByTestId("demo-host-log").getByText("open_resource")).toBeVisible();
 
   // Once the server exposes the durable output, a reload must render that
-  // settled state without dispatching the host command or posting it again.
+  // settled state without dispatching the client tool or posting it again.
   await page.reload();
   await expect(page.getByText("Client tool chat")).toBeVisible();
   await expect(page.getByTestId("demo-host-assistant-count")).toHaveText("Assistant actions: 0");

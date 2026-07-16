@@ -111,10 +111,7 @@ function receiveFrameMessage(event: MessageEvent<unknown>): void {
   if (data["type"] === HOST_TOOL_CALL_MESSAGE_TYPE) {
     const toolCall = readToolCall(data["toolCall"]);
     if (!toolCall) return;
-    postToolResult(
-      toolCall.toolCallId,
-      handleHostToolCall(toolCall),
-    );
+    postToolResult(toolCall.toolCallId, handleHostToolCall(toolCall));
     return;
   }
 

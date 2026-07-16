@@ -208,6 +208,7 @@ async function waitForSettledConversation(
   conversationId: string,
 ): Promise<void> {
   const deadline = Date.now() + HTTP_TIMEOUT_MS;
+  let lastState: unknown;
   while (Date.now() < deadline) {
     const response = await fetch(`${service.baseUrl}/api/conversations/${conversationId}/state`, {
       headers: AUTHORIZATION,
@@ -215,11 +216,14 @@ async function waitForSettledConversation(
     });
     if (response.ok) {
       const state: unknown = await response.json();
+      lastState = state;
       if (isRecord(state) && !("activeTurn" in state)) return;
     }
     await delay(50);
   }
-  throw new Error("Cancelled turn did not reach durable terminal state");
+  throw new Error(
+    `Cancelled turn did not reach durable terminal state. Last state: ${JSON.stringify(lastState)}\nService output:\n${service.output()}`,
+  );
 }
 
 async function cancelWhenReady(
@@ -229,16 +233,30 @@ async function cancelWhenReady(
 ): Promise<void> {
   const deadline = Date.now() + HTTP_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const response = await fetch(`${service.baseUrl}/api/chat/${runId}/cancel`, {
+    const response = await fetchCancel(service, conversationId, runId);
+    if (response.ok) return;
+    await delay(50);
+  }
+  throw new Error("Recovered Workflow cancel hook did not become ready");
+}
+
+async function fetchCancel(
+  service: CompiledService,
+  conversationId: string,
+  runId: string,
+): Promise<Response> {
+  try {
+    return await fetch(`${service.baseUrl}/api/chat/${runId}/cancel`, {
       method: "POST",
       headers: { ...AUTHORIZATION, "content-type": "application/json" },
       body: JSON.stringify({ conversationId }),
       signal: AbortSignal.timeout(5_000),
     });
-    if (response.ok) return;
-    await delay(50);
+  } catch (error) {
+    throw new Error(`Cancellation request failed. Service output:\n${service.output()}`, {
+      cause: error,
+    });
   }
-  throw new Error("Recovered Workflow cancel hook did not become ready");
 }
 
 function requireRunId(response: Response): string {

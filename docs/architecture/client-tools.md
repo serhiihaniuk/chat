@@ -1,11 +1,10 @@
 # Client Tools
 
-Read this when: you add, execute, resume, render, or test a browser-executed tool in the replacement `apps/side-chat-service` stack.
+Read this when: you add, execute, resume, render, or test a browser-executed tool in `apps/side-chat-service`.
 Source of truth for: the client-tool lifecycle, durable dispatch authority, output endpoint, timeout and cancellation behavior, and browser/server ownership boundary.
 Not source of truth for: server-tool approvals ([tool-approvals.md](tool-approvals.md)), generic widget-host integration ([widget-and-host-integration.md](widget-and-host-integration.md)), or Workflow bundle mechanics ([workflow-substrate.md](workflow-substrate.md)).
 
 A client tool is a model-callable action executed by the browser or host page.
-The replacement stack uses it for the use cases previously called host commands.
 A server tool runs inside the service; a client tool dispatches to the connected
 browser, waits durably for an authenticated result, and returns that result to
 the model.
@@ -57,20 +56,21 @@ a bridge-unavailable failure.
 - Bind results to the exact durable dispatch. A `runId` alone is not authority.
 - Keep the raw capability only in the originating tab's active-turn cursor and
   live attachment epoch. It must not enter Workflow input, journal/replay,
-  PostgreSQL, logs, telemetry, activity events, or public errors. Persist only
-  the SHA-256 digest with the dispatch row.
+  PostgreSQL, logs, telemetry, activity events, or public errors. Its SHA-256
+  digest may enter durable Workflow input and the dispatch row; the digest is
+  authority material and must not be exposed to the browser or diagnostics.
 - Keep browser code free of database rows, provider DTOs, and Workflow internals.
 
 ## Primary code and tests
 
-| Responsibility                     | Location                                                                        |
-| ---------------------------------- | ------------------------------------------------------------------------------- |
-| Catalog and schema validation      | `src/application/turn/tools/client-tool-catalog.ts` and `client-tool-schema.ts` |
-| Durable dispatch contract          | `src/application/ports/turn/tools/client-tool-dispatch-store.ts`                |
-| Workflow wait and result hook      | `src/workflows/client-tools/index.ts`                                           |
-| Authenticated output policy        | `src/application/turn/tools/submit-client-tool-output.ts`                       |
-| HTTP route                         | `src/adapters/http/chat/chat-routes.ts`                                         |
-| Widget execution and reducer state | `packages/side-chat-widget/src/features/workflow-chat/`                         |
+| Responsibility                     | Location                                                                                               |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Catalog and schema validation      | `apps/side-chat-service/src/application/turn/tools/client-tool-catalog.ts` and `client-tool-schema.ts` |
+| Durable dispatch contract          | `apps/side-chat-service/src/application/ports/turn/tools/client-tool-dispatch-store.ts`                |
+| Workflow wait and result hook      | `apps/side-chat-service/src/workflows/client-tools/index.ts`                                           |
+| Authenticated output policy        | `apps/side-chat-service/src/application/turn/tools/submit-client-tool-output.ts`                       |
+| HTTP route                         | `apps/side-chat-service/src/adapters/http/chat/chat-routes.ts`                                         |
+| Widget execution and reducer state | `packages/side-chat-widget/src/features/workflow-chat/`                                                |
 
 Run the focused service and widget tests for touched behavior. Use the
 database-backed client-tool durability lane when changing restart, race, or

@@ -47,8 +47,7 @@ For code or durable-document changes, read this path first:
 Read the matching flow document for stream, runtime, protocol, or widget work:
 [`assistant-turn.md`](docs/architecture/assistant-turn.md),
 [`runtime-and-protocol-events.md`](docs/architecture/runtime-and-protocol-events.md),
-[`widget-and-host-integration.md`](docs/architecture/widget-and-host-integration.md),
-or [`effect.md`](docs/architecture/effect.md).
+or [`widget-and-host-integration.md`](docs/architecture/widget-and-host-integration.md).
 
 Read the matching operations document for local run, configuration, capacity,
 deployment, or database work:
@@ -102,34 +101,32 @@ Use `apply_patch` for hand edits. Formatting tools may rewrite files when format
 - This repository is pre-production. When an internal API is replaced, remove its old helpers, aliases, comments, tests, and docs in the same coherent patch.
 - Do not add a dependency unless the user requests it. If a dependency is necessary, update the package policy and lockfile together.
 - Update canonical docs in the same patch when code changes ownership, lifecycle order, protocol events, domain terms, configuration, or verification behavior.
-- Public `sidechat.v1` contracts are real product contracts even before alpha: change them deliberately, update both sides, and add contract-focused tests. Their current shape is still replaceable before release when a better contract is justified; do not preserve it only for backward compatibility.
+- Browser/service stream headers, message metadata, error vocabulary, and HTTP DTOs are product contracts: change them deliberately, update both sides, and add contract-focused tests.
 - Do not weaken a test, lint rule, type rule, boundary rule, or security check merely to make the change pass.
 
 ## Repository boundaries
 
 Use the canonical system map and package-boundary document for complete details. The load-bearing ownership is:
 
-| Area                                 | Owns                                                                                   | Must not absorb                                              |
-| ------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `partner-ai-core`                    | Product workflow, policy, context admission, turn lifecycle                            | HTTP, provider SDKs, database or transport details           |
-| `agent-runtime`                      | AI SDK/provider execution, runtime tools, provider-native stream parts, `RuntimeEvent` | Product policy, HTTP, browser DTOs, database rows            |
-| `chat-protocol`                      | `sidechat.v1` DTOs, validators, schemas, SSE codec, protocol constants                 | Effect, provider DTOs, database details                      |
-| `db`                                 | PostgreSQL/Drizzle schema and repository adapters                                      | HTTP, provider SDKs, product workflow                        |
-| `apps/partner-ai-service`            | Hono routes, configuration adapter, composition, app adapters, transport conversion    | Browser rendering and provider logic outside the runtime     |
-| `side-chat-widget` and `host-bridge` | Browser UI, client state, host integration, protocol consumption                       | Effect, AI SDK/provider DTOs, database rows, server workflow |
+| Area                                 | Owns                                                                                   | Must not absorb                                 |
+| ------------------------------------ | -------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `apps/side-chat-service`             | Hono routes, configuration, auth, durable workflows, AI SDK providers/tools, telemetry | Browser rendering and host-app execution        |
+| `db`                                 | PostgreSQL/Drizzle schema, migrations, product repositories, activity notifications    | HTTP, providers, browser state                  |
+| `stream-profile`                     | Browser-safe stream headers, metadata, finish/error vocabulary, validators             | Provider DTOs, persistence, workflow internals  |
+| `side-chat-widget` and `host-bridge` | Browser UI, client state, page context, native client-tool integration                 | Hono, providers, database rows, server workflow |
+| `shared`                             | Neutral JSON, redaction, and diagnostic primitives                                     | Product workflow or transport policy            |
 
 Preserve these invariants:
 
-- Keep AI SDK and provider-native stream parts inside `packages/agent-runtime`.
 - Keep `pg` and `drizzle-orm` inside `packages/db`; keep `hono` inside the service.
 - Read `process.env` through the service configuration adapter.
 - Keep Promise, `ReadableStream`, and `AsyncIterable` conversions at transport edges.
-- Map provider parts to `RuntimeEvent`, then map `RuntimeEvent` to `sidechat.v1` once per boundary.
-- Keep browser, client, widget, and protocol packages Effect-free and provider-DTO-free.
+- Keep browser, widget, bridge, and stream-profile packages provider-DTO-free.
+- Validate native UI message streams and shared metadata at the service/widget boundary.
 - Use package exports and `#...` subpaths instead of cross-package or cross-source relative imports.
 - Treat `packages/side-chat-widget/src/shared/ai/**` as quarantined copied UI code. Do not use it as a project-style example or place Side Chat business logic there.
 
-Core and server workflows are Effect-first. Verify Effect v4 APIs against installed type declarations and [`docs/architecture/effect.md`](docs/architecture/effect.md), not memory from another Effect version. Expected failures use `Effect.fail`, `Effect.try`, or `Effect.tryPromise`; raw `throw` is a defect. Use exported uppercase constant objects with uppercase properties for closed runtime value sets.
+Use exported uppercase constant objects with uppercase properties for closed runtime value sets.
 
 ## Readability and simplicity
 
@@ -160,7 +157,7 @@ When a doc and code disagree, verify the code and report or fix the stale source
 
 ## Security and data handling
 
-- Treat authentication, authorization, tenant/workspace ownership, host commands, tools, protocol validation, and database access as trust boundaries.
+- Treat authentication, authorization, tenant/workspace ownership, client tools, server tools, stream validation, and database access as trust boundaries.
 - Keep secrets, raw provider errors, prompts, retrieved content, tool payloads, and private conversation data out of logs, diagnostics, protocol events, tests, and final responses.
 - Validate untrusted input at the owning boundary. Preserve idempotency, ownership checks, timeout, cancellation, size, rate, and resource limits.
 - Do not use real credentials, real provider calls, or persistent production data for local verification unless explicitly requested and safely scoped.

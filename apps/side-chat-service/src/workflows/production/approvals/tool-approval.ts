@@ -1,9 +1,9 @@
-import type {
-  ToolApprovalInput,
-  ToolApprovalIdentity,
-  ToolApprovalSnapshot,
+import {
+  TOOL_APPROVAL_STATES,
+  type ToolApprovalInput,
+  type ToolApprovalIdentity,
+  type ToolApprovalSnapshot,
 } from "#application/ports/turn/tools/tool-approval-store";
-import { TOOL_APPROVAL_STATES } from "#application/ports/turn/tools/tool-approval-store";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import { recordProcessTelemetry } from "#application/telemetry/process-telemetry";
 import { recordTelemetrySafely } from "#application/telemetry/record-telemetry-safely";

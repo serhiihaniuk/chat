@@ -1,87 +1,45 @@
-# Local development (no Docker)
+# Local Development
 
-Read this when: you want Side Chat running on your machine with one command, no Docker and no Postgres.
-Source of truth for: the `scripts/run-local-fake.mjs` launcher — its flags, the two processes and ports, and the fake/openai/azure provider modes.
-Not source of truth for: the `SideChatConfig` object (see [configuration.md](configuration.md)), database tooling (see [database.md](database.md)), gate commands (see [verification.md](verification.md)), or the iframe proxy contract (see [embed-widget-iframe.md](embed-widget-iframe.md)).
+Read this when: you want the service and widget harness running locally without Docker or credentials.
+Source of truth for: `npm run dev` / `scripts/run-local-fake.mjs`, its processes, ports, and local fake configuration.
+Not source of truth for: deployment configuration ([configuration.md](configuration.md)), database tooling ([database.md](database.md)), or verification commands ([verification.md](verification.md)).
 
 ## Quick start
 
-Run one command from the repo root; it starts the backend and widget for your own app to embed:
+From the repository root:
 
 ```sh
-node scripts/run-local-fake.mjs
+npm run dev
 ```
 
-The launcher prompts for provider and ports, installs dependencies if missing, then starts two dev servers (backend + widget UI). By default it uses the **fake** provider: it boots the standalone no-secrets config (`apps/partner-ai-service/sidechat.fake.config.ts`) — an in-memory showcase model, mock tools, and seeded demo chats; no API key, no database. It does **not** start a host page — your own app is the host. Wire your app's dev proxy to the two servers it prints; see [embed-widget-iframe.md](embed-widget-iframe.md).
+The launcher first builds the service's testing Workflow bundle, then starts:
 
-## Flags
+| Process           | Default URL                              | Purpose                                                                         |
+| ----------------- | ---------------------------------------- | ------------------------------------------------------------------------------- |
+| Side Chat service | `http://127.0.0.1:3000`                  | Hono/Nitro API with the credential-free `fake` config and local Workflow world. |
+| Widget harness    | `http://127.0.0.1:5175/?mode=service...` | Vite page connected to the service.                                             |
 
-`scripts/run-local-fake.mjs` reads two flags (`run-local-fake.mjs:79-80`):
+The launcher waits for both HTTP surfaces and prints the complete widget URL. `Ctrl+C` terminates both child processes. It does not install dependencies, prompt for provider credentials, mutate config, or start PostgreSQL.
 
-| Flag        | Effect                                                                                                           |
-| ----------- | ---------------------------------------------------------------------------------------------------------------- |
-| `--yes`     | Skip all prompts; use the saved file, env vars, then defaults. Auto-applied when stdin is not a TTY (CI, pipes). |
-| `--install` | Force `npm install` before starting, even when `node_modules` exists.                                            |
+## Port overrides
 
-The launcher saves your answers (including any API key) to `scripts/.run-local-fake.json` (`run-local-fake.mjs:119-136`) and reuses them next run. Keep that file out of git.
+Set these before launching:
 
-## Run with logs
+| Environment variable          | Default | Meaning                   |
+| ----------------------------- | ------: | ------------------------- |
+| `SIDECHAT_LOCAL_SERVICE_PORT` |  `3000` | Service listener port.    |
+| `SIDECHAT_LOCAL_WIDGET_PORT`  |  `5175` | Widget harness Vite port. |
 
-Running the backend IS running it with logs — no flag needed. On the development profile (which `run-local-fake` uses) the console prints a boot summary, then one readable line per turn: `received`, `started` (with the model), each tool or host-command activity (name + status), and the terminal (status + latency). Two env vars tune it (ADR [0011](../adr/0011-observability-channels-and-console-first-dev.md)):
+Only valid integer ports from 1 through 65535 are accepted; invalid values fall back to the defaults. Vite uses `strictPort`, so a collision fails visibly rather than selecting a different port.
 
-| Env var               | Values                        | Default                               | Effect                                                                                                                                     |
-| --------------------- | ----------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SIDECHAT_LOG_LEVEL`  | `debug` `info` `warn` `error` | `info`                                | `debug` adds every runtime event, subscriber attach/detach, replay, cancel, and host-command settle; `warn` silences routine turn traffic. |
-| `SIDECHAT_LOG_FORMAT` | `pretty` `json`               | `pretty` in dev, `json` in production | `pretty` is one human line; `json` is one object per line for a log aggregator.                                                            |
+## Local identity and provider
 
-Redaction is unconditional: **no level ever prints prompts, model output, tool payloads, or secrets** — deep content debugging uses the fake provider, not a verbosity switch. Telemetry defaults to the console sink in development and to the no-op sink in production until you install a real one (see [extension-seams.md](../architecture/extension-seams.md) "Add an observability sink").
+The launcher selects `SIDECHAT_CONFIG=fake`. The widget URL uses the fake config's local bearer and workspace (`local-test-token`, `local-workspace`) and disables client tools in the default harness link. The scripted model and in-memory product store require no external credentials.
 
-## The two processes
+The local Workflow world owns its own development data directory/configuration. Production durability and database behavior require the PostgreSQL workflows described in [database.md](database.md) and the lifecycle tests in [verification.md](verification.md).
 
-The launcher starts two Vite/tsx dev servers over npm workspaces:
+## Run another configuration
 
-| Process         | Default URL             | Role                                                                                                 |
-| --------------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
-| Backend service | `http://127.0.0.1:8787` | Hono API + chosen provider. Health at `/healthz`.                                                    |
-| Widget UI       | `http://127.0.0.1:5174` | Vite widget harness; renders only Side Chat under the frame path. `strictPort`, bind host `0.0.0.0`. |
+For OpenAI or Azure, run the service workspace directly with the required environment references for the chosen `sidechat*.config.ts`, then point the widget harness at that service. Do not put real credentials in command history, docs, URLs, or the fake launcher.
 
-Your own app is the host. Proxy `/side-chat-api` to the backend and `/side-chat-frame` to the widget UI, then embed the iframe — see [embed-widget-iframe.md](embed-widget-iframe.md). The launcher prints both targets and a ready-to-paste iframe `src`.
-
-### Port rules
-
-The widget never runs on `8080` — that port is usually your own app's. The launcher enforces these guards:
-
-- Widget port `8080` is rejected and forced back to `5174`.
-- A backend/widget port collision auto-bumps the backend.
-- Both ports free a busy listener by killing it (`freePort`), so a restart binds cleanly.
-
-## Why env is injected, not loaded
-
-The service reads `process.env` synchronously at boot and never auto-loads a `.env` file (`run-local-fake.mjs:21-22`). So the launcher injects every `SIDECHAT_*` key directly into each spawned child (`run-local-fake.mjs:744-781`). To run the service by hand, you must export the same variables yourself. The config object defines which keys exist; see [configuration.md](configuration.md).
-
-## Providers
-
-The launcher offers three providers (prompt at `run-local-fake.mjs:570-636`):
-
-| Provider         | Setup                                                                                                                                               | Persistence               |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `fake` (default) | None. In-memory showcase model + mock tools.                                                                                                        | In-memory                 |
-| `openai`         | Prompts for API key and an optional OpenAI-compatible base URL; boots the default `sidechat.config.ts` (its declared models apply).                 | In-memory (no DB URL set) |
-| `azure`          | Prompts for endpoint, key, api-version, and gpt-4o deployment; boots `apps/partner-ai-service/sidechat.azure.config.ts` via `SIDECHAT_CONFIG_PATH`. | In-memory                 |
-
-All three modes delete `SIDECHAT_DATABASE_URL` so persistence stays in-memory. For Postgres-backed runs, see [database.md](database.md).
-
-### Fake provider defaults
-
-When the provider is `fake`, the launcher sets these defaults (`run-local-fake.mjs:746-759`):
-
-- Profile `development` (the config maps `configured` policy to `allow_all` there).
-- `SIDECHAT_DEMO_SEED_CONVERSATIONS=true` — seeds demo conversations.
-- The `mock_web_search` tool is declared in the fake config itself.
-
-Two demo prompts exercise the fake model (`run-local-fake.mjs:894-897`):
-
-| Prompt  | What it shows                                    |
-| ------- | ------------------------------------------------ |
-| `hello` | Markdown reply with slow token streaming.        |
-| `tool`  | Thinking, then `mock_web_search`, then markdown. |
+Configuration names and environment keys are documented in [configuration.md](configuration.md). The service workspace commands are listed in [`apps/side-chat-service/README.md`](../../apps/side-chat-service/README.md).

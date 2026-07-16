@@ -80,7 +80,7 @@ the door is not closed: if a Python engine is ever genuinely justified, it can
 implement `AiRuntimePort` behind the same contract as an adapter, without
 touching product code. That escape hatch is its own decision record —
 [ADR 0005](0005-runtime-port-replaceable-engines.md), with the mechanics in
-[runtime-port.md](../architecture/runtime-port.md). The seam already exists;
+[system-map.md](../architecture/system-map.md). The current provider seam is app-local;
 nothing forces it today.
 
 ## Alternatives rejected

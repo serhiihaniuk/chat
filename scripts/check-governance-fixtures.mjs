@@ -94,7 +94,7 @@ expectFailure("forbidden dependency fixture", "check-dependency-policy.mjs", (ro
 expectFailure("boundary fixture", "check-boundaries.mjs", (root) => {
   writeFixtureFile(
     root,
-    "packages/chat-protocol/src/bad.ts",
+    "packages/shared/src/bad.ts",
     "import React from 'react';\nexport const bad = React;\n",
   );
 });
@@ -103,21 +103,21 @@ expectFailure("relative cross-package boundary fixture", "check-boundaries.mjs",
   writeFixtureFile(
     root,
     "packages/side-chat-widget/src/bad.ts",
-    "export { value } from '../../chat-protocol/src/value.js';\n",
+    "export { value } from '../../host-bridge/src/value.js';\n",
   );
-  writeFixtureFile(root, "packages/chat-protocol/src/value.ts", "export const value = 1;\n");
+  writeFixtureFile(root, "packages/host-bridge/src/value.ts", "export const value = 1;\n");
 });
 
 expectFailure("relative source-folder boundary fixture", "check-boundaries.mjs", (root) => {
   writeFixtureFile(
     root,
-    "packages/partner-ai-core/src/application/bad.ts",
-    "import type { AiRuntimePort } from '../ports/index.js';\nexport type Bad = AiRuntimePort;\n",
+    "apps/side-chat-service/src/application/bad.ts",
+    "import type { Turn } from '../domain/turn.js';\nexport type Bad = Turn;\n",
   );
   writeFixtureFile(
     root,
-    "packages/partner-ai-core/src/ports/index.ts",
-    "export type AiRuntimePort = { stream: unknown };\n",
+    "apps/side-chat-service/src/domain/turn.ts",
+    "export type Turn = { id: string };\n",
   );
 });
 
@@ -135,13 +135,13 @@ expectFailure("widget layer fixture", "check-widget-layers.mjs", (root) => {
 });
 
 expectFailure("test placement fixture", "check-source-governance.mjs", (root) => {
-  writeFixtureFile(root, "packages/chat-protocol/tests/bad.test.ts", "export {};\n");
+  writeFixtureFile(root, "packages/shared/tests/bad.test.ts", "export {};\n");
 });
 
 expectFailure("code shape complexity fixture", "check-code-shape.mjs", (root) => {
   writeFixtureFile(
     root,
-    "packages/chat-protocol/src/bad.ts",
+    "packages/shared/src/bad.ts",
     [
       "export const bad = (value) => {",
       "  if (value.a) {",
@@ -165,7 +165,7 @@ expectFailure("code shape complexity fixture", "check-code-shape.mjs", (root) =>
 expectFailure("test support placement fixture", "check-code-shape.mjs", (root) => {
   writeFixtureFile(
     root,
-    "packages/chat-protocol/src/sidechat-v1/fixtures.test-support.ts",
+    "packages/shared/src/fixtures.test-support.ts",
     "export const fixture = {};\n",
   );
 });
@@ -197,7 +197,7 @@ expectFailure(
     );
     writeFixtureFile(
       root,
-      "apps/docs/app/dense.ts",
+      "apps/side-chat-service/src/application/dense.ts",
       [...helpers, ...Array.from({ length: 394 }, () => "// padding"), "export {};", ""].join("\n"),
     );
   },
@@ -208,21 +208,21 @@ expectFailure("flat source directory fixture", "check-code-shape.mjs", (root) =>
   for (let index = 1; index <= 13; index += 1) {
     writeFixtureFile(
       root,
-      `packages/chat-protocol/src/flat/file-${index}.ts`,
+      `packages/shared/src/flat/file-${index}.ts`,
       `export const value${index} = ${index};\n`,
     );
   }
 });
 
 expectFailure("build artifact fixture", "check-source-governance.mjs", (root) => {
-  writeFixtureFile(root, "packages/chat-protocol/dist/index.js", "export {};\n");
+  writeFixtureFile(root, "packages/shared/dist/index.js", "export {};\n");
 });
 
 expectFailure("typescript escape fixture", "check-source-governance.mjs", (root) => {
   writeStrictTsconfig(root);
   writeFixtureFile(
     root,
-    "packages/chat-protocol/src/bad.ts",
+    "packages/shared/src/bad.ts",
     "const value = 1 as unknown as string;\nexport { value };\n",
   );
 });
@@ -234,7 +234,7 @@ expectFailure(
     writeStrictTsconfig(root);
     writeFixtureFile(
       root,
-      "packages/chat-protocol/src/bad.ts",
+      "packages/shared/src/bad.ts",
       [
         "const input: unknown = 'value';",
         "export const asserted = input as string;",
@@ -253,7 +253,7 @@ expectFailure(
     writeStrictTsconfig(root);
     writeFixtureFile(
       root,
-      "packages/chat-protocol/src/bad.ts",
+      "packages/shared/src/bad.ts",
       "const input: unknown = 'value';\nexport const asserted = <string>input;\n",
     );
   },
@@ -267,7 +267,7 @@ expectFailure(
     writeStrictTsconfig(root);
     writeFixtureFile(
       root,
-      "packages/chat-protocol/src/bad.ts",
+      "packages/shared/src/bad.ts",
       "const input: unknown[] = [];\nexport const asserted = input[0]!;\n",
     );
   },
@@ -281,7 +281,7 @@ expectFailure(
     writeStrictTsconfig(root);
     writeFixtureFile(
       root,
-      "packages/chat-protocol/src/bad.ts",
+      "packages/shared/src/bad.ts",
       "let resolve!: () => void;\nexport { resolve };\n",
     );
   },
@@ -295,7 +295,7 @@ expectFailure(
     writeStrictTsconfig(root);
     writeFixtureFile(
       root,
-      "packages/chat-protocol/src/bad.ts",
+      "packages/shared/src/bad.ts",
       "// @ts-ignore\nexport const value: string = 1;\n",
     );
   },
@@ -309,7 +309,7 @@ expectFailure(
     writeStrictTsconfig(root);
     writeFixtureFile(
       root,
-      "packages/chat-protocol/src/bad.test.ts",
+      "packages/shared/src/bad.test.ts",
       "// @ts-expect-error\nexport const value: string = 1;\n",
     );
   },
@@ -323,7 +323,7 @@ expectFailure(
     writeStrictTsconfig(root);
     writeFixtureFile(
       root,
-      "packages/chat-protocol/src/assertion.test.ts",
+      "packages/shared/src/assertion.test.ts",
       "const input: unknown = 'value';\nexport const asserted = input as string;\n",
     );
   },
@@ -337,7 +337,7 @@ expectFailure(
     writeStrictTsconfig(root);
     writeFixtureFile(
       root,
-      "packages/chat-protocol/src/assertion.test-support.ts",
+      "packages/shared/src/assertion.test-support.ts",
       "const input: unknown = 'value';\nexport const asserted = input as string;\n",
     );
   },
@@ -365,7 +365,7 @@ expectFailure(
     writeStrictTsconfig(root);
     writeFixtureFile(
       root,
-      "packages/chat-protocol/src/explicit-any.ts",
+      "packages/shared/src/explicit-any.ts",
       "export const readValue = (value: any): any => value;\n",
     );
   },
@@ -379,7 +379,7 @@ expectSuccess(
     writeStrictTsconfig(root);
     writeFixtureFile(
       root,
-      "packages/chat-protocol/src/good.ts",
+      "packages/shared/src/good.ts",
       [
         "const VALUES = { READY: 'ready' } as const;",
         "export const config = { value: VALUES.READY } satisfies { readonly value: string };",
@@ -392,7 +392,7 @@ expectSuccess(
 expectFailure("outbound fetch fixture", "check-outbound-rules.mjs", (root) => {
   writeFixtureFile(
     root,
-    "packages/partner-ai-core/src/bad.ts",
+    "packages/shared/src/bad.ts",
     "export const bad = () => fetch('https://example.test');\n",
   );
 });
@@ -403,7 +403,7 @@ expectFailure(
   (root) => {
     writeFixtureFile(
       root,
-      "packages/partner-ai-core/src/bad.ts",
+      "packages/shared/src/bad.ts",
       [
         "const maybeTraceId = '';",
         "export const bad = { traceId: maybeTraceId || undefined };",
@@ -417,14 +417,14 @@ expectFailure(
   "unregistered generated artifact fixture",
   "check-generated-artifacts.mjs",
   (root) => {
-    writeFixtureFile(root, "packages/chat-protocol/src/protocol.generated.ts", "export {};\n");
+    writeFixtureFile(root, "packages/shared/src/contract.generated.ts", "export {};\n");
   },
 );
 
 expectFailure("runtime boundary process.env fixture", "check-runtime-boundaries.mjs", (root) => {
   writeFixtureFile(
     root,
-    "packages/partner-ai-core/src/bad.ts",
+    "packages/shared/src/bad.ts",
     "export const token = process.env.SECRET_TOKEN;\n",
   );
 });

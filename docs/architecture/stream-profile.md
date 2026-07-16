@@ -1,10 +1,10 @@
-# Side Chat stream profile (v7)
+# Side Chat Stream Profile
 
 Read this when: consuming or producing the chat stream — the widget transport, the service scrub filter, or anything that inspects an outbound part.
 
-Source of truth for: the public wire contract of the v7 service — protocol version, error vocabulary, `data-*` surface, and the transport/keepalive envelope.
+Source of truth for: the public wire contract — stream version, error vocabulary, `data-*` surface, and the transport/keepalive envelope.
 
-Not source of truth for: the base stream grammar (AI SDK's UI message stream `v1`) or turn lifecycle order ([`assistant-turn.md`](./assistant-turn.md) once cut over). The old `sidechat.v1` custom protocol in `packages/chat-protocol` describes the legacy service and is deleted at cutover (Step 20).
+Not source of truth for: the base stream grammar (AI SDK's UI message stream `v1`) or turn lifecycle order ([assistant-turn.md](assistant-turn.md)).
 
 ## The contract
 
@@ -42,7 +42,7 @@ The engine's `createModelCallToUIChunkTransform` emits a bare `finish` chunk; th
 
 `SideChatMessageMetadata` is the named native metadata extension. It contains folded turn usage (`inputTokens`, `outputTokens`, `totalTokens`, and optional reasoning/cache counts) plus optional `activityDurationMs`; every value is a finite non-negative safe integer. `activityDurationMs` is measured inside the durable workflow from immediately before `WorkflowAgent.stream` starts until a completed model stream settles. It therefore covers provider generation and any tool or approval suspension inside that assistant activity, but excludes pre-run admission/preparation and terminal persistence. This is the replay-safe source for the widget's completed `Thought for Ns` label; the widget rounds up to whole seconds with a one-second display minimum when a trace exists.
 
-The dependency-free stream-profile schema rejects unknown/private fields. Live and replayed terminal chunks carry the same folded usage and activity duration. Completed assistant persistence replaces arbitrary metadata with that safe object; the history read edge omits legacy empty metadata and degrades invalid metadata before transport. The scrub edge validates every metadata-bearing stream chunk, and the widget validates both history and live messages with the same schema. Older messages may omit `activityDurationMs` and render the duration-free `Thought process` label.
+The dependency-free stream-profile schema rejects unknown/private fields. Live and replayed terminal chunks carry the same folded usage and activity duration. Completed assistant persistence replaces arbitrary metadata with that safe object; the history read edge omits empty metadata and degrades invalid metadata before transport. The scrub edge validates every metadata-bearing stream chunk, and the widget validates both history and live messages with the same schema. Older messages may omit `activityDurationMs` and render the duration-free `Thought process` label.
 
 ### `data-*` parts
 

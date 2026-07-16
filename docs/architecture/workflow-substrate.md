@@ -1,7 +1,7 @@
 # Workflow Substrate
 
 Read this when: you change durable execution, Workflow bundles, replay, cancellation, world selection, or Workflow-owned maintenance in `apps/side-chat-service`.
-Source of truth for: the replacement service's Workflow ownership, bundle and realm boundaries, journal authority, world selection, and cancellation contract.
+Source of truth for: the service's Workflow ownership, bundle and realm boundaries, journal authority, world selection, and cancellation contract.
 Not source of truth for: the ordered product turn lifecycle ([assistant-turn.md](assistant-turn.md)), client-tool policy ([client-tools.md](client-tools.md)), or tool approvals ([tool-approvals.md](tool-approvals.md)).
 
 `apps/side-chat-service` uses Workflow DevKit with Postgres World as its durable

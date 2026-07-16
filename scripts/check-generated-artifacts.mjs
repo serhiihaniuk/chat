@@ -7,7 +7,7 @@ const errors = [];
 
 // A file may claim to be generated only when a real generator produces it.
 // Register artifacts here as `path -> generator command`; hand-maintained files
-// (e.g. packages/chat-protocol/src/sidechat-v1.schema.json, the OpenAPI spec)
+// (for example, a hand-maintained JSON contract or OpenAPI spec)
 // must NOT be named *.generated.* — their honesty contract is a parity test or
 // an update-in-same-change rule declared in their own header.
 const REGISTERED_GENERATORS = new Map([]);

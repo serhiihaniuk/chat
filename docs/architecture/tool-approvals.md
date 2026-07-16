@@ -1,6 +1,6 @@
 # Tool Approvals
 
-Read this when: you add an approval policy, change the approval card or endpoint, execute an approved server tool, or test approval durability in the replacement stack.
+Read this when: you add an approval policy, change the approval card or endpoint, execute an approved server tool, or test approval durability.
 Source of truth for: the durable server-tool approval lifecycle, decision authority, hook resumption, timeout behavior, and approval security invariants.
 Not source of truth for: client tools ([client-tools.md](client-tools.md)), the general turn lifecycle ([assistant-turn.md](assistant-turn.md)), or Workflow realm boundaries ([workflow-substrate.md](workflow-substrate.md)).
 

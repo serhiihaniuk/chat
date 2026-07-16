@@ -236,19 +236,15 @@ export const usageRecords = sidechat.table(
   ],
 );
 
-export const {
-  toolInvocations,
-  clientToolDispatches,
-  toolApprovals,
-  conversationTitleRuns,
-} = defineInteractionTables({
-  sidechat,
-  assistantTurns,
-  conversations,
-  workspaceIdColumn,
-  createdAt,
-  inList,
-});
+export const { toolInvocations, clientToolDispatches, toolApprovals, conversationTitleRuns } =
+  defineInteractionTables({
+    sidechat,
+    assistantTurns,
+    conversations,
+    workspaceIdColumn,
+    createdAt,
+    inList,
+  });
 
 export const auditEvents = sidechat.table(
   "audit_events",

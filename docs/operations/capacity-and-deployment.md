@@ -1,6 +1,6 @@
 # Capacity And Deployment
 
-Read this when: you are sizing, scaling, or operating the replacement Side Chat service.
+Read this when: you are sizing, scaling, or operating the Side Chat service.
 Source of truth for: admission limits, Workflow worker and Postgres pool alignment, and replica-level capacity.
 Not source of truth for: individual config declarations ([configuration.md](configuration.md)), database lifecycle and retention ([database.md](database.md)), or turn ordering ([../architecture/assistant-turn.md](../architecture/assistant-turn.md)).
 
@@ -13,7 +13,7 @@ Side Chat combines two distinct controls:
 
 Do not add a second durable lease or retry system around Workflow. A process-local admission reservation remains held until its durable turn reaches a terminal outcome. Workflow may release its own worker slot while that turn is suspended.
 
-The default replacement settings are:
+The default settings are:
 
 | Setting                      |  Default | Meaning                                                       |
 | ---------------------------- | -------: | ------------------------------------------------------------- |
@@ -65,6 +65,8 @@ Workflow journal data and product conversation data are durable Postgres state. 
 The production artifact uses Nitro's `node_middleware` output behind a repository-owned Node listener. This is intentional: the pinned stock Node preset starts listener closure as soon as it receives a signal, before application admission can stop and drain. The owned listener instead makes readiness false, rejects new turns, waits up to `capacity.drainBudgetMs`, closes SSE streams and the listener, stops the Workflow world, and closes product resources with database pools last.
 
 Use rolling deploys with readiness removal before termination. Keep workflow function shapes replay-compatible while old runs can resume on the new artifact. When a tool or workflow meaning changes, publish a new name instead of changing the behavior behind an in-flight durable history.
+
+Run the service under a supervisor that restarts non-zero process exits. The Postgres Workflow world uses process termination as a queue-redelivery signal for bounded replay recovery; an orchestrator must replace that process for the durable run to continue.
 
 ## Verify
 

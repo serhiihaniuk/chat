@@ -14,15 +14,10 @@ const CUTOFF = new Date("2026-02-01T00:00:00.000Z");
 describe.skipIf(!configuredDatabaseUrl)("Postgres Workflow journal maintenance", () => {
   const inspectionPool = new Pool({ connectionString: databaseUrl });
 
-  beforeEach(async () => {
-    await inspectionPool.query(
-      `truncate workflow.workflow_events, workflow.workflow_hooks,
-                workflow.workflow_steps, workflow.workflow_waits,
-                workflow.workflow_stream_chunks, workflow.workflow_runs`,
-    );
-  });
+  beforeEach(() => clearWorkflowJournal(inspectionPool));
 
   afterAll(async () => {
+    await clearWorkflowJournal(inspectionPool);
     await inspectionPool.end();
   });
 
@@ -217,6 +212,14 @@ describe.skipIf(!configuredDatabaseUrl)("Postgres Workflow journal maintenance",
     }
   });
 });
+
+async function clearWorkflowJournal(pool: Pool): Promise<void> {
+  await pool.query(
+    `truncate workflow.workflow_events, workflow.workflow_hooks,
+              workflow.workflow_steps, workflow.workflow_waits,
+              workflow.workflow_stream_chunks, workflow.workflow_runs`,
+  );
+}
 
 type SeedOptions = Readonly<{
   legalHold?: boolean;

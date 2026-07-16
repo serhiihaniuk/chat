@@ -295,6 +295,9 @@ describe("useWorkflowWidgetChat", () => {
     expect(chat.current?.approvalDecisions).toMatchObject({
       "approval-1": "approved",
     });
+    await waitFor(() =>
+      JSON.stringify(chat.current?.messages).includes('"state":"approval-requested"'),
+    );
     const renderedMessages = JSON.stringify(chat.current?.messages);
     expect(renderedMessages).toContain('"type":"tool-needs_access"');
     expect(renderedMessages).toContain('"state":"approval-requested"');

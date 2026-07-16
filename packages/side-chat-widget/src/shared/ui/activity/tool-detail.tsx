@@ -5,7 +5,7 @@
  *
  * Collapsed it looks exactly like `ToolRow` (status glyph + plain name) with a
  * trailing chevron; expanded it reveals what the call actually did: an optional
- * status line (host commands report `status · resultCode`), the input payload,
+ * status line (client tools report `status · resultCode`), the input payload,
  * the result payload, and a distinct error line for failures. Rows without any
  * detail keep using the non-interactive `ToolRow`; this component only renders
  * when there is something to disclose.
@@ -25,7 +25,7 @@ import { ToolGlyph, type ToolState } from "#shared/ui/tool-row";
 export type ToolDetail = {
   readonly input?: Readonly<Record<string, unknown>> | undefined;
   readonly result?: Readonly<Record<string, unknown>> | undefined;
-  /** Host commands: `status · resultCode` once the host resolved the command. */
+  /** Client tools: `status · resultCode` once the host resolved the invocation. */
   readonly statusLine?: string | undefined;
   readonly errorCode?: string | undefined;
 };

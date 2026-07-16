@@ -1,99 +1,61 @@
-# Package Boundaries
+# Package boundaries
 
-Read this when: a change adds an import, a dependency, or a network call that crosses a package, protocol, runtime, or persistence seam.
-Source of truth for: which package may import what, the data hand-offs between layers, and which gate script enforces each rule.
-Not source of truth for: the turn lifecycle ([assistant-turn.md](./assistant-turn.md)), package roles and entry files ([system-map.md](./system-map.md)), event vocabularies ([runtime-and-protocol-events.md](./runtime-and-protocol-events.md)), or how to add a tool/provider/guard ([extension-seams.md](./extension-seams.md)).
+Read this when: adding imports, moving code, or deciding where a contract belongs.
 
-Side Chat keeps four layers with dependencies pointing inward: Browser (`side-chat-widget`, `host-bridge`) -> Service (`apps/partner-ai-service`) -> Core (`partner-ai-core`) -> Runtime (`agent-runtime`). Two contract packages cross the seams: `chat-protocol` (browser <-> service) and `ai-runtime-contract` (core <-> runtime). Each layer owns a narrow set of dependencies; a provider SDK, `pg`, or `hono` reaching the wrong layer is a boundary break.
+Source of truth for: dependency direction and representation changes between current packages.
 
-These rules are not conventions you must remember. Fifteen scripts under `scripts/check-*.mjs` parse every import and fail CI on a violation, so the build catches the mistake before review. Run them with `npm run lint:custom`; see [verification.md](../operations/verification.md) for all gate commands, and [ADR 0013](../adr/0013-governance-harness.md) for why governance is executable rather than conventional.
+## Dependency table
 
-## Boundary matrix
+| Owner                       | May depend on                                                                                                          | Must not absorb                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `apps/side-chat-service`    | `db`, `stream-profile`, `shared`, Hono, AI SDK/provider adapters, Workflow DevKit, Postgres World                      | React rendering, widget state, host-page behavior                        |
+| `packages/db`               | `shared`, Drizzle, `pg`                                                                                                | HTTP, providers, Workflow orchestration, browser DTOs, product policy    |
+| `packages/stream-profile`   | TypeScript primitives only                                                                                             | React, HTTP frameworks, providers, Workflow, database code               |
+| `packages/side-chat-widget` | `host-bridge`, `stream-profile`, `shared`, React, browser-safe AI SDK/Workflow transport, TanStack Query, UI libraries | Hono, PostgreSQL, provider SDKs, service internals, Workflow server APIs |
+| `packages/host-bridge`      | `shared`                                                                                                               | React, Hono, providers, Workflow, database code, widget internals        |
+| `packages/shared`           | TypeScript primitives only                                                                                             | Product, framework, provider, Workflow, or persistence policy            |
 
-Each row lists what a package may import, what it must never import, and the script that enforces the deny list. `@side-chat/*` names use the short form. Allow sets come from `check-dependency-policy.mjs:13-114`; deny regexes from `check-boundaries.mjs:15-90`; ownership rules from `check-runtime-boundaries.mjs:21-50`.
+## Service dependency law
 
-| Layer / package                                 | May import                                                                                                             | Must NOT import                                                                                                                                                | Enforced by                                                               |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `chat-protocol` (browser<->service contract)    | `shared`, TS primitives                                                                                                | react, react-dom, hono, ai, `@ai-sdk/*`, pg, drizzle-orm, effect, every other `@side-chat/*`                                                                   | `check-boundaries`, `check-dependency-policy`                             |
-| `ai-runtime-contract` (core<->runtime contract) | `shared`, effect                                                                                                       | hono, react, pg, drizzle-orm, ai/`@ai-sdk/*`, `partner-ai-core`, `agent-runtime`, `chat-protocol`, widget, db                                                  | `check-boundaries`, `check-dependency-policy`                             |
-| `agent-runtime` (runtime impl)                  | `ai-runtime-contract`, `shared`, effect, ai, `@ai-sdk/*`                                                               | hono, react, pg, drizzle-orm, `chat-protocol`, widget, db                                                                                                      | `check-boundaries`, `check-runtime-boundaries`, `check-dependency-policy` |
-| `partner-ai-core` (core workflow)               | `ai-runtime-contract`, `chat-protocol`, `shared`, effect                                                               | hono, react, pg, drizzle-orm, ai/`@ai-sdk/*`, `agent-runtime`, widget, db                                                                                      | `check-boundaries`, `check-dependency-policy`                             |
-| `apps/partner-ai-service` (composition root)    | core, agent-runtime, both contracts, db, shared, hono, effect, `@effect/platform-node`                                 | `side-chat-widget`                                                                                                                                             | `check-boundaries`, `check-dependency-policy`                             |
-| `apps/side-chat-service` (v7 greenfield wing)   | AI SDK, Workflow, Hono, Web streams, `chat-protocol`, `db`, `stream-profile`, and its package-private hexagonal layers | Effect or Effect-shaped ports; application importing outer layers; adapter coupling; Workflow physics hidden outside `workflows`; production importing doubles | `check-side-chat-service-architecture`, `check-dependency-policy`         |
-| `side-chat-widget` (widget/UI)                  | `chat-protocol`, `host-bridge`, `shared`, react, react-dom, `@tanstack/react-query`, `@base-ui/react`, UI libs         | hono, effect, pg, drizzle-orm, `@ai-sdk/*`, shadcn, `partner-ai-core`, `agent-runtime`, `ai-runtime-contract`, db                                              | `check-boundaries`, `check-widget-layers`, `check-dependency-policy`      |
-| `host-bridge` (browser host seam)               | `chat-protocol`, `shared`                                                                                              | react, react-dom, hono, pg, drizzle-orm, ai/`@ai-sdk/*`, the three inner packages, widget, db                                                                  | `check-boundaries`, `check-dependency-policy`                             |
-| `db` (persistence)                              | `shared`, drizzle-orm, pg, drizzle-kit, effect, `@types/pg`                                                            | react, hono, ai/`@ai-sdk/*`, `partner-ai-core`, `agent-runtime`, `ai-runtime-contract`, `chat-protocol`, widget                                                | `check-boundaries`, `check-runtime-boundaries`, `check-dependency-policy` |
-| `shared` (primitives)                           | TS-only deps (allow set empty)                                                                                         | every product, provider, db, hono, or react dependency                                                                                                         | `check-dependency-policy`                                                 |
+Inside `apps/side-chat-service`, dependencies point toward application/domain ownership:
 
-### Single-owner dependencies
+- `domain` imports no application, adapter, composition, config, Workflow, or test modules.
+- `application` imports domain and application-owned ports, never adapters or composition.
+- `adapters` implement application ports and translate external representations.
+- `composition` selects concrete adapters and owns resource lifetime.
+- `workflows` own Workflow directives and durable mechanics; HTTP and application modules do not import Workflow server APIs directly.
+- production composition never imports scripted models or testing-only Workflow entries.
 
-Three runtime dependency families and one ambient API have explicitly bounded homes. `check-runtime-boundaries.mjs:21-50` fails any other layer that touches them:
+Use `#application/*`, `#adapters/*`, `#composition/*`, `#config/*`, `#domain/*`, and `#workflows/*` subpaths. Do not reach across service source folders with long relative imports.
 
-- `hono` / `@hono/node-server` -> service applications only.
-- `pg` / `drizzle-orm` -> only `db`.
-- `ai` / provider `@ai-sdk/*` -> `agent-runtime` in the legacy stack and `apps/side-chat-service` in the replacement stack. The widget's quarantined browser slices may import only the approved browser AI SDK packages and the bare `ai` package.
-- `process.env` -> only the active service's configuration subsystem (`apps/partner-ai-service/src/config/` or `apps/side-chat-service/src/config/`) and `*.test.ts`. Everything else receives resolved settings.
+## Representation boundaries
 
-Inside `apps/side-chat-service`, durable Workflow code may import
-`stream-profile` only as the zero-dependency contract for persisted native
-UI-message metadata. This keeps terminal status, safe public error codes, finish
-reasons, and usage metadata identical between live finish chunks and durable
-history without importing a widget or an outer adapter.
+Representations change once at the boundary that owns the conversion:
 
-### Cross-cutting import rules
+- Untrusted HTTP JSON becomes application input in `adapters/http`.
+- Browser host context becomes bounded domain reference data at the request schema.
+- The raw client-tool capability becomes a digest at the HTTP edge; the raw value never enters Workflow or PostgreSQL.
+- Provider configuration becomes an AI SDK model inside the Workflow step realm; credentials and provider closures are never journaled.
+- Raw Workflow model parts become public `UIMessageChunk` values at the Workflow/HTTP stream edge.
+- The scrub transform narrows errors and metadata once before SSE encoding.
+- Product repository records become application/domain projections in service persistence adapters.
+- Native `UIMessage` values become widget-owned visible message and activity state in the widget session reducer.
 
-These apply to every `*/src/` file, on top of the per-package deny lists:
+## Infrastructure ownership
 
-- No relative import that crosses a package; import the package name instead (`check-boundaries.mjs:121-132`).
-- No relative import that crosses a top-level `src/<folder>` in the same package; use the `#<folder>/...` subpath (`check-boundaries.mjs:134-150`).
-- Outbound network (`fetch`, `new WebSocket`, `new EventSource`) only in `apps/partner-ai-service/src/outbound/`, `packages/agent-runtime/src/adapters/`, or `side-chat-widget/src/shared/ai/prompt-input.tsx` (`check-outbound-rules.mjs:12-22`).
+- `process.env` is read only by the service configuration/environment boundary and process boot code.
+- `pg` and `drizzle-orm` stay in `packages/db`.
+- Hono stays in service HTTP/composition code.
+- Provider SDKs stay in service provider adapters and their Workflow-realm reconstruction path.
+- Server-side `workflow` APIs stay in `src/workflows` and `src/composition/workflow`.
+- Browser-safe `@ai-sdk/workflow` transport and `ai` stream helpers stay in the widget's `workflow-chat` slices.
 
-## Data hand-offs
+## Public browser contracts
 
-Data changes shape at each seam so no layer leaks another's types. The widget never sees a RuntimeEvent or a Drizzle row; the runtime never sees a protocol DTO. For the event vocabularies themselves, see [runtime-and-protocol-events.md](./runtime-and-protocol-events.md).
+There is no repository-owned custom chat event protocol. The chat wire is AI SDK UI message stream `v1`, profiled by `@side-chat/stream-profile`. The only separate SSE vocabulary is the small subject activity feed owned by the service and validated by the widget.
 
-- Hono request objects -> `StreamChatInput` at the HTTP boundary.
-- Core assembles policy, trusted context, and history into final `AiRuntimeRequest.messages` before the runtime port.
-- AI SDK stream parts -> provider-neutral `RuntimeEvent`s inside `agent-runtime`.
-- `RuntimeEvent`s -> browser-safe `sidechat.v1` events in `partner-ai-core`.
-- Drizzle/Postgres rows stay behind repository adapters in `db`.
-- Postgres World journal rows stay behind `db` maintenance. The service scheduler supplies retention policy and archival; the adapter owns pinned-schema validation, eligibility joins, advisory locking, and transactional deletion.
-- Widget message and activity state derives only from `sidechat.v1` events and host-bridge messages.
+Public widget customization receives widget-owned types such as `SideChatActivityItem`; it must not expose AI SDK provider parts, Workflow records, database rows, or service errors.
 
-## Gate-script catalog
+## Enforcement
 
-`scripts/run-custom-lints.mjs` runs these fifteen checks in order. Italicized checks guard imports and dependencies; the rest guard code shape, versions, generated files, and docs. `check-human-readability.mjs` is a docs gate, not an import check.
-
-| Check (`scripts/...`)                        | Rule it enforces                                                                                                                                                                                                                                                                                                                                                        |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `check-version-pins.mjs`                     | Non-`@side-chat` deps pin exact versions; `@side-chat/*` deps pin `0.0.0`; named tool/runtime versions match; `package-lock.json` exists (`:82-110`).                                                                                                                                                                                                                   |
-| _`check-dependency-policy.mjs`_              | Each package's `package.json` deps must sit in a closed allow set; `shadcn`/`@repo/shadcn-ui` banned everywhere; an unknown dep or a package with no policy entry fails (`:13-133`).                                                                                                                                                                                    |
-| `check-unused-dependencies.mjs`              | Every declared dependency must appear in that package's source text, minus an explicit ignore list (`:92-100`).                                                                                                                                                                                                                                                         |
-| `check-package-exports.mjs`                  | Each package is `@side-chat`-scoped, `version 0.0.0`, `private`, `type: module`, with `exports["."]`, `types`, a `typecheck` script, and a root `tsconfig` project reference (`:19-31`).                                                                                                                                                                                |
-| _`check-boundaries.mjs`_                     | Per-package forbidden-import lists, no boundary-crossing relative imports (cross-package or cross-`src`-folder) — the matrix above.                                                                                                                                                                                                                                     |
-| _`check-side-chat-service-architecture.mjs`_ | The v7 service follows its normative dependency law and physical overlay: application stays inward, adapters do not couple to other implementations, Workflow directives and engine imports stay in `workflows`/composition, and production composition cannot resolve testing doubles.                                                                                 |
-| _`check-widget-layers.mjs`_                  | Widget FSD: import only downward through `app > widgets > features > entities > shared`; no cross-slice; `shared` imports no product package; no removed `application/assets/domain/ui` folders; public `index.ts` exports only the widget (`:16-68`).                                                                                                                  |
-| _`check-runtime-boundaries.mjs`_             | Single owners: `process.env` -> config adapter; `pg`/`drizzle-orm` -> `db`; `hono` -> service; `ai`/`@ai-sdk/*` -> `agent-runtime` (widget `shared/ai` quarantine excepted) (`:21-50`).                                                                                                                                                                                 |
-| _`check-outbound-rules.mjs`_                 | `fetch`/`WebSocket`/`EventSource` only in the approved outbound and provider-adapter folders (`:12-22`).                                                                                                                                                                                                                                                                |
-| `check-undefined-optional-contracts.mjs`     | Bans `optionalField(`, `\|\| undefined` coercion, conditional empty-object shapes, and untyped `kind`-probing of repositories (use typed `adapterKind`) (`:36-76`).                                                                                                                                                                                                     |
-| `check-code-shape.mjs`                       | TS-AST budgets: cognitive complexity <=12, <=8 nested functions, <=28 functions/file, <=5 source files/dir; `.test-support.` files live under `src/testing/**` (`:8-12`).                                                                                                                                                                                               |
-| `check-source-governance.mjs`                | Strict `tsconfig` flags; workspace tsconfigs `composite`; tests colocated under `src`; no tracked `dist`/`build`/`coverage`; source line budgets; repository-authored TS/TSX ban on type assertions, non-null/definite-assignment assertions, explicit `any`, and unchecked TypeScript suppressions (`as const` remains allowed; ignored Fumadocs output is generated). |
-| `check-human-readability.mjs`                | Docs gate: required canonical docs exist and banned "truth" docs do not; every durable doc carries the `Read this when / Source of truth for / Not source of truth for` header; paragraph density caps (<=620 chars, <=105 words); READMEs own no vocabulary table (`:11-43`).                                                                                          |
-| `check-generated-artifacts.mjs`              | Expected generated artifacts exist; every `*.generated.*` file declares `Generated from:` in its header (`:7-30`).                                                                                                                                                                                                                                                      |
-| `check-governance-fixtures.mjs`              | Meta: each check fails on a crafted bad fixture, and every `check-*.mjs` is wired into `run-custom-lints.mjs`, so a forgotten check fails CI (`:269-284`).                                                                                                                                                                                                              |
-
-## Common mistakes the gates catch
-
-Each row is a real break the lints reject, with the fix and the script that flags it:
-
-| Mistake                                                                    | Fix                                                                       | Caught by                               |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------- |
-| Relative import into another package (`../../chat-protocol/src/...`)       | Import the package name                                                   | `check-boundaries.mjs:121-132`          |
-| Relative import across a `src/<folder>` in one package                     | Use the `#<folder>/...` subpath                                           | `check-boundaries.mjs:134-150`          |
-| Reading `process.env` in core or runtime                                   | Inject config through a port from the service config adapter              | `check-runtime-boundaries.mjs:23-28`    |
-| `pg`/`drizzle-orm`/`hono`/`@ai-sdk/*` imported in the wrong layer          | Keep each behind its single owner                                         | `check-runtime-boundaries.mjs:30-50`    |
-| `fetch`/`WebSocket`/`EventSource` outside an approved folder               | Move the call into `src/outbound/` or a provider adapter                  | `check-outbound-rules.mjs:12-22`        |
-| Widget importing `partner-ai-core`, `agent-runtime`, or a contract package | Consume `sidechat.v1` via `chat-protocol` instead                         | `check-boundaries.mjs:69-79`            |
-| Widget `shared` layer importing a product `@side-chat/*` package           | Move the dependency up to a feature or entity slice                       | `check-widget-layers.mjs:58-60`         |
-| Adding a dependency not in a package's allow set                           | Add it to that package's set in `check-dependency-policy.mjs`, or drop it | `check-dependency-policy.mjs:124-131`   |
-| A new `check-*.mjs` not added to the orchestrator                          | Add it to the list in `run-custom-lints.mjs`                              | `check-governance-fixtures.mjs:269-284` |
+Run `npm run lint:custom` after boundary changes. The custom gates check service architecture, Workflow directive placement, production/testing isolation, package imports, widget layers, and documentation paths. Run `npm run typecheck` and focused tests before treating a new seam as valid.

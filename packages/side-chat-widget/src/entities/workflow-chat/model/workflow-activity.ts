@@ -1,24 +1,19 @@
 import { isRecord } from "@side-chat/shared";
+import {
+  TURN_ACTIVITY_EVENT_TYPE,
+  TURN_ACTIVITY_SYNC_EVENT_TYPE,
+  type TurnActivityEvent,
+  type TurnActivityStreamEvent,
+  type TurnActivitySyncEvent,
+} from "@side-chat/stream-profile";
 
-export const TURN_ACTIVITY_EVENT_TYPE = "sidechat.turn-activity" as const;
-export const TURN_ACTIVITY_SYNC_EVENT_TYPE = "sidechat.turn-activity-sync" as const;
-
-export type TurnActivitySyncEvent = Readonly<{
-  type: typeof TURN_ACTIVITY_SYNC_EVENT_TYPE;
-  activeTurns: readonly Readonly<{
-    conversationId: string;
-    assistantTurnId: string;
-  }>[];
-}>;
-
-export type TurnActivityEvent = Readonly<{
-  type: typeof TURN_ACTIVITY_EVENT_TYPE;
-  conversationId: string;
-  assistantTurnId: string;
-  status: string;
-}>;
-
-export type TurnActivityStreamEvent = TurnActivitySyncEvent | TurnActivityEvent;
+export {
+  TURN_ACTIVITY_EVENT_TYPE,
+  TURN_ACTIVITY_SYNC_EVENT_TYPE,
+  type TurnActivityEvent,
+  type TurnActivityStreamEvent,
+  type TurnActivitySyncEvent,
+};
 
 export const isRunningActivity = (event: TurnActivityEvent): boolean => event.status === "running";
 

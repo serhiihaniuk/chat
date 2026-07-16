@@ -1,5 +1,7 @@
 # AI SDK 7 Native Rewrite Program
 
+Status: completed on 2026-07-16. This directory is the historical execution record; current architecture and operations live in [`docs/`](../../docs/README.md), and completion evidence lives in [`STATUS.md`](./STATUS.md).
+
 Read this when: planning, implementing, reviewing, or resuming the SDK-native rewrite.
 
 Source of truth for: the rewrite target, step order, shared rules, execution-substrate gate, and handoff protocol.

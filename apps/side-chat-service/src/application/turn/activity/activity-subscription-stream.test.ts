@@ -38,14 +38,14 @@ describe("createActivitySubscriptionStream", () => {
 
     await expect(reader.read()).resolves.toMatchObject({
       value: {
-        type: "sidechat.turn-activity-sync",
+        kind: "snapshot",
         activeTurns: [
           { conversationId: "conversation-snapshot", assistantTurnId: "turn-snapshot" },
         ],
       },
     });
     await expect(reader.read()).resolves.toMatchObject({
-      value: { conversationId: "conversation-live", status: "terminal" },
+      value: { kind: "transition", conversationId: "conversation-live", status: "terminal" },
     });
     await reader.cancel();
     await dispatcher.shutdown();
@@ -63,7 +63,7 @@ describe("createActivitySubscriptionStream", () => {
 
     await expect(reader.read()).resolves.toEqual({
       done: false,
-      value: { type: "sidechat.turn-activity-sync", activeTurns: [] },
+      value: { kind: "snapshot", activeTurns: [] },
     });
     await reader.cancel();
     await dispatcher.shutdown();
@@ -84,6 +84,7 @@ describe("createActivitySubscriptionStream", () => {
 
     await expect(reader.read()).resolves.toMatchObject({
       value: {
+        kind: "transition",
         conversationId: "conversation-1",
         assistantTurnId: "turn-1",
         status: "terminal",

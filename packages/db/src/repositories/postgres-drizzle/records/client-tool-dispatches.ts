@@ -17,7 +17,7 @@ type ClientToolDispatchRepository = Pick<
   | "submitClientToolOutput"
 >;
 
-/** Durable coordination for browser-executed tools, isolated from legacy host commands. */
+/** Durable coordination for browser-executed tools. */
 export const createPostgresDrizzleClientToolDispatchRepository = ({
   db,
   ids,

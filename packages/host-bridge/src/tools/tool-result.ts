@@ -42,8 +42,7 @@ export const createToolResult = (toolCall: HostToolCall, input: ToolResultInput)
 export const createUnsupportedToolResult = (
   toolCall: HostToolCall,
   resultCode = "unsupported_tool",
-): HostToolResult =>
-  createToolResult(toolCall, { status: "unsupported", resultCode });
+): HostToolResult => createToolResult(toolCall, { status: "unsupported", resultCode });
 
 export const createFailedToolResult = (
   toolCall: HostToolCall,

@@ -85,4 +85,4 @@ pending entry with the fiber; the lease reaper terminalizes the turn. The
 silent pause makes SSE heartbeats necessary so proxies and client watchdogs do
 not kill a healthy stream. Mechanics, wiring, and the
 failure-mode table live in
-[host-commands.md](../architecture/host-commands.md).
+[client-tools.md](../architecture/client-tools.md).

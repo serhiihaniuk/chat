@@ -24,7 +24,6 @@ describe("workflow chat import boundary", () => {
 
     expect(source).not.toMatch(/from ["']node:/u);
     expect(source).not.toMatch(/from ["']effect["']/u);
-    expect(source).not.toContain("@side-chat/chat-protocol");
     expect(source).not.toContain("@ai-sdk/react");
     expect(source).not.toMatch(/@ai-sdk\/(?:anthropic|azure|google|openai|provider)/u);
     for (const removedModule of removedLegacyModules) {

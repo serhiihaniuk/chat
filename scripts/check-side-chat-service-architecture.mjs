@@ -36,7 +36,6 @@ const allowedApplicationDependencies = new Set([
   // The application port carries the Workflow-serializable AI SDK model type.
   // Concrete provider packages remain adapter-private.
   "@ai-sdk/provider",
-  "@side-chat/chat-protocol",
   "@side-chat/shared",
   "@side-chat/stream-profile",
 ]);

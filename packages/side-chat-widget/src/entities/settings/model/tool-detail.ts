@@ -1,4 +1,4 @@
-// How much of each tool / host-command call the activity timeline shows. A
+// How much of each tool call the activity timeline shows. A
 // user-facing setting (Settings → General), persisted per browser: "hidden"
 // drops tool rows from the timeline entirely (reasoning thoughts stay),
 // "name" shows the compact glyph + name row with nothing to expand, and

@@ -29,9 +29,9 @@ The widget (`packages/side-chat-widget`) is iframe-embedded, Effect-free and
 provider-free by gate, FSD-structured with a locked entry, split between
 TanStack Query reads and the store/reducer live path, merge-free by design,
 and themed through scoped tokens with light themes only. Host integration
-(context in, host commands out) crosses the frame via the postMessage bridge
-pattern ([host-commands.md](../architecture/host-commands.md) "Embedding via
-iframe"); the bridge contract itself stays transport-agnostic.
+crosses the frame via the postMessage bridge pattern. The current boundary is
+documented in [widget-and-host-integration.md](../architecture/widget-and-host-integration.md);
+the bridge contract itself stays transport-agnostic.
 
 ## Alternatives rejected
 

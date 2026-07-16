@@ -5,9 +5,7 @@ export const WIDGET_HARNESS_OPEN_CONTROLS = {
 } as const;
 export type WidgetHarnessOpenControl =
   (typeof WIDGET_HARNESS_OPEN_CONTROLS)[keyof typeof WIDGET_HARNESS_OPEN_CONTROLS];
-export type WidgetHarnessScenario =
-  | "default"
-  | "failed-host-tool";
+export type WidgetHarnessScenario = "default" | "failed-host-tool";
 
 export type WidgetHarnessConfig = {
   readonly mode: WidgetHarnessMode;

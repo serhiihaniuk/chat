@@ -39,10 +39,7 @@ export const supportsTool = (capabilities: HostCapabilities, toolCall: HostToolC
       capability.toolName === toolCall.toolName && supportsResourceType(capability, toolCall.input),
   );
 
-function supportsResourceType(
-  capability: BrowserToolCapability,
-  input: JsonObject,
-): boolean {
+function supportsResourceType(capability: BrowserToolCapability, input: JsonObject): boolean {
   const resourceTypes = capability.resourceTypes;
   if (!resourceTypes || resourceTypes.length === 0) return true;
   const resourceType = input["resourceType"];

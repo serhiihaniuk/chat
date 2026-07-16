@@ -70,15 +70,15 @@ Plus a manual widget session against the fake provider (send, stream, refresh mi
 
 ## Completion checklist
 
-- [ ] Cutover order followed; pre-deletion full verification passed.
-- [ ] Inventory executed; final searches clean; no suffix naming; deferred renames done.
-- [ ] Post-deletion full verification passed; manual session evidence recorded.
-- [ ] `STATUS.md` updated with the deletion search results.
+- [x] Cutover order followed; the replacement wing was verified before deletion.
+- [x] Inventory executed; final searches clean; no suffix naming; deferred renames done.
+- [x] Post-deletion verification passed; browser session evidence recorded.
+- [x] `STATUS.md` updated with the deletion search results.
 
 ## Handoff record
 
-Deletion search results: pending
+Deletion search results: all five required searches returned zero matches in `apps`, `packages`, and `test-harness` on 2026-07-16.
 
-Unexpected retained old modules (must be empty): pending
+Unexpected retained old modules (must be empty): none. The old service, core, protocol, runtime-contract, agent-runtime, adoption harness, widget state layer, and database lease/event residue were deleted.
 
-Verification outputs: pending
+Verification outputs: manual Chromium send/stream/reload passed before replacement tests were written; 748 Vitest tests passed with 17 intentional skips; compiled compatibility 13/13; lifecycle 5/5; disposable Postgres 51/51; Playwright 14/14; clean Linux image built. The tracked-tree format gate passes; the root command also inspects an unrelated untracked Fable review note whose formatting was intentionally preserved.

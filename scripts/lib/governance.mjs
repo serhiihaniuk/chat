@@ -94,13 +94,6 @@ export function packageArea(file) {
   return parts[0] ?? "";
 }
 
-export function packageNameFromPath(area) {
-  if (area.startsWith("packages/")) return `@side-chat/${area.slice("packages/".length)}`;
-  if (area === "apps/partner-ai-service") return "@side-chat/partner-ai-service";
-  if (area === "test-harness/widget-harness") return "@side-chat/widget-harness";
-  return area;
-}
-
 export function importSpecifiers(source) {
   const specs = [];
   const patterns = [

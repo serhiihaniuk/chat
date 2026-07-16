@@ -1,94 +1,69 @@
 # Requirements
 
-Read this when: you need the final intended product and quality requirements.
-Source of truth for: Side Chat behavior, safety, readability, and adoption
-requirements.
-Not source of truth for: package ownership tables, implementation plans, or
-provider adapter details.
+Read this when: you need the intended product and quality requirements.
+Source of truth for: Side Chat behavior, safety, durability, readability, and adoption requirements.
+Not source of truth for: package ownership, implementation plans, or provider-specific details.
 
-## Functional Requirements
+## Product behavior
 
-- Side Chat provides an embeddable assistant foundation for ordinary web apps.
-- A host app can embed the widget, expose governed context and commands, and
-  receive a stable streamed assistant experience.
-- The browser sends only `sidechat.v1` request payloads.
-- The service validates auth, method, request body, and allowed scope before a
-  stream is product-started.
-- Invalid setup fails as an HTTP/request error, not a protocol event.
-- A valid request produces a streamed `sidechat.v1` event sequence.
-- Conversations belong to an authorized workspace and optional project.
-- Existing conversations are authorized before use.
-- Each user message starts at most one active assistant turn in the stream path.
-- Terminal success and terminal error are explicit product states.
+- Side Chat is an embeddable assistant foundation for ordinary web applications.
+- A host app can embed the widget, provide governed page context and client tools, and receive a stable streamed assistant experience.
+- The service authenticates and scopes every conversation, turn, stream, cancel, tool result, and approval request by tenant, workspace, and subject.
+- A valid turn produces the native AI SDK UI-message stream profiled by `@side-chat/stream-profile`.
+- Invalid setup fails as a safe HTTP error before the public stream starts.
+- Each `requestId` starts at most one durable turn and Workflow run; exact retries reuse it.
+- Conversations expose one authoritative product snapshot. Live stream state reconciles into durable history after terminal.
+- Success, failure, cancellation, timeout, and content filtering remain distinguishable terminal outcomes.
 
-## Tool, Context, And Runtime Requirements
+## Tools, context, and execution
 
-- Tool availability is decided by product policy/profile before runtime
-  execution.
-- Runtime tools are app-owned backend capabilities injected into agent runtime.
-- Declared tools are not executable unless a matching RuntimeTool is registered.
-- The alpha exposes no approval-enforcing mode. A team must implement a durable
-  approval workflow before exposing a mutating tool that requires human approval.
-- Host commands are browser/host-app interactions and stay separate from backend
-  runtime tools.
-- Product core owns context gathering, squashing, redaction, authorization,
-  prepared context, manifests, and persistence timing.
-- Agent runtime receives only prepared context and renders it for the model.
-- Provider-native context, provider stream parts, and raw provider errors never
-  cross into browser packages.
-- Development tools such as `mock_web_search` fail closed in production
-  profiles.
+- Workflow DevKit owns durable execution, waits, replay journal, queueing, and crash recovery.
+- AI SDK 7 owns model streaming and native text, reasoning, source, file, tool, approval, and terminal parts.
+- Server tools execute inside the service and are selected from a closed configured registry.
+- Server tools that require human approval suspend on a durable approval hook before execution.
+- Client tools execute only in the originating browser tab under high-entropy capability authority; passive watchers cannot invoke them.
+- Client-tool and approval outputs bind to one owned durable wait and resume it at most once.
+- Optional host context is validated, bounded, and rendered as untrusted user-provided reference material. It never becomes identity, authorization, or system instructions.
+- Provider SDK values, prompts, private context, raw errors, Workflow records, and database rows never cross into browser packages.
 
-## Quality Requirements
+## Durability and capacity
 
-- Code must be readable by a lower-context human maintainer.
-- Changed spine functions should read top-down through named lifecycle stages.
-- Avoid inside-out Effect, Stream, Promise, JSX, and callback expressions.
-- Keep ordinary changed functions near cognitive complexity 7 when practical.
-- Keep Effect, Stream, AI SDK, protocol, and React state/effect functions near
-  5-6 when practical.
-- Docs have one job each and link to canonical docs instead of repeating
-  architecture locally.
-- Package READMEs are local cards, not global vocabulary dumps.
+- New turns acquire bounded per-process admission before any durable product write.
+- Overload returns `503` with retry guidance and leaves no message, turn, Workflow run, or tool authority residue.
+- Exact replays bypass new admission and attach to the existing durable run.
+- Every admitted turn reaches one durable terminal product state, including after cancellation, timeout, or process restart.
+- Product terminal projection and its activity notification commit atomically.
+- Workflow journal retention skips active runs and legal holds and is safe under concurrent maintenance.
 
-## Security And Privacy Requirements
+## Security and privacy
 
-- Request authority is checked before persistence, private context, or runtime
-  execution.
-- Secrets are not committed or copied into docs.
-- Host context and admitted context are authorized and redacted before the model
-  sees them.
-- Redaction happens before sensitive fields are logged.
-- Browser-facing source/citation data is protocol-safe.
-- Expected server/core/runtime failures use typed errors.
+- Request authority is checked before persistence, private context, replay, cancellation, or tool output is exposed.
+- Secrets are not committed, copied into docs, serialized into Workflow input, logged, or sent to the browser.
+- Raw client-tool capabilities stay in the originating tab; only their digest may enter durable authority records.
+- Public errors use a closed, content-free vocabulary. Raw provider, database, prompt, and tool errors stay private.
+- Activity notifications contain identity/lifecycle data only, never conversation content or tool payloads.
+- Untrusted input is validated at its owning HTTP, host-bridge, stream-profile, or database boundary.
 
-## Protocol And Terminal Requirements
+## Quality and architecture
 
-- `sidechat.v1` is a product contract.
-- Protocol event strings come from centralized constants.
-- SSE encode/decode and sequence behavior are covered by tests.
-- Pre-start failures reject request setup.
-- Post-start failures emit exactly one terminal `sidechat.error`; a safety stop
-  emits exactly one terminal `sidechat.blocked` instead.
-- Successful streams emit exactly one `sidechat.completed`.
-- Abort/cancel paths must not be reported as successful completion.
+- Code is readable by a lower-context human maintainer and follows named, top-down lifecycle stages.
+- Keep policy, execution, persistence, transport, projection, rendering, and error mapping in their owning layers.
+- Browser packages remain free of Node-only modules, database clients, Workflow internals, and provider SDK DTOs.
+- Hono and provider execution stay in the service; PostgreSQL/Drizzle stay in `@side-chat/db`.
+- Public wire additions use native AI SDK parts first; a Side Chat `data-*` part requires a schema, consumer, and privacy review.
+- Docs have one owner per topic and describe current code, not implementation history.
+- Widget controls and terminal/tool/approval states remain keyboard and screen-reader accessible.
 
-## Adoption And Extension Requirements
+## Adoption
 
-- Adopters can find where to add a tool, guard, agent executor, host command,
-  policy rule, or observability sink quickly.
-- The repo does not ship a production host app.
-- Resource endpoints remain separate from the stream endpoint.
-- Model choices are constrained by service configuration and product policy.
-- Usage data is protocol-safe and does not expose provider-native payloads.
-- Widget controls remain keyboard and screen-reader accessible.
-- Activity, error, and terminal states are visible to users.
-- Copied visual primitives under `shared/ai/**` are not a style source for
-  project-owned behavior.
+- Adopters can find where to configure models, add server/client tools, provide host context, add telemetry, and customize rendering.
+- Model and reasoning choices are constrained to the authenticated service catalog.
+- The repository ships a local widget harness, not a first-party production host application.
+- Copied visual primitives under `packages/side-chat-widget/src/shared/ai/**` are quarantined and are not a style or architecture source.
 
-## Out Of Scope
+## Out of scope
 
-- A first-party production host app.
-- Provider-native browser protocol.
-- Production deployment runbooks before a real deployment exists.
-- Multi-agent workflows as a raw model-callable tool.
+- A first-party production host application.
+- Provider-native browser contracts.
+- Raw model-callable multi-agent orchestration.
+- Production deployment guidance for infrastructure that has not been selected.

@@ -1,73 +1,46 @@
-# Side Chat Documentation
+# Side Chat documentation
 
-Read this when: you need to find the right Side Chat doc and know what it owns.
-Source of truth for: the documentation map, reading paths, and per-doc ownership.
-Not source of truth for: any domain term, lifecycle, boundary, or command (each links below).
+Read this when: you need the durable source of truth for the current Side Chat system.
 
-Side Chat is an adoptable AI assistant starter: a team clones or forks this
-repository, embeds the widget in its host app, and owns the resulting code. The
-host keeps its business UI, auth, data, and permissions. This page is an index,
-not a chapter. Pick a reading path by your skill level, then follow the ownership
-table to the doc that owns each topic.
+Source of truth for: documentation ownership and the shortest path to the right document.
 
-## Reading paths
+Side Chat has one production architecture: `apps/side-chat-service` runs AI SDK 7 on Workflow DevKit/Postgres World, `packages/side-chat-widget` consumes the native UI message stream, and PostgreSQL stores product state through `packages/db`.
 
-**New here** — get the mental model before the code:
+## Start here
 
-- [apps/docs](../apps/docs) rendered Walkthrough: a plain-English, example-first tour of how a message becomes a streamed answer.
-- [architecture/system-map.md](architecture/system-map.md): the whole system on one page — product identity, package roles, first files.
+| Need                                          | Document                                                                                     |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Product terms                                 | [domain/vocabulary.md](domain/vocabulary.md)                                                 |
+| Components and entry points                   | [architecture/system-map.md](architecture/system-map.md)                                     |
+| Import and data boundaries                    | [architecture/package-boundaries.md](architecture/package-boundaries.md)                     |
+| Ordered turn lifecycle                        | [architecture/assistant-turn.md](architecture/assistant-turn.md)                             |
+| Workflow bundles, realms, hooks, and journals | [architecture/workflow-substrate.md](architecture/workflow-substrate.md)                     |
+| Native stream and activity events             | [architecture/runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md)   |
+| Public UI message stream profile              | [architecture/stream-profile.md](architecture/stream-profile.md)                             |
+| Client tools and originating-tab authority    | [architecture/client-tools.md](architecture/client-tools.md)                                 |
+| Server-tool approval                          | [architecture/tool-approvals.md](architecture/tool-approvals.md)                             |
+| Crash recovery and effective turn activity    | [architecture/turn-terminal-reconciliation.md](architecture/turn-terminal-reconciliation.md) |
+| Widget and host integration                   | [architecture/widget-and-host-integration.md](architecture/widget-and-host-integration.md)   |
+| Supported extension points                    | [architecture/extension-seams.md](architecture/extension-seams.md)                           |
 
-**Working in the code** — change a package, lifecycle, or boundary:
+## Operations
 
-- [architecture/](architecture/): system map, [assistant-turn.md](architecture/assistant-turn.md), [workflow-substrate.md](architecture/workflow-substrate.md), [client-tools.md](architecture/client-tools.md), [tool-approvals.md](architecture/tool-approvals.md), [turn-terminal-reconciliation.md](architecture/turn-terminal-reconciliation.md), [runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md), [package-boundaries.md](architecture/package-boundaries.md), [widget-and-host-integration.md](architecture/widget-and-host-integration.md), [extension-seams.md](architecture/extension-seams.md), [host-commands.md](architecture/host-commands.md), [effect.md](architecture/effect.md).
-- [domain/vocabulary.md](domain/vocabulary.md): canonical terms and the synonyms to avoid.
+| Need                                                | Document                                                                       |
+| --------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Local service and widget development                | [operations/local-development.md](operations/local-development.md)             |
+| Configuration and environment references            | [operations/configuration.md](operations/configuration.md)                     |
+| Admission, worker sizing, and deployment            | [operations/capacity-and-deployment.md](operations/capacity-and-deployment.md) |
+| Product schema, migrations, and journal maintenance | [operations/database.md](operations/database.md)                               |
+| Telemetry and privacy                               | [operations/telemetry.md](operations/telemetry.md)                             |
+| Verification commands and what they prove           | [operations/verification.md](operations/verification.md)                       |
+| Iframe embedding                                    | [operations/embed-widget-iframe.md](operations/embed-widget-iframe.md)         |
 
-**Adopting or operating** — turn the starter into your team's application:
+## Documentation ownership
 
-- [operations/](operations/): [verification.md](operations/verification.md), [local-development.md](operations/local-development.md), [configuration.md](operations/configuration.md), [telemetry.md](operations/telemetry.md), [capacity-and-deployment.md](operations/capacity-and-deployment.md), [database.md](operations/database.md), [embed-widget-iframe.md](operations/embed-widget-iframe.md).
-- [architecture/extension-seams.md](architecture/extension-seams.md): the seams for tools, guards, executors, observability, and host commands.
-- [architecture/host-commands.md](architecture/host-commands.md): the end-to-end walkthrough for adding a host-side tool (host command), with a runnable example.
+- Architecture documents describe the current system, not migration history or target plans.
+- Operations documents own commands, configuration, deployment, and database procedures.
+- Package READMEs own only local public surfaces and package-specific boundaries.
+- ADRs preserve decision history. When an ADR describes a removed architecture, its historical status does not make that architecture current.
+- `plan/` tracks delivery work and is never the source of truth for shipped behavior.
 
-## Durable docs
-
-Each file below owns its topic. Link to it; never re-derive its content elsewhere.
-
-| File                                                                                         | Owns                                                                              |
-| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| [domain/vocabulary.md](domain/vocabulary.md)                                                 | Canonical terms and names to avoid.                                               |
-| [architecture/system-map.md](architecture/system-map.md)                                     | Product identity, package roles, first files.                                     |
-| [architecture/assistant-turn.md](architecture/assistant-turn.md)                             | The assistant-turn lifecycle and its order.                                       |
-| [architecture/workflow-substrate.md](architecture/workflow-substrate.md)                     | Replacement Workflow ownership, realms, journal, world, and cancellation.         |
-| [architecture/client-tools.md](architecture/client-tools.md)                                 | Durable browser-executed tool dispatch and result lifecycle.                      |
-| [architecture/tool-approvals.md](architecture/tool-approvals.md)                             | Durable server-tool approval decisions and execution gate.                        |
-| [architecture/turn-terminal-reconciliation.md](architecture/turn-terminal-reconciliation.md) | How joined Workflow activity, product fencing, and guarded repair handle crashes. |
-| [architecture/runtime-and-protocol-events.md](architecture/runtime-and-protocol-events.md)   | The three event vocabularies and the streaming transport.                         |
-| [architecture/package-boundaries.md](architecture/package-boundaries.md)                     | Import and data boundaries; common boundary mistakes.                             |
-| [architecture/widget-and-host-integration.md](architecture/widget-and-host-integration.md)   | Widget layers, host bridge, copied UI quarantine.                                 |
-| [architecture/extension-seams.md](architecture/extension-seams.md)                           | Adoption seams and contract locations.                                            |
-| [architecture/host-commands.md](architecture/host-commands.md)                               | Declaring, handling, and testing a host command end to end.                       |
-| [architecture/effect.md](architecture/effect.md)                                             | Where Effect lives, what each role must know, house style, traps.                 |
-| [architecture/runtime-port.md](architecture/runtime-port.md)                                 | The `AiRuntimePort` contract, integration levels, remote-engine adapter pattern.  |
-| [operations/verification.md](operations/verification.md)                                     | Gate commands and what each proves.                                               |
-| [operations/local-development.md](operations/local-development.md)                           | Running the service and harnesses locally.                                        |
-| [operations/configuration.md](operations/configuration.md)                                   | The typed `sidechat.config.ts` and its tunables.                                  |
-| [operations/telemetry.md](operations/telemetry.md)                                           | Signal meanings, bounded labels, privacy, and exporter posture.                   |
-| [operations/capacity-and-deployment.md](operations/capacity-and-deployment.md)               | Instance model, SSE budgets, and what grows forever.                              |
-| [operations/database.md](operations/database.md)                                             | Schema tooling, migrations, and role grants.                                      |
-| [operations/embed-widget-iframe.md](operations/embed-widget-iframe.md)                       | Embedding the widget in a host page via iframe.                                   |
-| [product/requirements.md](product/requirements.md)                                           | Functional, quality, safety, and adoption requirements.                           |
-| [product/todo.md](product/todo.md)                                                           | Deferred product work, kept out of active config.                                 |
-| [adr/](adr/)                                                                                 | Accepted architecture decisions and their rationale.                              |
-
-Package READMEs are local orientation cards: each links here for shared
-vocabulary, lifecycle, and boundaries, and never owns global terms.
-
-## Rendered site
-
-[apps/docs](../apps/docs) renders the docs as a site (`npm run dev` on port 4111)
-with sections for the Design System (live widget components), System Design
-(architecture and the turn model), the Walkthrough (the example-first tour), and
-the Vocabulary. Start newcomers on the Walkthrough. The rendered System Design
-and Walkthrough follow the same connection-bound streaming model as these
-canonical docs: live events stay in the owning instance's registry, while
-terminal status and history are durable.
+When code and a canonical document disagree, verify the code and update the owning document in the same coherent change.

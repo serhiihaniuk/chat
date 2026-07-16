@@ -22,7 +22,6 @@ for (const file of listSourceFiles(root)) {
   if (
     source.includes("process.env") &&
     !file.endsWith(".test.ts") &&
-    !file.startsWith("apps/partner-ai-service/src/config/") &&
     !file.startsWith("apps/side-chat-service/src/config/")
   ) {
     errors.push(`${file}: production source reads process.env outside a config adapter`);
@@ -34,15 +33,13 @@ for (const file of listSourceFiles(root)) {
 
   if (
     imports.some((name) => name === "hono" || name === "@hono/node-server") &&
-    area !== "apps/partner-ai-service" &&
     area !== "apps/side-chat-service"
   ) {
-    errors.push(`${file}: HTTP framework imports are owned by apps/partner-ai-service`);
+    errors.push(`${file}: HTTP framework imports are owned by apps/side-chat-service`);
   }
 
   if (
     imports.some((name) => name === "ai" || name?.startsWith("@ai-sdk/")) &&
-    area !== "packages/agent-runtime" &&
     area !== "apps/side-chat-service" &&
     !isWidgetWorkflowPath(file) &&
     !(
@@ -50,7 +47,7 @@ for (const file of listSourceFiles(root)) {
       file.startsWith("packages/side-chat-widget/src/shared/ai/")
     )
   ) {
-    errors.push(`${file}: AI SDK imports are owned by packages/agent-runtime`);
+    errors.push(`${file}: AI SDK imports are owned by apps/side-chat-service`);
   }
 }
 

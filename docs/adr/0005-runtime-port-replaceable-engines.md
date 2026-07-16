@@ -66,7 +66,7 @@ Integration needs are answered at the **smallest sufficient level**, in order:
   A thin TypeScript adapter can front a **remote engine in any language** (a
   Python/LangGraph service, a hosted agent API), translating its wire events
   into `RuntimeEvent`s. The product does not know or care. Mechanics for
-  levels 0 and 3: [runtime-port.md](../architecture/runtime-port.md).
+  levels 0 and 3. The current architecture is documented in [system-map.md](../architecture/system-map.md).
 
 ## Alternatives rejected
 
