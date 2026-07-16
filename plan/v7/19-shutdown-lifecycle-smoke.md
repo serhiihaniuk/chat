@@ -78,6 +78,6 @@ Wire the smoke into `docs/operations/verification.md` (what it proves, when to r
 
 Shutdown coordinator module: `apps/side-chat-service/src/composition/lifecycle/process/shutdown-coordinator.ts`
 
-Smoke output + measured rows/turn: `npm run test:service:lifecycle` passed the five-case persistent lifecycle suite and the 13-case compiled compatibility suite. The final disposable database held four assistant turns, five messages, and no legacy context-snapshot rows.
+Smoke output + measured rows/turn: `npm run test:service:lifecycle` passed the five-case persistent lifecycle suite and the 13-case compiled compatibility suite. The final disposable database held four assistant turns, six messages (including the partial assistant output persisted across the proved mid-provider crash), and no legacy context-snapshot rows.
 
 Stage-timeout observations: the never-resolving provider exhausted the 150 ms test drain budget, recorded `drain: timed_out`, completed streams/server/world/resources, and exited successfully within the six-second assertion window. Idle, double-signal, crash-resume, and bad-database paths also terminated themselves.

@@ -68,6 +68,14 @@ Use rolling deploys with readiness removal before termination. Keep workflow fun
 
 Run the service under a supervisor that restarts non-zero process exits. The Postgres Workflow world uses process termination as a queue-redelivery signal for bounded replay recovery; an orchestrator must replace that process for the durable run to continue.
 
+An inline step owned by the crashed queue delivery resumes only after Workflow's
+ownership lease permits a different delivery to recover it. With the pinned SDK,
+`WORKFLOW_INLINE_OWNERSHIP_LEASE_SECONDS` defaults to 860 seconds. Keep the lease
+longer than the longest live invocation to prevent duplicate execution; the same
+value is therefore also the upper bound on recovery delay after an ungraceful
+process death. The disposable lifecycle smoke shortens this lease only after it
+has proved the owning process was killed.
+
 ## Verify
 
 Run the focused capacity and configuration checks before the broader service gate:

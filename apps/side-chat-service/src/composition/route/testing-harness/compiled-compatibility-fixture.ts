@@ -6,7 +6,10 @@ import { isRecord } from "@side-chat/shared";
 import { BUNDLED_CONFIG_NAMES } from "#config/declaration/bundled-config-catalog";
 import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
 import { serviceProcessEnv } from "#config/environment/process-environment";
-import { PROVIDER_OBSERVATION_PREFIX } from "#testing/scripted-language-model";
+import {
+  PROVIDER_OBSERVATION_PREFIX,
+  readProviderObservations,
+} from "#testing/scripted-language-model";
 
 export { isRecord };
 
@@ -182,16 +185,7 @@ export class CompiledCompatibilityFixture {
 
   /** Scans captured service stdout for the scripted provider's observation lines. */
   private readObservations(requestId: string, event: string): Array<Record<string, unknown>> {
-    const observations: Array<Record<string, unknown>> = [];
-    for (const line of this.output().split("\n")) {
-      const markerIndex = line.indexOf(PROVIDER_OBSERVATION_PREFIX);
-      if (markerIndex < 0) continue;
-      const parsed = tryParseJson(line.slice(markerIndex + PROVIDER_OBSERVATION_PREFIX.length));
-      if (isRecord(parsed) && parsed["requestId"] === requestId && parsed["event"] === event) {
-        observations.push(parsed);
-      }
-    }
-    return observations;
+    return readProviderObservations(this.output(), requestId, event);
   }
 
   private output(): string {
@@ -220,15 +214,6 @@ function hasSettledRequest(state: Record<string, unknown>, requestId: string): b
   const messages = state["messages"];
   if (!Array.isArray(messages) || isRecord(state["activeTurn"])) return false;
   return messages.some((message) => isRecord(message) && message["id"] === `user-${requestId}`);
-}
-
-function tryParseJson(source: string): unknown {
-  try {
-    const parsed: unknown = JSON.parse(source);
-    return parsed;
-  } catch {
-    return undefined;
-  }
 }
 
 function delay(milliseconds: number): Promise<void> {

@@ -11,13 +11,18 @@ import {
 import { BUNDLED_CONFIG_NAMES } from "#config/declaration/bundled-config-catalog";
 import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
 import { serviceProcessEnv } from "#config/environment/process-environment";
-import { PROVIDER_OBSERVATION_PREFIX } from "#testing/scripted-language-model";
+import {
+  PROVIDER_OBSERVATION_EVENT,
+  PROVIDER_OBSERVATION_PREFIX,
+  readProviderObservations,
+} from "#testing/scripted-language-model";
 
 const DATABASE_URL = process.env["SIDECHAT_TEST_DATABASE_URL"];
 const HAS_DATABASE = DATABASE_URL !== undefined;
 const AUTHORIZATION = { authorization: "Bearer local-test-token" } as const;
 const HTTP_TIMEOUT_MS = 30_000;
 const TEST_DRAIN_BUDGET_MS = 150;
+const WORKFLOW_INLINE_OWNERSHIP_LEASE_ENV_KEY = "WORKFLOW_INLINE_OWNERSHIP_LEASE_SECONDS";
 
 let build: PreparedCompiledService | undefined;
 let databaseProbe: ReturnType<typeof createClientToolDurabilityProbe> | undefined;
@@ -56,7 +61,7 @@ describe
       console.log("Lifecycle smoke: blocking turn started");
       await cancelWhenReady(service, cancelId, cancelledRunId);
       console.log("Lifecycle smoke: cancellation acknowledged");
-      await waitForSettledConversation(service, cancelId);
+      await waitForSettledConversation(service, cancelId, cancelledRunId);
       console.log("Lifecycle smoke: cancellation durable");
       await cancelled.body?.cancel().catch(() => undefined);
 
@@ -74,11 +79,13 @@ describe
 
     it("hard-crashes mid-stream, resumes after restart, and reconnects to the terminal", async () => {
       const conversationId = uniqueId("crash-resume");
+      const requestId = uniqueId("block");
       await requireProbe().seedConversation(conversationId);
       const first = await startService();
-      const response = await startTurn(first, conversationId, "block");
+      const response = await startTurn(first, conversationId, "block", requestId);
       const runId = requireRunId(response);
       const reader = response.body?.getReader();
+      await waitForProviderObservation(first, requestId, PROVIDER_OBSERVATION_EVENT.STREAMING);
       await reader?.read();
       console.log("Lifecycle smoke: crash stream produced output");
       await first.crash();
@@ -94,7 +101,7 @@ describe
       expect(replay.status).toBe(200);
       await cancelWhenReady(second, conversationId, runId);
       console.log("Lifecycle smoke: recovered cancellation acknowledged");
-      await waitForSettledConversation(second, conversationId);
+      await waitForSettledConversation(second, conversationId, runId);
       console.log("Lifecycle smoke: recovered cancellation durable");
       expect(await requireProbe().waitForWorkflowRunTerminal(runId)).toBe("completed");
       expect(await replay.text()).toContain('"type":"finish"');
@@ -136,7 +143,7 @@ describe
     it("records the final persistent row shape after all process boundaries", async () => {
       const counts = await requireProbe().measureLifecycleRows();
       expect(counts).toMatchObject({ assistantTurns: 4, contextSnapshots: 0 });
-      expect(counts.messages).toBe(5);
+      expect(counts.messages).toBe(6);
       console.log("Lifecycle row measurement", counts);
     });
   });
@@ -149,6 +156,10 @@ function serviceOptions(databaseUrl: string): CompiledServiceOptions {
       [SERVICE_ENV_KEYS.WORKFLOW_POSTGRES_URL]: databaseUrl,
       [SERVICE_ENV_KEYS.WORKFLOW_TARGET_WORLD]: "@workflow/world-postgres",
       [SERVICE_ENV_KEYS.SIDECHAT_DRAIN_BUDGET_MS]: String(TEST_DRAIN_BUDGET_MS),
+      // The fake provider is bounded to two seconds; a one-second ownership
+      // lease lets this disposable process-crash proof observe the SDK's
+      // delayed backstop recovery without waiting for the production default.
+      [WORKFLOW_INLINE_OWNERSHIP_LEASE_ENV_KEY]: "1",
     },
     configName: BUNDLED_CONFIG_NAMES.FAKE,
     configNameEnvKey: SERVICE_ENV_KEYS.CONFIG_NAME,
@@ -182,8 +193,8 @@ function startTurn(
   service: CompiledService,
   conversationId: string,
   mode: "block" | "complete",
+  requestId = uniqueId(mode),
 ): Promise<Response> {
-  const requestId = uniqueId(mode);
   return fetch(`${service.baseUrl}/api/chat`, {
     method: "POST",
     headers: { ...AUTHORIZATION, "content-type": "application/json", "x-request-id": requestId },
@@ -203,9 +214,23 @@ function startTurn(
   });
 }
 
+async function waitForProviderObservation(
+  service: CompiledService,
+  requestId: string,
+  event: string,
+): Promise<void> {
+  const deadline = Date.now() + HTTP_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (readProviderObservations(service.output(), requestId, event).length > 0) return;
+    await delay(50);
+  }
+  throw new Error(`Provider never reported "${event}" for ${requestId}:\n${service.output()}`);
+}
+
 async function waitForSettledConversation(
   service: CompiledService,
   conversationId: string,
+  runId?: string,
 ): Promise<void> {
   const deadline = Date.now() + HTTP_TIMEOUT_MS;
   let lastState: unknown;
@@ -221,8 +246,10 @@ async function waitForSettledConversation(
     }
     await delay(50);
   }
+  const workflow =
+    runId === undefined ? undefined : await requireProbe().describeWorkflowRun(runId);
   throw new Error(
-    `Cancelled turn did not reach durable terminal state. Last state: ${JSON.stringify(lastState)}\nService output:\n${service.output()}`,
+    `Cancelled turn did not reach durable terminal state. Last state: ${JSON.stringify(lastState)}\nWorkflow: ${JSON.stringify(workflow)}\nService output:\n${service.output()}`,
   );
 }
 

@@ -13,6 +13,13 @@ import { createPostgresDrizzleSidechatRepositories } from "#repositories/postgre
 const TEST_WORKSPACE_ID = "local-workspace";
 const TEST_SUBJECT_ID = "local-workspace:subject";
 
+type WorkflowRunDescription = Readonly<{
+  hooks: readonly Readonly<{ isSystem: boolean; token: string }>[];
+  status: string | undefined;
+  steps: readonly Readonly<{ name: string; status: string }>[];
+  streams: readonly Readonly<{ bytes: number; name: string }>[];
+}>;
+
 /** DB-owned observation seam for the compiled service restart proof. */
 export function createClientToolDurabilityProbe(connectionString: string) {
   const repositories = createPostgresDrizzleSidechatRepositories({
@@ -111,9 +118,52 @@ export function createClientToolDurabilityProbe(connectionString: string) {
       }
       throw new Error("Workflow run did not reach a terminal status");
     },
+    describeWorkflowRun: describeWorkflowRun.bind(undefined, observationPool),
     async close(): Promise<void> {
       await Promise.all([repositories.close(), observationPool.end()]);
     },
+  };
+}
+
+async function describeWorkflowRun(
+  observationPool: Pool,
+  runId: string,
+): Promise<WorkflowRunDescription> {
+  const [run, hooks, steps, streams] = await Promise.all([
+    observationPool.query<{ status: string }>(
+      `select status::text as status
+         from workflow.workflow_runs
+        where id = $1`,
+      [runId],
+    ),
+    observationPool.query<{ is_system: boolean; token: string }>(
+      `select is_system, token
+         from workflow.workflow_hooks
+        where run_id = $1
+        order by created_at`,
+      [runId],
+    ),
+    observationPool.query<{ status: string; step_name: string }>(
+      `select status::text as status, step_name
+         from workflow.workflow_steps
+        where run_id = $1
+        order by created_at`,
+      [runId],
+    ),
+    observationPool.query<{ bytes: number; stream_id: string }>(
+      `select sum(octet_length(data))::int as bytes, stream_id
+         from workflow.workflow_stream_chunks
+        where run_id = $1
+        group by stream_id
+        order by stream_id`,
+      [runId],
+    ),
+  ]);
+  return {
+    status: run.rows[0]?.status,
+    hooks: hooks.rows.map(({ is_system: isSystem, token }) => ({ isSystem, token })),
+    steps: steps.rows.map(({ status, step_name: name }) => ({ name, status })),
+    streams: streams.rows.map(({ bytes, stream_id: name }) => ({ bytes, name })),
   };
 }
 

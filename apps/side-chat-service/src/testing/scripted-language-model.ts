@@ -34,6 +34,7 @@ export {
 export {
   PROVIDER_OBSERVATION_EVENT,
   PROVIDER_OBSERVATION_PREFIX,
+  readProviderObservations,
 } from "./scripted-provider-observations.js";
 
 interface SerializedScriptedModel {
