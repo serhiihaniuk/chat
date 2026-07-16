@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClientToolDurabilityProbe } from "@side-chat/db/testing/client-tool-durability-test-support";
 
+import { HTTP_HEADERS } from "#adapters/http/http-contract";
 import {
   prepareCompiledService,
   type CompiledService,
@@ -15,6 +16,7 @@ import {
 } from "#testing/scripted-language-model";
 
 const AUTHORIZATION = { authorization: "Bearer local-test-token" } as const;
+const CLIENT_TOOL_CAPABILITY = "a".repeat(64);
 const PRIVATE_TOOL_OUTPUT = CLIENT_TOOL_PRIVATE_RESULT_MARKER;
 const HAS_DATABASE = process.env["SIDECHAT_TEST_DATABASE_URL"] !== undefined;
 const HTTP_TIMEOUT_MS = 30_000;
@@ -65,6 +67,7 @@ describe.skipIf(!HAS_DATABASE)("client-tool durability", { timeout: 180_000 }, (
     await requireDatabaseProbe().waitForWorkflowHook(`tool:${runId}:${toolCallId}`);
     await started.body?.cancel();
     stoppedServiceOutput = requireService(firstService).output();
+    await firstService?.crash();
     await firstService?.close();
     firstService = undefined;
     secondService = await requireBuild().start();
@@ -139,6 +142,7 @@ function startClientToolTurn(service: CompiledService, requestId: string): Promi
       ...AUTHORIZATION,
       "content-type": "application/json",
       "x-request-id": requestId,
+      [HTTP_HEADERS.CLIENT_TOOL_CAPABILITY]: CLIENT_TOOL_CAPABILITY,
     },
     body: JSON.stringify({
       requestId,
@@ -179,7 +183,11 @@ async function submitWhenReady(
       `${service.baseUrl}/api/chat/${runId}/tools/${toolCallId}/output`,
       {
         method: "POST",
-        headers: { ...AUTHORIZATION, "content-type": "application/json" },
+        headers: {
+          ...AUTHORIZATION,
+          "content-type": "application/json",
+          [HTTP_HEADERS.CLIENT_TOOL_CAPABILITY]: CLIENT_TOOL_CAPABILITY,
+        },
         body: JSON.stringify({ output: { content: PRIVATE_TOOL_OUTPUT } }),
         signal: AbortSignal.timeout(5_000),
       },

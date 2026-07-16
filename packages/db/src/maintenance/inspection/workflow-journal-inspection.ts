@@ -20,7 +20,7 @@ export async function readOldestNonterminalRun(
   if (Number.isNaN(now.getTime())) throw new RangeError("now must be a valid Date.");
   const result = await queryable.query<OldestNonterminalRunRow>(
     `select coalesce(started_at, created_at) as started_at,
-            extract(epoch from ($1::timestamptz - coalesce(started_at, created_at))) * 1000
+            extract(epoch from ($1::timestamp - coalesce(started_at, created_at))) * 1000
               as age_ms
        from workflow.workflow_runs
       where status = any($2::workflow.status[])

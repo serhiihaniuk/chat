@@ -105,9 +105,9 @@ describe.skipIf(!databaseUrl)("postgres turn state adapter (integration)", () =>
     expect(history.map((message) => message.role)).toEqual(["user", "assistant"]);
 
     // Once terminal, the conversation admits a new turn again.
-    await expect(
-      state.assertCanBegin(auth, conversationId, `${scope}_next_req`),
-    ).resolves.toBeUndefined();
+    await expect(state.assertCanBegin(auth, conversationId, `${scope}_next_req`)).resolves.toBe(
+      "created",
+    );
   });
 
   it("rejects a second concurrent begin on the same conversation as BUSY", async () => {

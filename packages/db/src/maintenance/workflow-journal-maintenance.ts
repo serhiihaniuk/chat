@@ -1,6 +1,6 @@
 import { Pool, type PoolClient, type PoolConfig, type QueryResultRow } from "pg";
 
-import { PINNED_WORKFLOW_TABLE_NAMES } from "./workflow-journal-schema.js";
+import type { PINNED_WORKFLOW_TABLE_NAMES } from "./workflow-journal-schema.js";
 import {
   readWorkflowJournalSnapshot,
   type WorkflowJournalSnapshot,
