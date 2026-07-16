@@ -1,5 +1,4 @@
 import type { DiagnosticLogger } from "@side-chat/shared";
-import { Stream } from "effect";
 
 import { TURN_ACTIVITY_NOTIFY_CHANNEL } from "#schema-contract";
 import {
@@ -7,7 +6,7 @@ import {
   type TurnActivityNotification,
   type TurnActivityNotificationSource,
 } from "../../notifications/turn-activity-notifications.js";
-import { reconnectingListenStream } from "./reconnecting-listen-source.js";
+import { createReconnectingListenStream } from "./reconnecting-listen-source.js";
 
 /** One self-healing LISTEN connection per service process, scoped by its consumer. */
 export const createPostgresTurnActivityNotificationSource = (
@@ -15,12 +14,10 @@ export const createPostgresTurnActivityNotificationSource = (
   logger?: DiagnosticLogger,
 ): TurnActivityNotificationSource => ({
   openNotifications: () =>
-    Stream.toReadableStream(
-      reconnectingListenStream<TurnActivityNotification>({
-        connectionString,
-        channel: TURN_ACTIVITY_NOTIFY_CHANNEL,
-        parse: parseTurnActivityNotification,
-        logger,
-      }),
-    ),
+    createReconnectingListenStream<TurnActivityNotification>({
+      connectionString,
+      channel: TURN_ACTIVITY_NOTIFY_CHANNEL,
+      parse: parseTurnActivityNotification,
+      logger,
+    }),
 });

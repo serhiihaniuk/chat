@@ -1,8 +1,7 @@
-import { Effect, Fiber, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
-  reconnectingListenStream,
+  createReconnectingListenStream,
   type ListenConnection,
   type ListenConnector,
 } from "./reconnecting-listen-source.js";
@@ -14,7 +13,7 @@ type FakeConnection = {
   ended: boolean;
 };
 
-/** A connector whose connections the test drives by hand to force drops/retries. */
+/** A connector whose connections the test drives to force drops and retries. */
 const createFakeConnector = (): {
   readonly connector: ListenConnector;
   readonly connections: FakeConnection[];
@@ -28,6 +27,7 @@ const createFakeConnector = (): {
       connectFailures -= 1;
       throw new Error("connect failed");
     }
+
     let onNotification: (payload: string | undefined) => void = () => undefined;
     let onError: (error: Error) => void = () => undefined;
     const fake: FakeConnection = {
@@ -64,55 +64,63 @@ const waitFor = async (predicate: () => boolean, timeoutMs = 3000): Promise<void
   throw new Error("waitFor timed out");
 };
 
-const runDraining = (stream: Stream.Stream<string>, sink: string[]) =>
-  Effect.runFork(Stream.runForEach(stream, (value) => Effect.sync(() => void sink.push(value))));
+const drainStream = <A>(stream: ReadableStream<A>, sink: A[]) => {
+  const reader = stream.getReader();
+  const done = (async () => {
+    while (true) {
+      const next = await reader.read();
+      if (next.done) return;
+      sink.push(next.value);
+    }
+  })();
+
+  return {
+    cancel: async (): Promise<void> => {
+      await reader.cancel();
+      await done;
+    },
+  };
+};
+
+const reconnectImmediately = (): number => 0;
 
 describe("reconnecting listen stream", () => {
-  it("re-feeds the rescan on connect, forwards signals, reconnects after a drop", async () => {
+  it("forwards notifications, reconnects after a drop, and closes on cancellation", async () => {
     const fake = createFakeConnector();
-    let rescanCalls = 0;
     const received: string[] = [];
-    const stream = reconnectingListenStream<string>(
+    const stream = createReconnectingListenStream<string>(
       {
         connectionString: "postgres://fake",
         channel: "ch",
         parse: (payload) => payload ?? undefined,
         logger: undefined,
-        onReconnect: () => {
-          rescanCalls += 1;
-          return Promise.resolve([`rescan-${rescanCalls}`]);
-        },
       },
       fake.connector,
+      reconnectImmediately,
     );
-    const fiber = runDraining(stream, received);
+    const draining = drainStream(stream, received);
 
-    // First connect re-feeds the rescan and forwards a live signal.
     await waitFor(() => fake.connections.length === 1);
-    await waitFor(() => received.includes("rescan-1"));
     fake.connections[0]?.emitNotification("live-1");
     await waitFor(() => received.includes("live-1"));
-    expect(received).toEqual(["rescan-1", "live-1"]);
 
-    // A dropped connection is torn down and reconnected; the rescan runs again so a
-    // signal missed during the outage is re-surfaced.
     fake.connections[0]?.emitError(new Error("connection reset"));
     await waitFor(() => fake.connections.length === 2);
-    await waitFor(() => received.includes("rescan-2"));
     expect(fake.connections[0]?.ended).toBe(true);
-    expect(received).toContain("rescan-2");
 
-    // Shutdown interrupts the loop and closes the live connection.
-    await Effect.runPromise(Fiber.interrupt(fiber));
-    await waitFor(() => fake.connections[1]?.ended === true);
+    fake.connections[1]?.emitNotification("live-2");
+    await waitFor(() => received.includes("live-2"));
+    expect(received).toEqual(["live-1", "live-2"]);
+
+    await draining.cancel();
     expect(fake.connections[1]?.ended).toBe(true);
   });
 
-  it("retries a failed initial connect", async () => {
+  it("retries a failed initial connection", async () => {
     const fake = createFakeConnector();
     fake.failNextConnects(1);
     const received: string[] = [];
-    const stream = reconnectingListenStream<string>(
+    const stream = createReconnectingListenStream<string>(
       {
         connectionString: "postgres://fake",
         channel: "ch",
@@ -120,23 +128,23 @@ describe("reconnecting listen stream", () => {
         logger: undefined,
       },
       fake.connector,
+      reconnectImmediately,
     );
-    const fiber = runDraining(stream, received);
+    const draining = drainStream(stream, received);
 
-    // The first connect throws; the retry establishes the second attempt.
     await waitFor(() => fake.connections.length === 1);
     fake.connections[0]?.emitNotification("after-retry");
     await waitFor(() => received.includes("after-retry"));
-    expect(received).toContain("after-retry");
+    expect(received).toEqual(["after-retry"]);
 
-    await Effect.runPromise(Fiber.interrupt(fiber));
+    await draining.cancel();
   });
 
-  it("skips a malformed payload and warns instead of faulting the feed", async () => {
+  it("skips a malformed payload and keeps the feed alive", async () => {
     const warnings: string[] = [];
     const fake = createFakeConnector();
     const received: string[] = [];
-    const stream = reconnectingListenStream<string>(
+    const stream = createReconnectingListenStream<string>(
       {
         connectionString: "postgres://fake",
         channel: "ch",
@@ -149,17 +157,17 @@ describe("reconnecting listen stream", () => {
         },
       },
       fake.connector,
+      reconnectImmediately,
     );
-    const fiber = runDraining(stream, received);
+    const draining = drainStream(stream, received);
 
     await waitFor(() => fake.connections.length === 1);
     fake.connections[0]?.emitNotification("bad");
     await waitFor(() => warnings.includes("malformed notification skipped"));
     fake.connections[0]?.emitNotification("good");
     await waitFor(() => received.includes("good"));
-    expect(warnings).toContain("malformed notification skipped");
     expect(received).toEqual(["good"]);
 
-    await Effect.runPromise(Fiber.interrupt(fiber));
+    await draining.cancel();
   });
 });

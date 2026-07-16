@@ -35,14 +35,7 @@ const allowed = {
   ]),
   "@side-chat/shared": new Set(),
   "@side-chat/stream-profile": new Set(),
-  "@side-chat/db": new Set([
-    "@side-chat/shared",
-    "@types/pg",
-    "drizzle-kit",
-    "drizzle-orm",
-    "effect",
-    "pg",
-  ]),
+  "@side-chat/db": new Set(["@side-chat/shared", "@types/pg", "drizzle-kit", "drizzle-orm", "pg"]),
   "@side-chat/host-bridge": new Set(["@side-chat/shared"]),
   "@side-chat/side-chat-widget": new Set([
     "@ai-sdk/workflow",

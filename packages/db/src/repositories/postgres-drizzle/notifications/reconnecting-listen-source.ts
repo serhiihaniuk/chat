@@ -1,36 +1,24 @@
-import {
-  type Cause,
-  Deferred,
-  Duration,
-  Effect,
-  Queue,
-  Schedule,
-  type Scope,
-  Stream,
-} from "effect";
 import { Client } from "pg";
 import type { DiagnosticLogger } from "@side-chat/shared";
 
+const INITIAL_RECONNECT_DELAY_MS = 200;
+const MAX_RECONNECT_DELAY_MS = 30_000;
+const MIN_JITTER_FACTOR = 0.8;
+const JITTER_FACTOR_RANGE = 0.4;
+
 /**
- * Keep one Postgres `LISTEN` connection alive and reconnect it after a drop.
- *
- * The activity sources share this helper. It handles
- * connection errors, closes the dead connection, and retries with capped,
- * jittered backoff so a database restart does not crash the service.
- *
- * After reconnecting, `onReconnect` can reread durable state. This matters for
- * cancel signals because `NOTIFY` is only a hint and can be missed. The other
- * sources recover through their own snapshot or result-poll paths.
+ * Keep one PostgreSQL `LISTEN` connection alive and expose its notifications as
+ * a native stream. Product snapshots remain authoritative; this adapter only
+ * delivers low-latency invalidations and reconnects after transient failures.
  */
 export type ListenConnection = {
   readonly onNotification: (handler: (payload: string | undefined) => void) => void;
   readonly onError: (handler: (error: Error) => void) => void;
-  /** Issue the `LISTEN` — called after the notification handler is registered. */
   readonly listen: () => Promise<void>;
   readonly end: () => Promise<void>;
 };
 
-/** Open a dedicated connection; the seam that lets tests drive reconnection. */
+/** Open a dedicated connection; tests replace this seam to drive connection failures. */
 export type ListenConnector = (input: {
   readonly connectionString: string;
   readonly channel: string;
@@ -41,43 +29,15 @@ export type ReconnectingListenOptions<A> = {
   readonly channel: string;
   readonly parse: (payload: string | undefined) => A | undefined;
   readonly logger: DiagnosticLogger | undefined;
-  /**
-   * Durable state re-surfaced after each (re)connect. The returned records are
-   * offered as synthetic notifications so a signal missed during the outage is
-   * still honored. Omit it for sources that recover another way.
-   */
-  readonly onReconnect?: (() => Promise<readonly A[]>) | undefined;
 };
 
-/** Why a listen attempt ended: a connect, listen, or post-connect drop. */
 type ListenDrop = { readonly channel: string; readonly reason: string };
+type ReconnectDelay = (attempt: number) => number;
 
-const drop = (channel: string, reason: unknown): ListenDrop => ({
+const describeDrop = (channel: string, reason: unknown): ListenDrop => ({
   channel,
   reason: reason instanceof Error ? reason.message : String(reason),
 });
-
-/** Run the reconnect rescan, swallowing a query failure to keep the listener up. */
-const runRescan = async <A>(options: ReconnectingListenOptions<A>): Promise<readonly A[]> => {
-  try {
-    return options.onReconnect ? await options.onReconnect() : [];
-  } catch (error) {
-    options.logger?.warn("listen rescan failed", { ...drop(options.channel, error) });
-    return [];
-  }
-};
-
-/**
- * Jittered exponential backoff capped at 30s, recurring forever.
- *
- * `either` recurs if either schedule wants to and takes the smaller delay, so the
- * growing exponential is clamped to the constant 30s cap. Jitter spreads
- * reconnect attempts so many instances do not stampede a recovering database.
- */
-const RECONNECT_SCHEDULE = Schedule.exponential(Duration.millis(200), 2).pipe(
-  Schedule.either(Schedule.spaced(Duration.seconds(30))),
-  Schedule.jittered,
-);
 
 const createPgListenConnector =
   (): ListenConnector =>
@@ -92,117 +52,148 @@ const createPgListenConnector =
     };
   };
 
-/**
- * Acquire a dedicated connection, closing it whenever this attempt's scope ends.
- *
- * `acquireRelease` is what guarantees no leak: the connection closes on a drop
- * (so the retry reconnects cleanly) or on scope close (shutdown). A connect
- * failure maps to a drop so the retry loop reconnects.
- */
-const acquireConnection = <A>(
-  options: ReconnectingListenOptions<A>,
-  connect: ListenConnector,
-): Effect.Effect<ListenConnection, ListenDrop, Scope.Scope> =>
-  Effect.acquireRelease(
-    Effect.tryPromise({
-      try: () => connect({ connectionString: options.connectionString, channel: options.channel }),
-      catch: (error) => drop(options.channel, error),
-    }),
-    (open) => Effect.promise(() => open.end()),
-  );
+/** Capped exponential backoff with bounded jitter to spread reconnecting instances. */
+const reconnectDelayMs: ReconnectDelay = (attempt) => {
+  const exponentialDelay = INITIAL_RECONNECT_DELAY_MS * 2 ** attempt;
+  const cappedDelay = Math.min(exponentialDelay, MAX_RECONNECT_DELAY_MS);
+  const jitterFactor = MIN_JITTER_FACTOR + Math.random() * JITTER_FACTOR_RANGE;
+  return Math.round(cappedDelay * jitterFactor);
+};
 
-/** Wire the parsed-signal and drop handlers onto a fresh connection. */
-const registerHandlers = <A>(
+const waitForDelay = (delayMs: number, signal: AbortSignal): Promise<void> =>
+  new Promise((resolve) => {
+    if (signal.aborted || delayMs <= 0) {
+      resolve();
+      return;
+    }
+
+    const finish = (): void => {
+      clearTimeout(timeout);
+      signal.removeEventListener("abort", finish);
+      resolve();
+    };
+    const timeout = setTimeout(finish, delayMs);
+    signal.addEventListener("abort", finish, { once: true });
+  });
+
+const closeConnection = async (
+  connection: ListenConnection,
+  options: ReconnectingListenOptions<unknown>,
+): Promise<void> => {
+  try {
+    await connection.end();
+  } catch (error) {
+    options.logger?.warn("listen connection close failed", {
+      ...describeDrop(options.channel, error),
+    });
+  }
+};
+
+const observeConnection = <A>(
   connection: ListenConnection,
   options: ReconnectingListenOptions<A>,
-  queue: Queue.Queue<A, Cause.Done>,
-  dropped: Deferred.Deferred<never, ListenDrop>,
-): void => {
+  controller: ReadableStreamDefaultController<A>,
+  signal: AbortSignal,
+): { readonly dropped: Promise<ListenDrop | undefined>; readonly dispose: () => void } => {
+  let settle: (result: ListenDrop | undefined) => void = () => undefined;
+  const dropped = new Promise<ListenDrop | undefined>((resolve) => {
+    settle = resolve;
+  });
+  const abort = (): void => settle(undefined);
+
   connection.onError((error) => {
     options.logger?.warn("listen connection error", {
-      channel: options.channel,
-      error: error.message,
+      ...describeDrop(options.channel, error),
     });
-    Deferred.doneUnsafe(dropped, Effect.fail(drop(options.channel, error)));
+    settle(describeDrop(options.channel, error));
   });
   connection.onNotification((payload) => {
-    const parsed = options.parse(payload);
-    if (parsed) Queue.offerUnsafe(queue, parsed);
-    // We publish these payloads ourselves, so a parse failure means corruption
-    // or a version skew — surface it instead of silently dropping the signal.
+    if (signal.aborted) return;
+    const notification = options.parse(payload);
+    if (notification) controller.enqueue(notification);
     else options.logger?.warn("malformed notification skipped", { channel: options.channel });
   });
+  signal.addEventListener("abort", abort, { once: true });
+
+  return {
+    dropped,
+    dispose: () => signal.removeEventListener("abort", abort),
+  };
+};
+
+const runListenAttempt = async <A>(
+  options: ReconnectingListenOptions<A>,
+  connect: ListenConnector,
+  controller: ReadableStreamDefaultController<A>,
+  signal: AbortSignal,
+): Promise<ListenDrop | undefined> => {
+  let connection: ListenConnection | undefined;
+  let disposeObservation = (): void => undefined;
+
+  try {
+    connection = await connect({
+      connectionString: options.connectionString,
+      channel: options.channel,
+    });
+    if (signal.aborted) return undefined;
+
+    const observation = observeConnection(connection, options, controller, signal);
+    disposeObservation = observation.dispose;
+    await connection.listen();
+    options.logger?.info("listen connected", { channel: options.channel });
+    return await observation.dropped;
+  } catch (error) {
+    return signal.aborted ? undefined : describeDrop(options.channel, error);
+  } finally {
+    disposeObservation();
+    if (connection) await closeConnection(connection, options);
+  }
+};
+
+const runReconnectLoop = async <A>(
+  options: ReconnectingListenOptions<A>,
+  connect: ListenConnector,
+  delayForAttempt: ReconnectDelay,
+  controller: ReadableStreamDefaultController<A>,
+  signal: AbortSignal,
+): Promise<void> => {
+  let attempt = 0;
+
+  while (!signal.aborted) {
+    const dropped = await runListenAttempt(options, connect, controller, signal);
+    if (!dropped || signal.aborted) return;
+
+    options.logger?.info("listen reconnecting", dropped);
+    await waitForDelay(delayForAttempt(attempt), signal);
+    attempt += 1;
+  }
 };
 
 /**
- * Hold one connection open until it drops, offering parsed signals as they land.
- *
- * The effect only ever completes by failing with the drop, which is what drives
- * the retry loop to reconnect.
+ * Build the self-healing native notification stream for one `LISTEN` channel.
+ * Cancelling the stream stops retries and closes the live PostgreSQL connection.
  */
-const openUntilDrop = <A>(
-  options: ReconnectingListenOptions<A>,
-  connect: ListenConnector,
-  queue: Queue.Queue<A, Cause.Done>,
-): Effect.Effect<never, ListenDrop, never> =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const connection = yield* acquireConnection(options, connect);
-      const dropped = yield* Deferred.make<never, ListenDrop>();
-      registerHandlers(connection, options, queue, dropped);
-
-      yield* Effect.tryPromise({
-        try: () => connection.listen(),
-        catch: (error) => drop(options.channel, error),
-      });
-      options.logger?.info("listen connected", { channel: options.channel });
-
-      if (options.onReconnect) {
-        // Fail-open: a failed rescan must not tear the freshly-healed connection
-        // down. Log and continue empty — the reaper is the ultimate backstop.
-        const records = yield* Effect.promise(() => runRescan(options));
-        for (const record of records) Queue.offerUnsafe(queue, record);
-      }
-
-      return yield* Deferred.await(dropped);
-    }),
-  );
-
-/**
- * Reconnect forever: on each drop, log and retry with backoff.
- *
- * The schedule never exhausts, so this only stops when the forked fiber is
- * interrupted at shutdown. The durable state plus the reaper remain the backstop
- * if a signal is ever lost between a drop and its reconnect.
- */
-const runReconnectLoop = <A>(
-  options: ReconnectingListenOptions<A>,
-  connect: ListenConnector,
-  queue: Queue.Queue<A, Cause.Done>,
-): Effect.Effect<never, ListenDrop, never> =>
-  openUntilDrop(options, connect, queue).pipe(
-    Effect.tapError((dropped) =>
-      Effect.sync(() =>
-        options.logger?.info("listen reconnecting", {
-          channel: dropped.channel,
-          reason: dropped.reason,
-        }),
-      ),
-    ),
-    Effect.retry(RECONNECT_SCHEDULE),
-  );
-
-/**
- * Build the scoped, self-healing notification stream for one `LISTEN` channel.
- *
- * The reconnect loop is forked onto the stream's scope, so closing the scope
- * (dispatcher shutdown) interrupts it and closes the live connection. `connect` is
- * injectable so tests exercise reconnection and rescan without a real socket.
- */
-export const reconnectingListenStream = <A>(
+export const createReconnectingListenStream = <A>(
   options: ReconnectingListenOptions<A>,
   connect: ListenConnector = createPgListenConnector(),
-): Stream.Stream<A> =>
-  Stream.callback<A>((queue) =>
-    Effect.forkScoped(runReconnectLoop(options, connect, queue)).pipe(Effect.asVoid),
-  );
+  delayForAttempt: ReconnectDelay = reconnectDelayMs,
+): ReadableStream<A> => {
+  const abortController = new AbortController();
+  let reconnectLoop: Promise<void> | undefined;
+
+  return new ReadableStream<A>({
+    start: (controller) => {
+      reconnectLoop = runReconnectLoop(
+        options,
+        connect,
+        delayForAttempt,
+        controller,
+        abortController.signal,
+      );
+    },
+    cancel: () => {
+      abortController.abort();
+      return reconnectLoop;
+    },
+  });
+};

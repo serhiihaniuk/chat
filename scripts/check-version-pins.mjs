@@ -21,7 +21,6 @@ const requiredRoot = {
   "@types/node": "24.12.4",
   tsx: "4.22.3",
   vitest: "4.1.7",
-  "@effect/vitest": "4.0.0-beta.70",
   playwright: "1.60.0",
   oxlint: "1.66.0",
   "oxlint-tsgolint": "0.23.0",

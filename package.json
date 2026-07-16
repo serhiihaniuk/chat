@@ -38,7 +38,6 @@
   },
   "devDependencies": {
     "@ai-sdk/react": "4.0.23",
-    "@effect/vitest": "4.0.0-beta.70",
     "@types/node": "24.12.4",
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
