@@ -11,19 +11,12 @@ export {
 } from "./contract.js";
 export {
   createPostgresDrizzleSidechatRepositories,
-  createPostgresHostCommandResultNotificationSource,
   createPostgresTurnActivityNotificationSource,
   uniqueViolationConstraint,
   type PostgresDrizzleRepositoryOptions,
   type PostgresDrizzleSidechatRepositories,
   type PostgresPoolOptions,
 } from "./postgres-drizzle/index.js";
-export {
-  NOOP_HOST_COMMAND_RESULT_NOTIFICATION_SOURCE,
-  parseHostCommandResultNotification,
-  type HostCommandResultNotification,
-  type HostCommandResultNotificationSource,
-} from "./notifications/host-command-result-notifications.js";
 export {
   NOOP_TURN_ACTIVITY_NOTIFICATION_SOURCE,
   parseTurnActivityNotification,

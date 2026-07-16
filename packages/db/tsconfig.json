@@ -6,11 +6,7 @@
     "outDir": "dist",
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
+  "references": [{ "path": "../shared" }],
   "include": ["src/**/*.ts"],
-  "references": [
-    {
-      "path": "../chat-protocol"
-    }
-  ],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.test-support.ts"]
 }

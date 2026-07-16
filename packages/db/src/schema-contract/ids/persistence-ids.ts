@@ -17,8 +17,6 @@ export type ToolInvocationId = Brand<string, "ToolInvocationId">;
 export type ToolCallId = Brand<string, "ToolCallId">;
 export type ClientToolDispatchId = Brand<string, "ClientToolDispatchId">;
 export type ToolApprovalId = Brand<string, "ToolApprovalId">;
-export type HostCommandResultId = Brand<string, "HostCommandResultId">;
-export type HostCommandId = Brand<string, "HostCommandId">;
 export type AuditEventId = Brand<string, "AuditEventId">;
 export type ModelId = Brand<string, "ModelId">;
 export type ProviderRequestId = Brand<string, "ProviderRequestId">;
@@ -50,10 +48,6 @@ export const toClientToolDispatchId = (value: string): ClientToolDispatchId =>
   brandString<"ClientToolDispatchId">(value);
 export const toToolApprovalId = (value: string): ToolApprovalId =>
   brandString<"ToolApprovalId">(value);
-export const toHostCommandResultId = (value: string): HostCommandResultId =>
-  brandString<"HostCommandResultId">(value);
-export const toHostCommandId = (value: string): HostCommandId =>
-  brandString<"HostCommandId">(value);
 export const toAuditEventId = (value: string): AuditEventId => brandString<"AuditEventId">(value);
 export const toModelId = (value: string): ModelId => brandString<"ModelId">(value);
 export const toProviderRequestId = (value: string): ProviderRequestId =>

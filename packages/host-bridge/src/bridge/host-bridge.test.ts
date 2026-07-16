@@ -1,72 +1,30 @@
-import { SIDECHAT_PROTOCOL_VERSION } from "@side-chat/chat-protocol";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { createHostBridge } from "./bridge.js";
 import {
-  supportsCommand,
-  toHostCommand,
-  type HostCapabilities,
-  type HostCommandActivityEvent,
-} from "#commands/capability";
-import {
-  createCommandResult,
-  createRejectedResult,
-  createUnsupportedResult,
-} from "#commands/command-result";
-import { dispatchSupportedCommand } from "#commands/command-dispatcher";
-import {
+  createHostBridge,
   createStaticHostContextProvider,
-  toProtocolHostContext,
+  type HostCapabilities,
   type HostContextSnapshot,
-} from "#context/host-context";
+  type HostToolCall,
+} from "../index.js";
 
 const capabilities: HostCapabilities = {
   schemaVersion: "host-bridge.capabilities.v1",
-  commands: [
+  tools: [
     {
-      commandName: "open_resource",
+      toolName: "open_resource",
       description: "Open a host resource.",
       inputSchema: { type: "object" },
       resourceTypes: ["document"],
     },
-    {
-      commandName: "highlight_source",
-      description: "Highlight a source.",
-      inputSchema: { type: "object" },
-    },
   ],
 };
-
-const commandEvent = (
-  payload = { resourceType: "document", resourceId: "doc-1" },
-): HostCommandActivityEvent => ({
-  protocolVersion: SIDECHAT_PROTOCOL_VERSION,
-  type: "sidechat.activity",
-  eventId: "evt-command-1",
-  assistantTurnId: "turn-1",
-  sequence: 2,
-  createdAt: "2026-05-23T00:00:02.000Z",
-  activityId: "command-1",
-  activityKind: "host_command",
-  status: "running",
-  title: "Open resource",
-  details: {
-    hostCommand: {
-      commandId: "command-1",
-      commandName: "open_resource",
-      payload,
-    },
-  },
-});
 
 const contextSnapshot: HostContextSnapshot = {
   schemaVersion: "host-context.v1",
   origin: "https://host.example.test",
-  url: "https://host.example.test/docs/doc-1",
   title: "Document",
-  collectedAt: "2026-05-23T00:00:00.000Z",
-  expiresAt: "2026-05-23T00:01:00.000Z",
-  capabilityHash: "capability-hash-1",
+  collectedAt: "2026-07-16T00:00:00.000Z",
   surface: {
     surfaceId: "docs-panel",
     resourceType: "document",
@@ -74,200 +32,70 @@ const contextSnapshot: HostContextSnapshot = {
   },
 };
 
-describe("host bridge capabilities", () => {
-  it("matches supported commands by name and resource type", () => {
-    expect(supportsCommand(capabilities, toHostCommand(commandEvent()))).toBe(true);
-    expect(
-      supportsCommand(
-        capabilities,
-        toHostCommand(commandEvent({ resourceType: "ticket", resourceId: "t-1" })),
-      ),
-    ).toBe(false);
-  });
-
-  it("returns unsupported results before dispatching unsupported commands", async () => {
-    const unsupported = toHostCommand(commandEvent({ resourceType: "ticket", resourceId: "t-1" }));
-    let dispatched = false;
-
-    const result = await dispatchSupportedCommand(
-      {
-        dispatchCommand: () => {
-          dispatched = true;
-          return Promise.resolve(
-            createCommandResult(unsupported, {
-              status: "applied",
-              resultCode: "ok",
-            }),
-          );
-        },
-      },
-      capabilities,
-      unsupported,
-    );
-
-    expect(dispatched).toBe(false);
-    expect(result).toMatchObject({
-      commandId: "command-1",
-      status: "unsupported",
-      resultCode: "unsupported_command",
-    });
-  });
-
-  it("models local command results without a durable backend route", () => {
-    const command = toHostCommand(commandEvent());
-
-    expect(createUnsupportedResult(command)).toMatchObject({
-      status: "unsupported",
-      commandId: "command-1",
-    });
-    expect(createRejectedResult(command, "host_policy_denied")).toMatchObject({
-      status: "rejected",
-      resultCode: "host_policy_denied",
-    });
-  });
+const toolCall = (resourceType: string): HostToolCall => ({
+  toolCallId: "tool-call-1",
+  toolName: "open_resource",
+  input: { resourceType, resourceId: "doc-1" },
 });
 
-describe("host context bridge", () => {
-  it("converts host context snapshots into protocol-safe context", () => {
-    const protocolContext = toProtocolHostContext(contextSnapshot);
-
-    expect(protocolContext).toMatchObject({
-      schemaVersion: "host-context.v1",
-      origin: "https://host.example.test",
-      metadata: {
-        collectedAt: "2026-05-23T00:00:00.000Z",
-        expiresAt: "2026-05-23T00:01:00.000Z",
-        capabilityHash: "capability-hash-1",
-        surface: {
-          surfaceId: "docs-panel",
-          resourceType: "document",
-          resourceId: "doc-1",
-        },
-      },
-    });
-  });
-
-  it("collects context and dispatches commands through the public bridge", async () => {
-    const command = toHostCommand(commandEvent());
+describe("createHostBridge", () => {
+  it("exposes host context independently from client tools", async () => {
     const bridge = createHostBridge({
       contextProvider: createStaticHostContextProvider(contextSnapshot),
-      capabilities,
-      dispatcher: {
-        dispatchCommand: () =>
-          Promise.resolve(
-            createCommandResult(command, {
-              status: "applied",
-              resultCode: "opened",
-              data: { selected: true },
-            }),
-          ),
+    });
+
+    await expect(bridge.getContext?.({ requestId: "request-1" })).resolves.toMatchObject({
+      title: "Document",
+      metadata: {
+        collectedAt: "2026-07-16T00:00:00.000Z",
+        surface: { resourceId: "doc-1" },
       },
     });
-
-    const [context, result] = await Promise.all([
-      bridge.getContext?.({ requestId: "request-1" }),
-      bridge.dispatchCommand?.(commandEvent()),
-    ]);
-
-    expect(context?.metadata?.["collectedAt"]).toBe("2026-05-23T00:00:00.000Z");
-    expect(result).toMatchObject({
-      status: "applied",
-      resultCode: "opened",
-      data: { selected: true },
-    });
+    expect(bridge.getCapabilities).toBeUndefined();
+    expect(bridge.dispatchToolCall).toBeUndefined();
   });
 
-  it("gates dispatch with the provider's current dynamic capabilities", async () => {
-    const noCommands: HostCapabilities = {
-      schemaVersion: "host-bridge.capabilities.v1",
-      commands: [],
-    };
-    let currentCapabilities = noCommands;
-    let dispatchCount = 0;
-    const command = toHostCommand(commandEvent());
+  it("dispatches only client tools supported by the current capabilities", async () => {
+    const dispatchToolCall = vi.fn(async (call: HostToolCall) => ({
+      toolCallId: call.toolCallId,
+      toolName: call.toolName,
+      status: "applied" as const,
+      resultCode: "opened",
+      resolvedAt: "2026-07-16T00:00:01.000Z",
+    }));
+    let currentCapabilities: HostCapabilities = { ...capabilities, tools: [] };
     const bridge = createHostBridge({
-      contextProvider: {
-        getContext: () => Promise.resolve(contextSnapshot),
-      },
       capabilityProvider: {
         getCapabilities: () => Promise.resolve(currentCapabilities),
       },
-      capabilities: noCommands,
-      dispatcher: {
-        dispatchCommand: () => {
-          dispatchCount += 1;
-          return Promise.resolve(
-            createCommandResult(command, {
-              status: "applied",
-              resultCode: "opened",
-            }),
-          );
-        },
-      },
+      toolDispatcher: { dispatchToolCall },
     });
 
-    expect((await bridge.getCapabilities?.())?.commands).toEqual([]);
-    currentCapabilities = capabilities;
-
-    await expect(bridge.dispatchCommand?.(commandEvent())).resolves.toMatchObject({
-      status: "applied",
-      resultCode: "opened",
-    });
-    expect(dispatchCount).toBe(1);
-  });
-
-  it("dispatches native workflow tools through the same capability gate", async () => {
-    const bridge = createHostBridge({
-      contextProvider: createStaticHostContextProvider(contextSnapshot),
-      capabilities,
-      dispatcher: {
-        dispatchCommand: (command) =>
-          Promise.resolve(
-            createCommandResult(command, {
-              status: "applied",
-              resultCode: "opened",
-              data: { selected: true },
-            }),
-          ),
-      },
-    });
-
-    await expect(
-      bridge.dispatchToolCall?.({
-        toolCallId: "tool-call-1",
-        toolName: "open_resource",
-        input: { resourceType: "document", resourceId: "doc-1" },
-      }),
-    ).resolves.toMatchObject({
-      toolCallId: "tool-call-1",
-      toolName: "open_resource",
-      status: "applied",
-      resultCode: "opened",
-      data: { selected: true },
-    });
-
-    await expect(
-      bridge.dispatchToolCall?.({
-        toolCallId: "tool-call-2",
-        toolName: "open_resource",
-        input: { resourceType: "ticket", resourceId: "ticket-1" },
-      }),
-    ).resolves.toMatchObject({
+    await expect(bridge.dispatchToolCall?.(toolCall("document"))).resolves.toMatchObject({
       status: "unsupported",
-      resultCode: "unsupported_command",
+      resultCode: "unsupported_tool",
     });
+    expect(dispatchToolCall).not.toHaveBeenCalled();
+
+    currentCapabilities = capabilities;
+    await expect(bridge.dispatchToolCall?.(toolCall("document"))).resolves.toMatchObject({
+      status: "applied",
+      resultCode: "opened",
+    });
+    expect(dispatchToolCall).toHaveBeenCalledOnce();
   });
 
-  it("exposes page context without requiring command capabilities", async () => {
+  it("rejects a supported tool name when its resource type is unsupported", async () => {
+    const dispatchToolCall = vi.fn();
     const bridge = createHostBridge({
-      contextProvider: createStaticHostContextProvider(contextSnapshot),
+      capabilities,
+      toolDispatcher: { dispatchToolCall },
     });
 
-    await expect(bridge.getContext?.({ requestId: "context-only" })).resolves.toMatchObject({
-      title: "Document",
+    await expect(bridge.dispatchToolCall?.(toolCall("ticket"))).resolves.toMatchObject({
+      status: "unsupported",
+      resultCode: "unsupported_tool",
     });
-    expect(bridge.getCapabilities).toBeUndefined();
-    expect(bridge.dispatchCommand).toBeUndefined();
-    expect(bridge.dispatchToolCall).toBeUndefined();
+    expect(dispatchToolCall).not.toHaveBeenCalled();
   });
 });

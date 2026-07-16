@@ -1,25 +1,15 @@
-import type { HostContext } from "@side-chat/chat-protocol";
 import {
-  createCommandResult,
   createFailedToolResult,
   createToolResult,
-  createFailedResult,
-  toHostCommand,
   type HostBridge,
   type HostCapabilities,
-  type HostCommandResult,
+  type HostContext,
   type HostToolResult,
 } from "@side-chat/host-bridge";
 import type { JsonObject } from "@side-chat/shared";
 
 import type { WidgetHarnessConfig } from "#config/modes";
 import type { DemoHostSurface } from "#host/demo-host-surface";
-
-export type HarnessHostCommandRecord = {
-  readonly commandId: string;
-  readonly commandName: string;
-  readonly result: HostCommandResult;
-};
 
 export type HarnessHostToolRecord = {
   readonly toolCallId: string;
@@ -29,9 +19,8 @@ export type HarnessHostToolRecord = {
 
 export type HarnessHostBridge = Pick<
   HostBridge,
-  "getContext" | "getCapabilities" | "dispatchCommand" | "dispatchToolCall"
+  "getContext" | "getCapabilities" | "dispatchToolCall"
 > & {
-  readonly commandRecords: readonly HarnessHostCommandRecord[];
   readonly toolRecords: readonly HarnessHostToolRecord[];
 };
 
@@ -52,17 +41,17 @@ const OPEN_RESOURCE_INPUT_SCHEMA: JsonObject = {
 };
 
 /**
- * Commands the demo host declares as available each turn.
+ * Client tools the demo host declares as available each turn.
  *
  * In a real host these vary by page; the harness exposes a single `open_resource`
- * command so a model-driven call can be exercised end to end. `getCapabilities`
+ * tool so a model-driven call can be exercised end to end. `getCapabilities`
  * is read per turn, which is how the available set could change per page.
  */
 export const HARNESS_HOST_CAPABILITIES: HostCapabilities = {
   schemaVersion: "widget-harness.capabilities.v1",
-  commands: [
+  tools: [
     {
-      commandName: "open_resource",
+      toolName: "open_resource",
       description:
         "Open a record in the host app for the user, such as a ticket, invoice, or customer. Use it when the user asks to open, show, or jump to a specific host record.",
       inputSchema: OPEN_RESOURCE_INPUT_SCHEMA,
@@ -73,53 +62,30 @@ export const HARNESS_HOST_CAPABILITIES: HostCapabilities = {
 /**
  * Host bridge for the harness "demo host app".
  *
- * `dispatchCommand` mirrors a real host integration: it performs the requested
+ * `dispatchToolCall` mirrors a real host integration: it performs the requested
  * action (here, mutating the optional visible {@link DemoHostSurface}) and
- * returns a {@link HostCommandResult} the widget folds back into the timeline.
- * The `failed-host-command` scenario returns a failure so that path is testable;
- * commands are also recorded so assertions can inspect the round trip.
+ * returns a result the widget folds back into the timeline. The
+ * `failed-host-tool` scenario returns a failure so that path is testable; calls
+ * are also recorded so assertions can inspect the round trip.
  */
 export const createHarnessHostBridge = (
   config: WidgetHarnessConfig,
   surface?: DemoHostSurface,
 ): HarnessHostBridge => {
-  const commandRecords: HarnessHostCommandRecord[] = [];
   const toolRecords: HarnessHostToolRecord[] = [];
 
   return {
-    commandRecords,
     toolRecords,
     getContext: () => Promise.resolve(createHarnessHostContext(config)),
     getCapabilities: () =>
       Promise.resolve(
         config.clientToolsEnabled
           ? HARNESS_HOST_CAPABILITIES
-          : { ...HARNESS_HOST_CAPABILITIES, commands: [] },
+          : { ...HARNESS_HOST_CAPABILITIES, tools: [] },
       ),
-    dispatchCommand: (event) => {
-      const command = toHostCommand(event);
-      const result =
-        config.scenario === "failed-host-command"
-          ? createFailedResult(command, "harness_command_failed")
-          : createCommandResult(command, {
-              status: "applied",
-              resultCode: "harness_local_only",
-              data: { persisted: false },
-            });
-      commandRecords.push({
-        commandId: command.commandId,
-        commandName: command.commandName,
-        result,
-      });
-      surface?.applyCommand(
-        { commandName: command.commandName, payload: command.payload },
-        { status: result.status, resultCode: result.resultCode },
-      );
-      return Promise.resolve(result);
-    },
     dispatchToolCall: (toolCall) => {
       const result =
-        config.scenario === "failed-host-command"
+        config.scenario === "failed-host-tool"
           ? createFailedToolResult(toolCall, "harness_tool_failed")
           : createToolResult(toolCall, {
               status: "applied",
@@ -131,8 +97,8 @@ export const createHarnessHostBridge = (
         toolName: toolCall.toolName,
         result,
       });
-      surface?.applyCommand(
-        { commandName: toolCall.toolName, payload: toolCall.input },
+      surface?.applyToolCall(
+        { toolName: toolCall.toolName, input: toolCall.input },
         { status: result.status, resultCode: result.resultCode },
       );
       return Promise.resolve(result);

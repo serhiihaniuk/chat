@@ -9,7 +9,7 @@
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
-      "path": "../../packages/chat-protocol"
+      "path": "../../packages/shared"
     },
     {
       "path": "../../packages/host-bridge"

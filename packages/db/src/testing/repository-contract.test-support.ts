@@ -180,7 +180,7 @@ export const sidechatRepositoryContract = (
       }
     });
 
-    it("records assistant turns, context, usage, tool, host, audit DTOs, and history ordering", async () => {
+    it("records assistant turns, context, usage, tool, audit DTOs, and history ordering", async () => {
       const repositories = createRepositories();
       const scope = nextScope();
       try {
@@ -246,17 +246,6 @@ export const sidechatRepositoryContract = (
           completedAt: now,
           now,
         });
-        const host = await repositories.recordHostCommandResult({
-          workspaceId: workspaceId(scope),
-          assistantTurnId: turn.turn.assistantTurnId,
-          commandId: "command_1",
-          commandType: "open_resource",
-          resourceId: "doc_1",
-          status: "emitted",
-          resultCode: "emitted",
-          commandRedactedJson: { resourceId: "doc_1" },
-          now,
-        });
         const audit = await repositories.appendAuditEvent({
           workspaceId: workspaceId(scope),
           subjectId: subjectId(scope),
@@ -317,8 +306,6 @@ export const sidechatRepositoryContract = (
         });
         expect(tool.record.outputHash).toBe("output_hash");
         expectCanonicalOmittedFields(tool.record, ["errorCode"]);
-        expect(host.record.status).toBe("emitted");
-        expectCanonicalOmittedFields(host.record, ["resultRedactedJson", "resolvedAt"]);
         expect(audit.record.eventType).toBe("conversation.created");
         expect(completed.claimed).toBe(true);
         expect(completed.record.status).toBe("completed");

@@ -1,4 +1,4 @@
-import { isRecord } from "@side-chat/chat-protocol";
+import { isRecord } from "@side-chat/shared";
 import { expect, test } from "playwright/test";
 
 const hostPort = readPort("SIDECHAT_WORKFLOW_HOST_PORT", 5181);
@@ -20,7 +20,7 @@ test("collects opted-in page context through the public iframe adapter", async (
   });
 
   await page.goto(
-    `${hostBaseUrl}/workbench-embed.html?mode=workflow-service&open=true` +
+    `${hostBaseUrl}/workbench-embed.html?mode=service&open=true` +
       `&authToken=${encodeURIComponent(authToken)}` +
       `&workspaceId=${encodeURIComponent(workspaceId)}` +
       `&apiBaseUrl=${encodeURIComponent("/side-chat-api")}` +

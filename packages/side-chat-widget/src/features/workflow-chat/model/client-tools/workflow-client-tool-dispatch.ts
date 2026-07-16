@@ -65,7 +65,7 @@ export async function dispatchWorkflowClientTool({
       client,
       runId,
       toolCall.toolCallId,
-      result,
+      toJsonObject(result),
       clientToolCapability,
     );
     return { result, outputPosted: true };

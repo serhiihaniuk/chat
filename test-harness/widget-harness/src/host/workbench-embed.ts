@@ -5,12 +5,10 @@
  * a real embedding application. Commands and tools keep their older harness
  * messages; page context travels through its own exact-origin, correlated seam.
  */
-import { isRecord } from "@side-chat/chat-protocol";
+import { isRecord } from "@side-chat/shared";
 import { registerIframeHostContextProvider } from "@side-chat/host-bridge";
 
 import {
-  HOST_COMMAND_MESSAGE_TYPE,
-  HOST_COMMAND_RESULT_MESSAGE_TYPE,
   HOST_TOOL_CALL_MESSAGE_TYPE,
   HOST_TOOL_RESULT_MESSAGE_TYPE,
 } from "#host/post-message-host-bridge";
@@ -22,12 +20,6 @@ const READY_MESSAGE_TYPE = "sidechat.widget.ready";
 type WorkbenchRecord = {
   readonly id: string;
   readonly label: string;
-};
-
-type WorkbenchCommand = {
-  readonly commandId: string;
-  readonly commandName: string;
-  readonly payload: Record<string, unknown>;
 };
 
 type WorkbenchToolCall = {
@@ -52,7 +44,7 @@ let activeRecordId: string | undefined;
 
 const framePath = params.get("framePath") ?? "/side-chat-frame/";
 const frameUrl = new URL(framePath, window.location.origin);
-frameUrl.searchParams.set("mode", params.get("mode") ?? "local-service");
+frameUrl.searchParams.set("mode", "service");
 frameUrl.searchParams.set("workspaceId", params.get("workspaceId") ?? "workspace_e2e");
 frameUrl.searchParams.set("authToken", params.get("authToken") ?? "local-compose-token");
 frameUrl.searchParams.set("apiBaseUrl", params.get("apiBaseUrl") ?? "/side-chat-api");
@@ -82,7 +74,7 @@ const unregisterContextProvider = registerIframeHostContextProvider({
       url: `${window.location.origin}${window.location.pathname}`,
       title: document.title,
       metadata: {
-        mode: frameUrl.searchParams.get("mode") ?? "local-service",
+        mode: "service",
         requestId: request.requestId,
         workspaceId: frameUrl.searchParams.get("workspaceId") ?? "workspace_e2e",
       },
@@ -116,23 +108,12 @@ function receiveFrameMessage(event: MessageEvent<unknown>): void {
     return;
   }
 
-  if (data["type"] === HOST_COMMAND_MESSAGE_TYPE) {
-    const command = readCommand(data["command"]);
-    if (!command) return;
-    postCommandResult(command.commandId, handleHostCommand(command));
-    return;
-  }
-
   if (data["type"] === HOST_TOOL_CALL_MESSAGE_TYPE) {
     const toolCall = readToolCall(data["toolCall"]);
     if (!toolCall) return;
     postToolResult(
       toolCall.toolCallId,
-      handleHostCommand({
-        commandId: toolCall.toolCallId,
-        commandName: toolCall.toolName,
-        payload: toolCall.input,
-      }),
+      handleHostToolCall(toolCall),
     );
     return;
   }
@@ -142,12 +123,12 @@ function receiveFrameMessage(event: MessageEvent<unknown>): void {
   sendOpenState();
 }
 
-function handleHostCommand(command: WorkbenchCommand): WorkbenchResult {
-  if (command.commandName !== "open_resource") {
-    return { status: "unsupported", resultCode: "unknown_command" };
+function handleHostToolCall(toolCall: WorkbenchToolCall): WorkbenchResult {
+  if (toolCall.toolName !== "open_resource") {
+    return { status: "unsupported", resultCode: "unknown_tool" };
   }
 
-  const resourceId = command.payload["resourceId"];
+  const resourceId = toolCall.input["resourceId"];
   if (typeof resourceId !== "string") {
     return { status: "failed", resultCode: "missing_resource_id" };
   }
@@ -170,13 +151,6 @@ function sendOpenState(): void {
   frame.hidden = !open;
   button.setAttribute("aria-expanded", String(open));
   button.textContent = open ? "Close assistant" : "Open assistant";
-}
-
-function postCommandResult(commandId: string, result: WorkbenchResult): void {
-  frameWindow.postMessage(
-    { type: HOST_COMMAND_RESULT_MESSAGE_TYPE, commandId, result },
-    frameUrl.origin,
-  );
 }
 
 function postToolResult(toolCallId: string, result: WorkbenchResult): void {
@@ -203,18 +177,6 @@ function renderRecords(): void {
       return item;
     }),
   );
-}
-
-function readCommand(value: unknown): WorkbenchCommand | undefined {
-  if (!isRecord(value)) return undefined;
-  const commandId = readString(value["commandId"]);
-  const commandName = readString(value["commandName"]);
-  if (!commandId || !commandName) return undefined;
-  return {
-    commandId,
-    commandName,
-    payload: isRecord(value["payload"]) ? value["payload"] : {},
-  };
 }
 
 function readToolCall(value: unknown): WorkbenchToolCall | undefined {

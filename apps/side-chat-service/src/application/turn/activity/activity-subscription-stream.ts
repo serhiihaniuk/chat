@@ -4,7 +4,7 @@ import {
   type TurnActivityEvent,
   type TurnActivityStreamEvent,
   type TurnActivitySyncEvent,
-} from "@side-chat/chat-protocol";
+} from "#domain/turn-activity";
 
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { TurnActivityNotification } from "#application/ports/turn/activity/turn-activity-source";

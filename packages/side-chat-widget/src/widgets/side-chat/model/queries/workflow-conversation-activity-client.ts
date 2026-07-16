@@ -1,9 +1,9 @@
 import {
-  decodeTurnActivitySseEvents,
+  decodeWorkflowActivitySseFrame,
+  openWorkflowActivityStream,
   type TurnActivityStreamEvent,
-} from "@side-chat/chat-protocol";
-
-import { openWorkflowActivityStream, type WorkflowChatClient } from "#entities/workflow-chat";
+  type WorkflowChatClient,
+} from "#entities/workflow-chat";
 import { decodeSseEventStream } from "#shared/lib/sse/sse-event-stream";
 
 /** Keep subject-wide lifecycle decoding at the widget layer that consumes it. */
@@ -13,6 +13,10 @@ export async function subscribeWorkflowActivity(
 ): Promise<Readonly<{ events: AsyncIterable<TurnActivityStreamEvent> }>> {
   const body = await openWorkflowActivityStream(client, signal);
   return {
-    events: decodeSseEventStream(body, () => signal?.throwIfAborted(), decodeTurnActivitySseEvents),
+    events: decodeSseEventStream(
+      body,
+      () => signal?.throwIfAborted(),
+      decodeWorkflowActivitySseFrame,
+    ),
   };
 }

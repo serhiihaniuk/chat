@@ -46,11 +46,6 @@
       "development": "./src/index.ts",
       "default": "./dist/index.js"
     },
-    "./testing": {
-      "types": "./src/entities/chat/testing.ts",
-      "development": "./src/entities/chat/testing.ts",
-      "default": "./dist/entities/chat/testing.js"
-    },
     "./ui/*": {
       "types": "./src/shared/ui/*.tsx",
       "development": "./src/shared/ui/*.tsx",
@@ -72,7 +67,6 @@
   "dependencies": {
     "@ai-sdk/workflow": "1.0.22",
     "@base-ui/react": "1.5.0",
-    "@side-chat/chat-protocol": "0.0.0",
     "@side-chat/host-bridge": "0.0.0",
     "@side-chat/shared": "0.0.0",
     "@side-chat/stream-profile": "0.0.0",

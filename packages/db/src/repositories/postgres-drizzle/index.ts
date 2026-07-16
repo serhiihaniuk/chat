@@ -11,7 +11,6 @@ import { createPostgresDrizzleInteractionRepository } from "./records/interactio
 import { createPostgresDrizzleTurnRepository } from "./records/turns.js";
 import { createRandomIdGenerator } from "../repository-utils.js";
 
-export { createPostgresHostCommandResultNotificationSource } from "./notifications/host-command-result-notification-source.js";
 export { createPostgresTurnActivityNotificationSource } from "./notifications/turn-activity-notification-source.js";
 export { uniqueViolationConstraint } from "./pg-errors.js";
 

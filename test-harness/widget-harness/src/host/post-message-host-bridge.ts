@@ -1,38 +1,20 @@
-import { isRecord } from "@side-chat/chat-protocol";
+import { isRecord } from "@side-chat/shared";
 import {
-  createCommandResult,
-  HOST_COMMAND_RESULT_STATUSES,
   createToolResult,
-  toHostCommand,
+  HOST_TOOL_RESULT_STATUSES,
   type HostBridge,
   type HostCapabilities,
-  type HostCommand,
-  type HostCommandResult,
   type HostToolCall,
   type HostToolResult,
 } from "@side-chat/host-bridge";
 
-/**
- * Host bridge that forwards commands across an iframe boundary.
- *
- * When the widget runs inside an iframe, the host page lives in the parent
- * window. This bridge posts each dispatched command to `window.parent` and
- * resolves once the parent replies with a result for the same `commandId`. The
- * parent performs the host action and owns the records; the widget only sees the
- * returned {@link HostCommandResult}. A reply that never arrives resolves to a
- * `timed_out` result so the timeline never hangs.
- *
- * Creation touches no browser globals, so it is safe to build during server
- * render; `window` is read only when a command is actually dispatched.
- */
-export const HOST_COMMAND_MESSAGE_TYPE = "sidechat.widget.hostCommand";
-export const HOST_COMMAND_RESULT_MESSAGE_TYPE = "sidechat.widget.hostCommandResult";
+/** Browser bridge that correlates native client-tool calls with parent replies. */
 export const HOST_TOOL_CALL_MESSAGE_TYPE = "sidechat.widget.hostToolCall";
 export const HOST_TOOL_RESULT_MESSAGE_TYPE = "sidechat.widget.hostToolResult";
-const DEFAULT_COMMAND_TIMEOUT_MS = 5_000;
+const DEFAULT_TOOL_TIMEOUT_MS = 5_000;
 
-const COMMAND_STATUSES: readonly HostCommandResult["status"][] = Object.values(
-  HOST_COMMAND_RESULT_STATUSES,
+const TOOL_STATUSES: readonly HostToolResult["status"][] = Object.values(
+  HOST_TOOL_RESULT_STATUSES,
 );
 
 export type PostMessageHostBridgeOptions = {
@@ -40,26 +22,18 @@ export type PostMessageHostBridgeOptions = {
   readonly timeoutMs?: number;
 };
 
-type HostCommandResultPayload = {
-  readonly status: HostCommandResult["status"];
+type HostToolResultPayload = {
+  readonly status: HostToolResult["status"];
   readonly resultCode: string;
 };
 
-type HostToolResultPayload = HostCommandResultPayload;
-
 export const createPostMessageHostBridge = (
   options: PostMessageHostBridgeOptions,
-): Pick<HostBridge, "dispatchCommand" | "dispatchToolCall"> &
-  Partial<Pick<HostBridge, "getCapabilities">> => {
+): Pick<HostBridge, "dispatchToolCall"> & Partial<Pick<HostBridge, "getCapabilities">> => {
   const bridge = {
-    dispatchCommand: (event: Parameters<HostBridge["dispatchCommand"]>[0]) =>
-      requestHostCommandFromParent(
-        toHostCommand(event),
-        options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS,
-      ),
     dispatchToolCall: (toolCall: HostToolCall) =>
-      requestHostToolFromParent(toolCall, options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS),
-  } satisfies Pick<HostBridge, "dispatchCommand" | "dispatchToolCall">;
+      requestHostToolFromParent(toolCall, options.timeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS),
+  } satisfies Pick<HostBridge, "dispatchToolCall">;
   const capabilities = options.capabilities;
   if (!capabilities) return bridge;
   return {
@@ -67,46 +41,6 @@ export const createPostMessageHostBridge = (
     getCapabilities: () => Promise.resolve(capabilities),
   };
 };
-
-const requestHostCommandFromParent = (
-  command: HostCommand,
-  timeoutMs: number,
-): Promise<HostCommandResult> =>
-  new Promise((resolve) => {
-    const origin = window.location.origin;
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      controller.abort();
-      resolve(
-        createCommandResult(command, {
-          status: "timed_out",
-          resultCode: "host_command_timeout",
-        }),
-      );
-    }, timeoutMs);
-    window.addEventListener(
-      "message",
-      (message: MessageEvent<unknown>) => {
-        const reply = readResultPayload(message, origin, command.commandId);
-        if (!reply) return;
-        clearTimeout(timer);
-        controller.abort();
-        resolve(createCommandResult(command, reply));
-      },
-      { signal: controller.signal },
-    );
-    window.parent.postMessage(
-      {
-        type: HOST_COMMAND_MESSAGE_TYPE,
-        command: {
-          commandId: command.commandId,
-          commandName: command.commandName,
-          payload: command.payload,
-        },
-      },
-      origin,
-    );
-  });
 
 const requestHostToolFromParent = (
   toolCall: HostToolCall,
@@ -148,21 +82,6 @@ const requestHostToolFromParent = (
     );
   });
 
-const readResultPayload = (
-  message: MessageEvent<unknown>,
-  origin: string,
-  commandId: string,
-): HostCommandResultPayload | undefined => {
-  if (message.origin !== origin) return undefined;
-  const data = message.data;
-  if (!isRecord(data) || data["type"] !== HOST_COMMAND_RESULT_MESSAGE_TYPE) return undefined;
-  if (data["commandId"] !== commandId || !isRecord(data["result"])) return undefined;
-  const result = data["result"];
-  if (!isCommandStatus(result["status"]) || typeof result["resultCode"] !== "string")
-    return undefined;
-  return { status: result["status"], resultCode: result["resultCode"] };
-};
-
 const readToolResultPayload = (
   message: MessageEvent<unknown>,
   origin: string,
@@ -173,11 +92,11 @@ const readToolResultPayload = (
   if (!isRecord(data) || data["type"] !== HOST_TOOL_RESULT_MESSAGE_TYPE) return undefined;
   if (data["toolCallId"] !== toolCallId || !isRecord(data["result"])) return undefined;
   const result = data["result"];
-  if (!isCommandStatus(result["status"]) || typeof result["resultCode"] !== "string") {
+  if (!isToolStatus(result["status"]) || typeof result["resultCode"] !== "string") {
     return undefined;
   }
   return { status: result["status"], resultCode: result["resultCode"] };
 };
 
-const isCommandStatus = (value: unknown): value is HostCommandResult["status"] =>
-  typeof value === "string" && COMMAND_STATUSES.some((status) => status === value);
+const isToolStatus = (value: unknown): value is HostToolResult["status"] =>
+  typeof value === "string" && TOOL_STATUSES.some((status) => status === value);

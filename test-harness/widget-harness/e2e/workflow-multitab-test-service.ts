@@ -1,11 +1,10 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
-import {
-  TURN_ACTIVITY_EVENT_TYPE,
-  TURN_ACTIVITY_SYNC_EVENT_TYPE,
-  type TurnActivityEvent,
-} from "@side-chat/chat-protocol";
 import { SIDE_CHAT_ERROR_CODES, SIDE_CHAT_ERROR_VOCABULARY } from "@side-chat/stream-profile";
+
+const TURN_ACTIVITY_EVENT_TYPE = "turn.activity";
+const TURN_ACTIVITY_SYNC_EVENT_TYPE = "turn.activity.sync";
+type TurnActivityStatus = "running" | "completed";
 
 const PORT = readPort("SIDECHAT_WORKFLOW_FIXTURE_PORT", 8788);
 const RUN_ID = "run-multitab";
@@ -326,11 +325,11 @@ function closeActivitySubscribers(): void {
   state.activitySubscribers.clear();
 }
 
-function publishActivity(status: TurnActivityEvent["status"]): void {
+function publishActivity(status: TurnActivityStatus): void {
   for (const response of state.activitySubscribers) publishActivityTo(response, status);
 }
 
-function publishActivityTo(response: ServerResponse, status: TurnActivityEvent["status"]): void {
+function publishActivityTo(response: ServerResponse, status: TurnActivityStatus): void {
   if (!state.conversationId) return;
   writeChunk(response, {
     type: TURN_ACTIVITY_EVENT_TYPE,

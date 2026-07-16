@@ -1,5 +1,0 @@
-{
-  "title": "System Design",
-  "root": true,
-  "pages": ["index", "assistant-turn", "protocol-and-events", "event-delivery", "package-boundaries", "resumable-streaming"]
-}

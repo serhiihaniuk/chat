@@ -4,9 +4,8 @@ import type { JsonObject } from "@side-chat/shared";
  * In-memory state for the harness "demo host app".
  *
  * The harness page itself is the host application: it owns a small list of
- * records and a log of the host commands the assistant dispatched. A host
- * command never mutates the widget; it asks the host to change this state, which
- * is exactly what a real host page would do in response to `dispatchCommand`.
+ * records and a log of the client tools the assistant called. A client tool
+ * never mutates the widget; it asks the host to change this state.
  */
 export type DemoHostRecordOrigin = "seed" | "manual" | "assistant";
 
@@ -16,9 +15,9 @@ export type DemoHostRecord = {
   readonly origin: DemoHostRecordOrigin;
 };
 
-export type DemoHostCommandLogEntry = {
+export type DemoHostToolLogEntry = {
   readonly id: string;
-  readonly commandName: string;
+  readonly toolName: string;
   readonly status: string;
   readonly resultCode: string;
 };
@@ -27,17 +26,17 @@ export type DemoHostState = {
   readonly records: readonly DemoHostRecord[];
   readonly activeRecordId: string | null;
   readonly assistantActionCount: number;
-  readonly log: readonly DemoHostCommandLogEntry[];
+  readonly log: readonly DemoHostToolLogEntry[];
 };
 
-/** Minimal command view the host reads when applying a dispatched command. */
-export type DemoHostCommand = {
-  readonly commandName: string;
-  readonly payload: JsonObject;
+/** Minimal tool-call view the host reads when applying a client tool. */
+export type DemoHostToolCall = {
+  readonly toolName: string;
+  readonly input: JsonObject;
 };
 
-/** Minimal result view the host records once a command resolves. */
-export type DemoHostCommandResult = {
+/** Minimal result view the host records once a tool call resolves. */
+export type DemoHostToolResult = {
   readonly status: string;
   readonly resultCode: string;
 };
@@ -50,12 +49,12 @@ export type DemoHostCommandResult = {
 export type DemoHostSurface = {
   readonly getSnapshot: () => DemoHostState;
   readonly subscribe: (listener: () => void) => () => void;
-  readonly applyCommand: (command: DemoHostCommand, result: DemoHostCommandResult) => void;
+  readonly applyToolCall: (toolCall: DemoHostToolCall, result: DemoHostToolResult) => void;
   readonly addManualRecord: () => void;
   readonly reset: () => void;
 };
 
-const OPEN_RESOURCE_COMMAND = "open_resource";
+const OPEN_RESOURCE_TOOL = "open_resource";
 const MAX_LOG_ENTRIES = 8;
 
 const SEED_RECORDS: readonly DemoHostRecord[] = [
@@ -87,9 +86,9 @@ const withOpenedRecord = (state: DemoHostState, id: string, label: string): Demo
   };
 };
 
-const withLoggedCommand = (
+const withLoggedTool = (
   state: DemoHostState,
-  entry: DemoHostCommandLogEntry,
+  entry: DemoHostToolLogEntry,
 ): DemoHostState => ({
   ...state,
   log: [entry, ...state.log].slice(0, MAX_LOG_ENTRIES),
@@ -101,20 +100,20 @@ const withManualRecord = (state: DemoHostState, id: string, ordinal: number): De
   activeRecordId: id,
 });
 
-const applyCommandToState = (
+const applyToolCallToState = (
   state: DemoHostState,
-  command: DemoHostCommand,
-  result: DemoHostCommandResult,
+  toolCall: DemoHostToolCall,
+  result: DemoHostToolResult,
   logId: string,
 ): DemoHostState => {
-  const logged = withLoggedCommand(state, {
+  const logged = withLoggedTool(state, {
     id: logId,
-    commandName: command.commandName,
+    toolName: toolCall.toolName,
     status: result.status,
     resultCode: result.resultCode,
   });
-  const resourceId = readString(command.payload, "resourceId");
-  if (command.commandName === OPEN_RESOURCE_COMMAND && result.status === "applied" && resourceId) {
+  const resourceId = readString(toolCall.input, "resourceId");
+  if (toolCall.toolName === OPEN_RESOURCE_TOOL && result.status === "applied" && resourceId) {
     return withOpenedRecord(logged, resourceId, resourceId);
   }
   return logged;
@@ -137,9 +136,9 @@ export const createDemoHostSurface = (): DemoHostSurface => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    applyCommand: (command, result) => {
+    applyToolCall: (toolCall, result) => {
       logCount += 1;
-      commit(applyCommandToState(state, command, result, `log-${logCount}`));
+      commit(applyToolCallToState(state, toolCall, result, `log-${logCount}`));
     },
     addManualRecord: () => {
       manualCount += 1;

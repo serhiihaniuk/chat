@@ -14,7 +14,7 @@ import type { DiagnosticLogger } from "@side-chat/shared";
 /**
  * Keep one Postgres `LISTEN` connection alive and reconnect it after a drop.
  *
- * The cancel, activity, and host-command sources share this helper. It handles
+ * The activity sources share this helper. It handles
  * connection errors, closes the dead connection, and retries with capped,
  * jittered backoff so a database restart does not crash the service.
  *

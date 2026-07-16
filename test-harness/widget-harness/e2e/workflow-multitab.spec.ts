@@ -4,7 +4,7 @@ import { SIDE_CHAT_ERROR_CODES, SIDE_CHAT_ERROR_VOCABULARY } from "@side-chat/st
 const fixturePort = readPort("SIDECHAT_WORKFLOW_FIXTURE_PORT", 8788);
 const fixtureUrl = `http://127.0.0.1:${String(fixturePort)}`;
 const workspaceId = "task-16-multitab";
-const widgetUrl = `/side-chat-frame/?mode=workflow-service&workspaceId=${workspaceId}`;
+const widgetUrl = `/side-chat-frame/?mode=service&workspaceId=${workspaceId}`;
 const recoveryStorageKey = `side-chat-widget:${workspaceId}:workflow-active-turn`;
 const partialAnswer = "Both tabs receive the shared";
 const completeAnswer = `${partialAnswer} workflow answer.`;

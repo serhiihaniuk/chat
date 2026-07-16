@@ -2,19 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
 import {
-  useGetToolCatalog,
-  type SideChatApiClient,
-  type ToolCatalogOption,
-} from "#entities/conversation";
-import {
   readWorkflowTools,
   WORKFLOW_CHAT_QUERY_SCOPE,
   type WorkflowChatClient,
+  type WorkflowTool,
 } from "#entities/workflow-chat";
-
-type WidgetToolSelectionInput = {
-  readonly client: SideChatApiClient;
-};
 
 /** One backend tool as the composer tools menu renders it, with live on/off state. */
 export type WidgetToolToggle = {
@@ -32,7 +24,7 @@ export type WidgetToolSelection = {
 
 /**
  * Owns the composer tools-menu state: the backend tool catalog plus the user's
- * per-tool on/off overrides for the next turn. Mirrors useWidgetModelSelection.
+ * per-tool on/off overrides for the next turn.
  *
  * Each toggle seeds from the profile `defaultEnabled`; a user override flips it.
  * `enabledToolNames` is the per-turn selection sent on the request, which core
@@ -68,35 +60,12 @@ export const useWorkflowToolSelection = (client: WorkflowChatClient): WidgetTool
   return { tools, toggleTool, enabledToolNames };
 };
 
-export const useWidgetToolSelection = ({
-  client,
-}: WidgetToolSelectionInput): WidgetToolSelection => {
-  const toolCatalog = useGetToolCatalog({ client });
-  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
-  const catalogTools = toolCatalog.data?.tools;
-
-  const tools = useMemo<readonly WidgetToolToggle[]>(
-    () => resolveToolToggles(catalogTools, overrides),
-    [catalogTools, overrides],
-  );
-  const toggleTool = useCallback(
-    (name: string) => setOverrides((current) => toggleToolOverride(catalogTools, current, name)),
-    [catalogTools],
-  );
-  const enabledToolNames = useMemo<readonly string[] | undefined>(
-    () => selectedToolNames(tools),
-    [tools],
-  );
-
-  return { tools, toggleTool, enabledToolNames };
-};
-
 // The state below is pure so it can be unit-tested without React or the query
 // client; the hook above is thin glue that the composer interaction test covers.
 
 /** Seed each catalog tool's on/off state from its profile default, applying any user override. */
 export const resolveToolToggles = (
-  catalogTools: readonly ToolCatalogOption[] | undefined,
+  catalogTools: readonly WorkflowTool[] | undefined,
   overrides: Record<string, boolean>,
 ): readonly WidgetToolToggle[] =>
   (catalogTools ?? []).map((tool) => ({
@@ -119,7 +88,7 @@ export const selectedToolNames = (
 
 /** Flip one tool relative to its current resolved state; a no-op for an unknown name. */
 export const toggleToolOverride = (
-  catalogTools: readonly ToolCatalogOption[] | undefined,
+  catalogTools: readonly WorkflowTool[] | undefined,
   overrides: Record<string, boolean>,
   name: string,
 ): Record<string, boolean> => {

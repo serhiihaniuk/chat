@@ -1,5 +1,5 @@
 {
-  "id": "7f198be6-4ca9-4ad6-8c1d-d87101d085d8",
+  "id": "a88d390e-d957-4c35-85d0-64544bda39b2",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -253,8 +253,12 @@
           "tableFrom": "assistant_turns",
           "tableTo": "conversations",
           "schemaTo": "sidechat",
-          "columnsFrom": ["conversation_id"],
-          "columnsTo": ["conversation_id"],
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "conversation_id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -263,8 +267,12 @@
           "tableFrom": "assistant_turns",
           "tableTo": "messages",
           "schemaTo": "sidechat",
-          "columnsFrom": ["user_message_id"],
-          "columnsTo": ["message_id"],
+          "columnsFrom": [
+            "user_message_id"
+          ],
+          "columnsTo": [
+            "message_id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -273,8 +281,12 @@
           "tableFrom": "assistant_turns",
           "tableTo": "messages",
           "schemaTo": "sidechat",
-          "columnsFrom": ["assistant_message_id"],
-          "columnsTo": ["message_id"],
+          "columnsFrom": [
+            "assistant_message_id"
+          ],
+          "columnsTo": [
+            "message_id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -517,8 +529,12 @@
           "tableFrom": "client_tool_dispatches",
           "tableTo": "assistant_turns",
           "schemaTo": "sidechat",
-          "columnsFrom": ["assistant_turn_id"],
-          "columnsTo": ["assistant_turn_id"],
+          "columnsFrom": [
+            "assistant_turn_id"
+          ],
+          "columnsTo": [
+            "assistant_turn_id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -593,8 +609,12 @@
           "tableFrom": "conversation_title_runs",
           "tableTo": "conversations",
           "schemaTo": "sidechat",
-          "columnsFrom": ["conversation_id"],
-          "columnsTo": ["conversation_id"],
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "conversation_id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -755,130 +775,6 @@
       },
       "isRLSEnabled": false
     },
-    "sidechat.host_command_results": {
-      "name": "host_command_results",
-      "schema": "sidechat",
-      "columns": {
-        "host_command_id": {
-          "name": "host_command_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "assistant_turn_id": {
-          "name": "assistant_turn_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "command_id": {
-          "name": "command_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "command_type": {
-          "name": "command_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "resource_id": {
-          "name": "resource_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "result_code": {
-          "name": "result_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "command_redacted_json": {
-          "name": "command_redacted_json",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "result_redacted_json": {
-          "name": "result_redacted_json",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "resolved_at": {
-          "name": "resolved_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "host_command_results_turn_command_uq": {
-          "name": "host_command_results_turn_command_uq",
-          "columns": [
-            {
-              "expression": "assistant_turn_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "command_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "host_command_results_assistant_turn_id_assistant_turns_assistant_turn_id_fk": {
-          "name": "host_command_results_assistant_turn_id_assistant_turns_assistant_turn_id_fk",
-          "tableFrom": "host_command_results",
-          "tableTo": "assistant_turns",
-          "schemaTo": "sidechat",
-          "columnsFrom": ["assistant_turn_id"],
-          "columnsTo": ["assistant_turn_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "host_command_results_status_check": {
-          "name": "host_command_results_status_check",
-          "value": "status in ('emitted', 'applied', 'rejected', 'unsupported', 'failed', 'timed_out')"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "sidechat.messages": {
       "name": "messages",
       "schema": "sidechat",
@@ -962,8 +858,12 @@
           "tableFrom": "messages",
           "tableTo": "conversations",
           "schemaTo": "sidechat",
-          "columnsFrom": ["conversation_id"],
-          "columnsTo": ["conversation_id"],
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "conversation_id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1086,8 +986,12 @@
           "tableFrom": "tool_approvals",
           "tableTo": "assistant_turns",
           "schemaTo": "sidechat",
-          "columnsFrom": ["assistant_turn_id"],
-          "columnsTo": ["assistant_turn_id"],
+          "columnsFrom": [
+            "assistant_turn_id"
+          ],
+          "columnsTo": [
+            "assistant_turn_id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1221,8 +1125,12 @@
           "tableFrom": "tool_invocations",
           "tableTo": "assistant_turns",
           "schemaTo": "sidechat",
-          "columnsFrom": ["assistant_turn_id"],
-          "columnsTo": ["assistant_turn_id"],
+          "columnsFrom": [
+            "assistant_turn_id"
+          ],
+          "columnsTo": [
+            "assistant_turn_id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1342,8 +1250,12 @@
           "tableFrom": "turn_context_snapshots",
           "tableTo": "assistant_turns",
           "schemaTo": "sidechat",
-          "columnsFrom": ["assistant_turn_id"],
-          "columnsTo": ["assistant_turn_id"],
+          "columnsFrom": [
+            "assistant_turn_id"
+          ],
+          "columnsTo": [
+            "assistant_turn_id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1490,8 +1402,12 @@
           "tableFrom": "usage_records",
           "tableTo": "assistant_turns",
           "schemaTo": "sidechat",
-          "columnsFrom": ["assistant_turn_id"],
-          "columnsTo": ["assistant_turn_id"],
+          "columnsFrom": [
+            "assistant_turn_id"
+          ],
+          "columnsTo": [
+            "assistant_turn_id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

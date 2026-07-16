@@ -1,7 +1,7 @@
 import { useSyncExternalStore, type CSSProperties, type ReactElement } from "react";
 
 import type {
-  DemoHostCommandLogEntry,
+  DemoHostToolLogEntry,
   DemoHostRecord,
   DemoHostRecordOrigin,
   DemoHostSurface,
@@ -12,7 +12,7 @@ import type {
  *
  * Renders the demo host state and the controls a person can click directly, so
  * the same records that a human edits are the ones the assistant mutates through
- * the `open_resource` host command. Pinned to a corner with a high stacking
+ * the `open_resource` client tool. Pinned to a corner with a high stacking
  * order so it stays visible next to the floating chat panel during a demo.
  */
 const ORIGIN_LABELS: Record<DemoHostRecordOrigin, string> = {
@@ -31,7 +31,7 @@ export const DemoHostPanel = ({ surface }: { readonly surface: DemoHostSurface }
         <h2 style={styles.title}>Workbench records</h2>
         <p style={styles.subtitle}>
           This panel is the host page. The assistant changes it through the{" "}
-          <code style={styles.code}>open_resource</code> host command.
+          <code style={styles.code}>open_resource</code> client tool.
         </p>
       </header>
 
@@ -64,9 +64,9 @@ export const DemoHostPanel = ({ surface }: { readonly surface: DemoHostSurface }
         </button>
       </div>
 
-      <h3 style={styles.logTitle}>Host command log</h3>
+      <h3 style={styles.logTitle}>Client tool log</h3>
       {state.log.length === 0 ? (
-        <p style={styles.empty}>No commands dispatched yet.</p>
+        <p style={styles.empty}>No client tools called yet.</p>
       ) : (
         <ul style={styles.list} data-testid="demo-host-log">
           {state.log.map((entry) => (
@@ -95,9 +95,9 @@ const RecordRow = ({
   </li>
 );
 
-const LogRow = ({ entry }: { readonly entry: DemoHostCommandLogEntry }): ReactElement => (
+const LogRow = ({ entry }: { readonly entry: DemoHostToolLogEntry }): ReactElement => (
   <li style={styles.logRow}>
-    <code style={styles.code}>{entry.commandName}</code>
+    <code style={styles.code}>{entry.toolName}</code>
     <span style={entry.status === "applied" ? styles.statusOk : styles.statusBad}>
       {entry.status}
     </span>

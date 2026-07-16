@@ -13,6 +13,10 @@ export { WorkflowMessageTimeline } from "./ui/workflow-message-timeline.js";
 export { WorkflowPendingTimeline } from "./ui/workflow-pending-timeline.js";
 export { toWorkflowSideChatActivityItem } from "./ui/activity/workflow-activity-item.js";
 export { projectLatestAssistantUsage } from "./model/native-message-projection.js";
+export {
+  useWorkflowActivityStream,
+  type WorkflowActivityStreamState,
+} from "./model/activity/use-workflow-activity-stream.js";
 export type { WorkflowTimelineItem } from "./model/native-message-projection.js";
 export type {
   WorkflowChatTerminal,

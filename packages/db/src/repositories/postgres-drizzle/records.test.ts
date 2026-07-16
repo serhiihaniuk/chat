@@ -3,14 +3,12 @@ import { describe, expect, it } from "vitest";
 import type {
   assistantTurns,
   conversations,
-  hostCommandResults,
   messages,
   toolInvocations,
 } from "#drizzle/schema";
 import {
   toAssistantTurnRecord,
   toConversationRecord,
-  toHostCommandResultRecord,
   toMessageRecord,
   toToolInvocationRecord,
 } from "./records/records.js";
@@ -63,21 +61,6 @@ describe("postgres row record mappers", () => {
       startedAt: now,
       completedAt: null,
     } satisfies typeof toolInvocations.$inferSelect);
-    const hostCommand = toHostCommandResultRecord({
-      hostCommandId: "host_command_result_1",
-      assistantTurnId: "assistant_turn_1",
-      workspaceId: "workspace_1",
-      commandId: "command_1",
-      commandType: "open_resource",
-      resourceId: null,
-      status: "emitted",
-      resultCode: "emitted",
-      commandRedactedJson: {},
-      resultRedactedJson: null,
-      createdAt: now,
-      resolvedAt: null,
-    } satisfies typeof hostCommandResults.$inferSelect);
-
     expectCanonicalOmittedFields(conversation, ["titleText", "historyCutoffSequenceIndex"]);
     expect(conversation.legalHold).toBe(false);
     expect(message.parts).toEqual([{ type: "text", text: "hello" }]);
@@ -87,7 +70,6 @@ describe("postgres row record mappers", () => {
       "errorCode",
       "completedAt",
     ]);
-    expectCanonicalOmittedFields(hostCommand, ["resourceId", "resultRedactedJson", "resolvedAt"]);
   });
 
   it("preserves present falsy SQL string values", () => {

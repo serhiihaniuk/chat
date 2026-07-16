@@ -9,7 +9,6 @@ import {
   type auditEvents,
   type clientToolDispatches,
   type toolApprovals,
-  type hostCommandResults,
   type sidechatTables,
   type toolInvocations,
   type turnContextSnapshots,
@@ -22,7 +21,6 @@ import type {
   ToolApprovalRecord,
   ContextSnapshotRecord,
   ConversationRecord,
-  HostCommandResultRecord,
   MessageRecord,
   ToolInvocationRecord,
   UsageRecord,
@@ -181,24 +179,6 @@ export const toToolApprovalRecord = (
   expiresAt: isoTimestamp(row.expiresAt),
   createdAt: isoTimestamp(row.requestedAt),
   updatedAt: isoTimestamp(row.decidedAt ?? row.requestedAt),
-});
-
-export const toHostCommandResultRecord = (
-  row: typeof hostCommandResults.$inferSelect,
-): HostCommandResultRecord => ({
-  hostCommandId: row.hostCommandId,
-  assistantTurnId: row.assistantTurnId,
-  workspaceId: row.workspaceId,
-  commandId: row.commandId,
-  commandType: row.commandType,
-  ...omitNullishField("resourceId", row.resourceId),
-  status: row.status,
-  resultCode: row.resultCode,
-  commandRedactedJson: row.commandRedactedJson,
-  ...omitNullishField("resultRedactedJson", row.resultRedactedJson),
-  createdAt: isoTimestamp(row.createdAt),
-  updatedAt: isoTimestamp(row.resolvedAt ?? row.createdAt),
-  ...omitNullishField("resolvedAt", optionalIsoTimestamp(row.resolvedAt)),
 });
 
 export const toAuditEventRecord = (row: typeof auditEvents.$inferSelect): AuditEventRecord => ({

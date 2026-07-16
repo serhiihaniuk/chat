@@ -60,9 +60,9 @@ describe("useWorkflowWidgetChat recovery", () => {
     const getCapabilities = vi.fn<NonNullable<WidgetHostBridge["getCapabilities"]>>(() =>
       Promise.resolve({
         schemaVersion: "test.capabilities.v1",
-        commands: [
+        tools: [
           {
-            commandName: "open_resource",
+            toolName: "open_resource",
             description: "Open a host resource.",
             inputSchema: { type: "object" },
           },

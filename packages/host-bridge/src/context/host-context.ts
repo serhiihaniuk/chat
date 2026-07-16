@@ -1,5 +1,12 @@
-import type { HostContext } from "@side-chat/chat-protocol";
 import { omitUndefinedProperties, type JsonObject } from "@side-chat/shared";
+
+export type HostContext = Readonly<{
+  schemaVersion: string;
+  origin?: string | undefined;
+  url?: string | undefined;
+  title?: string | undefined;
+  metadata?: JsonObject | undefined;
+}>;
 
 /** Host resource currently visible to the user when context is collected. */
 export type HostSurface = {
@@ -45,7 +52,7 @@ export const createStaticHostContextProvider = (
   getContext: () => Promise.resolve(snapshot),
 });
 
-export const toProtocolHostContext = (snapshot: HostContextSnapshot): HostContext =>
+export const toHostContext = (snapshot: HostContextSnapshot): HostContext =>
   omitUndefinedProperties({
     schemaVersion: snapshot.schemaVersion,
     origin: snapshot.origin === "" ? undefined : snapshot.origin,

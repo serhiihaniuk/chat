@@ -3,7 +3,6 @@ import {
   ASSISTANT_TURN_STATUSES,
   CLIENT_TOOL_DISPATCH_STATES,
   CONVERSATION_STATUSES,
-  HOST_COMMAND_RESULT_STATUSES,
   SCHEMA_ENTITY_TYPES,
   TOOL_INVOCATION_STATUSES,
   TOOL_APPROVAL_STATES,
@@ -25,7 +24,6 @@ describe("db schema contract", () => {
       "tool_invocation",
       "client_tool_dispatch",
       "tool_approval",
-      "host_command_result",
       "audit_event",
     ]);
   });
@@ -55,14 +53,6 @@ describe("db schema contract", () => {
       "aborted",
     ]);
     expect(TOOL_APPROVAL_STATES).toEqual(["requested", "approved", "denied", "expired"]);
-    expect(HOST_COMMAND_RESULT_STATUSES).toEqual([
-      "emitted",
-      "applied",
-      "rejected",
-      "unsupported",
-      "failed",
-      "timed_out",
-    ]);
   });
 
   it("requires workspace scoped records and repository idempotency", () => {

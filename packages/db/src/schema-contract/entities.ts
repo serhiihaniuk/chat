@@ -7,14 +7,11 @@ import type {
   ClientToolDispatchId,
   ContextSnapshotId,
   ConversationId,
-  HostCommandId,
-  HostCommandResultId,
   HostSurfaceId,
   MessageId,
   ModelId,
   ProviderRequestId,
   RequestId,
-  ResourceId,
   SubjectId,
   TargetId,
   ToolCallId,
@@ -28,7 +25,6 @@ import type {
   AssistantTurnStatus,
   ClientToolDispatchState,
   ConversationStatus,
-  HostCommandResultStatus,
   MessageRole,
   ToolInvocationStatus,
   ToolApprovalState,
@@ -186,20 +182,6 @@ export type ToolApprovalRecord = TenantScopedRecord &
     readonly expiresAt: string;
   };
 
-export type HostCommandResultRecord = TenantScopedRecord &
-  VersionedRecord & {
-    readonly hostCommandId: HostCommandResultId;
-    readonly assistantTurnId: AssistantTurnId;
-    readonly commandId: HostCommandId;
-    readonly commandType: string;
-    readonly resourceId?: ResourceId;
-    readonly status: HostCommandResultStatus;
-    readonly resultCode: string;
-    readonly commandRedactedJson: JsonObject;
-    readonly resultRedactedJson?: JsonObject;
-    readonly resolvedAt?: string;
-  };
-
 export type AuditEventRecord = TenantScopedRecord &
   VersionedRecord & {
     readonly auditEventId: AuditEventId;
@@ -221,5 +203,4 @@ export type SchemaContractRecord =
   | ToolInvocationRecord
   | ClientToolDispatchRecord
   | ToolApprovalRecord
-  | HostCommandResultRecord
   | AuditEventRecord;

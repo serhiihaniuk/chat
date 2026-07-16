@@ -37,11 +37,11 @@
     "build": "tsc -b --pretty false",
     "dev": "vite",
     "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
-    "test": "cd ../.. && vitest run test-harness/widget-harness/src/app/widget-harness.test.ts"
+    "test": "cd ../.. && vitest run test-harness/widget-harness/src --passWithNoTests"
   },
   "dependencies": {
-    "@side-chat/chat-protocol": "0.0.0",
     "@side-chat/host-bridge": "0.0.0",
+    "@side-chat/shared": "0.0.0",
     "@side-chat/side-chat-widget": "0.0.0",
     "react": "19.2.6",
     "react-dom": "19.2.6"

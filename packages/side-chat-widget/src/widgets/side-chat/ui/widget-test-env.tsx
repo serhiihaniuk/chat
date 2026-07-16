@@ -1,22 +1,16 @@
-import type { ChatStreamRequest, SidechatStreamEvent } from "@side-chat/chat-protocol";
 import { Window } from "happy-dom";
 import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, vi } from "vitest";
 
-import { resetWidgetRunStores } from "#features/chat";
-import type { ConversationSummary, SideChatApiClient } from "#entities/conversation";
-
-// Shared happy-dom + React rendering harness for the SideChatWidget DOM tests in
-// this folder. Excluded from the package build (see tsconfig "exclude"); it is a
-// test fixture, not shipped widget code.
+import type { WorkflowChatClient } from "#entities/workflow-chat";
 
 let windowRef: Window;
 let root: Root;
 let container: HTMLElement;
 let previousGlobals: [string, PropertyDescriptor | undefined][];
 
-// Registers the per-test happy-dom lifecycle. Call once at the top of a test file.
+/** Install the browser globals required by full-widget DOM tests. */
 export const installWidgetTestDom = (): void => {
   beforeEach(() => {
     previousGlobals = [];
@@ -24,21 +18,25 @@ export const installWidgetTestDom = (): void => {
     assignGlobal("window", windowRef);
     assignGlobal("document", windowRef.document);
     assignGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    assignGlobal("Element", windowRef.Element);
-    assignGlobal("HTMLElement", windowRef.HTMLElement);
-    assignGlobal("HTMLButtonElement", windowRef.HTMLButtonElement);
-    assignGlobal("HTMLTextAreaElement", windowRef.HTMLTextAreaElement);
-    assignGlobal("Document", windowRef.Document);
-    assignGlobal("DOMRect", windowRef.DOMRect);
-    assignGlobal("DOMRectReadOnly", windowRef.DOMRectReadOnly);
-    assignGlobal("IntersectionObserver", windowRef.IntersectionObserver);
-    assignGlobal("MouseEvent", windowRef.MouseEvent);
-    assignGlobal("MutationObserver", windowRef.MutationObserver);
-    assignGlobal("Node", windowRef.Node);
-    assignGlobal("PointerEvent", windowRef.PointerEvent);
-    assignGlobal("SVGElement", windowRef.SVGElement);
-    assignGlobal("Event", windowRef.Event);
-    assignGlobal("FormData", windowRef.FormData);
+    for (const name of [
+      "Element",
+      "HTMLElement",
+      "HTMLButtonElement",
+      "HTMLTextAreaElement",
+      "Document",
+      "DOMRect",
+      "DOMRectReadOnly",
+      "IntersectionObserver",
+      "MouseEvent",
+      "MutationObserver",
+      "Node",
+      "PointerEvent",
+      "SVGElement",
+      "Event",
+      "FormData",
+    ] as const) {
+      assignGlobal(name, Reflect.get(windowRef, name));
+    }
     assignGlobal("getComputedStyle", windowRef.getComputedStyle.bind(windowRef));
     assignGlobal("requestAnimationFrame", windowRef.requestAnimationFrame.bind(windowRef));
     assignGlobal("cancelAnimationFrame", windowRef.cancelAnimationFrame.bind(windowRef));
@@ -50,7 +48,6 @@ export const installWidgetTestDom = (): void => {
         disconnect() {}
       },
     );
-    // Base UI's ScrollArea viewport calls Element.getAnimations(); happy-dom omits it.
     if (typeof Reflect.get(windowRef.Element.prototype, "getAnimations") !== "function") {
       Reflect.set(windowRef.Element.prototype, "getAnimations", () => []);
     }
@@ -63,22 +60,12 @@ export const installWidgetTestDom = (): void => {
   });
 
   afterEach(() => {
-    if (root) {
-      act(() => {
-        root.unmount();
-      });
-    }
-    // The run store is module-level (it must survive component remounts), so reset
-    // it between tests or a leftover run leaks into the next case's anonymous store.
-    resetWidgetRunStores();
-    windowRef?.close();
+    act(() => root.unmount());
+    windowRef.close();
     vi.restoreAllMocks();
     for (const [name, descriptor] of previousGlobals.slice().reverse()) {
-      if (descriptor) {
-        Object.defineProperty(globalThis, name, descriptor);
-      } else {
-        Reflect.deleteProperty(globalThis, name);
-      }
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else Reflect.deleteProperty(globalThis, name);
     }
   });
 };
@@ -89,20 +76,7 @@ const assignGlobal = (name: string, value: unknown): void => {
 };
 
 export const mountWidget = (element: ReactElement): void => {
-  act(() => {
-    root.render(element);
-  });
-};
-
-export const submit = async (message: string): Promise<void> => {
-  const textarea = document.querySelector("textarea");
-  if (!(textarea instanceof HTMLTextAreaElement)) throw new Error("Expected textarea.");
-
-  act(() => {
-    textarea.value = message;
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-  await clickButton("Send");
+  act(() => root.render(element));
 };
 
 export const clickButton = async (name: string): Promise<void> => {
@@ -111,111 +85,40 @@ export const clickButton = async (name: string): Promise<void> => {
   );
   if (!(button instanceof HTMLElement)) throw new Error(`Expected button ${name}.`);
   await act(async () => {
-    button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
-    button.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
-    button.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true }));
-    button.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
     button.click();
     await Promise.resolve();
   });
 };
 
-export const waitForButton = async (name: string): Promise<void> => {
-  const deadline = Date.now() + 2_000;
-  while (Date.now() < deadline) {
-    const found = Array.from(document.querySelectorAll("button")).some(
-      (candidate) =>
-        candidate.getAttribute("aria-label") === name || candidate.textContent === name,
-    );
-    if (found) return;
-    await act(async () => {
-      await Promise.resolve();
-    });
-  }
-  throw new Error(`Expected button ${name} to appear.`);
-};
-
-export const waitForText = async (text: string): Promise<void> => {
-  const deadline = Date.now() + 2_000;
-  while (Date.now() < deadline) {
-    if (document.body.textContent?.includes(text)) return;
-    await act(async () => {
-      await Promise.resolve();
-    });
-  }
-  throw new Error(`Expected document text to include ${text}.`);
-};
-
-/**
- * Build a fake widget client over the connection-bound flow.
- *
- * `createRun` records the request and returns a fixed turn identity together
- * with the events `createEvents` produces — the POST-is-the-stream contract. A
- * rejecting `createEvents` surfaces from `createRun`, exactly where a real
- * stream-open failure would. `subscribeTurn` replays the same events for the
- * resume path.
- */
-export const fakeClient = (
-  createEvents: (
-    request: ChatStreamRequest,
-  ) => AsyncIterable<SidechatStreamEvent> | Promise<AsyncIterable<SidechatStreamEvent>>,
-  overrides: Partial<
-    Pick<
-      SideChatApiClient,
-      "listConversations" | "listModels" | "listTools" | "readHistory" | "submitHostCommandResult"
-    >
-  > = {},
-): SideChatApiClient => {
-  // A counter keeps each created run's turn id distinct even though the test env
-  // mocks crypto.randomUUID to a constant request id, so the controller does not
-  // dedupe a second turn's subscription against the first.
-  const runs = new Map<string, ChatStreamRequest>();
-  let counter = 0;
-
-  return {
-    ...overrides,
-    createRun: async (request) => {
-      counter += 1;
-      const assistantTurnId = `turn-${counter}`;
-      runs.set(assistantTurnId, request);
-      return {
-        requestId: request.requestId,
-        assistantTurnId,
-        conversationId: "conversation-1",
-        events: await createEvents(request),
-      };
-    },
-    subscribeTurn: async (assistantTurnId) => {
-      const request = runs.get(assistantTurnId);
-      if (!request) throw new Error(`Expected createRun before subscribeTurn ${assistantTurnId}.`);
-      return { events: await createEvents(request) };
-    },
-    resolveRun: () => Promise.resolve({ assistantTurnId: `turn-${counter}`, status: "running" }),
-    getTurnStatus: (assistantTurnId) =>
-      Promise.resolve({
-        assistantTurnId,
-        conversationId: "conversation-1",
-        requestId: runs.get(assistantTurnId)?.requestId ?? "request-1",
-        status: "running",
-      }),
-    cancelTurn: (assistantTurnId) => Promise.resolve({ assistantTurnId, cancelRequested: true }),
-  };
-};
-
-// Protocol event builders live with the chat entity test fixtures; re-export them
-// here so existing DOM test imports stay stable. Sourced through the package-private
-// chat barrel so the re-export does not cross the widgets -> entities layer with a
-// relative path.
-export { baseEvent, completed, delta, started } from "#entities/chat";
-
-export const conversationSummary = (
-  conversationId: string,
-  title: string,
-): ConversationSummary => ({
-  conversationId,
-  title,
-  status: "active",
-  createdAt: "2026-05-23T13:00:00.000Z",
-  updatedAt: "2026-05-23T13:00:00.000Z",
-  lastMessageAt: "2026-05-23T13:00:00.000Z",
+/** Minimal native-service double for widget chrome tests that never send a turn. */
+export const fakeWorkflowChat = (): WorkflowChatClient => ({
+  baseUrl: "https://service.example",
+  fetch: vi.fn<typeof fetch>((input) => {
+    const path = new URL(String(input)).pathname;
+    if (path === "/api/conversations") {
+      return Promise.resolve(Response.json({ conversations: [], runningConversationIds: [] }));
+    }
+    if (path === "/api/models") {
+      return Promise.resolve(Response.json({ models: [] }));
+    }
+    if (path === "/api/tools") return Promise.resolve(Response.json({ tools: [] }));
+    if (path === "/api/capabilities") {
+      return Promise.resolve(Response.json({ hostContext: { enabled: false } }));
+    }
+    if (path === "/api/activity") return Promise.resolve(createActivityResponse());
+    return Promise.resolve(new Response(null, { status: 404 }));
+  }),
 });
+
+const createActivityResponse = (): Response => {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(
+        new TextEncoder().encode(
+          'event: sidechat.turn-activity-sync\ndata: {"type":"sidechat.turn-activity-sync","activeTurns":[]}\n\n',
+        ),
+      );
+    },
+  });
+  return new Response(body, { headers: { "content-type": "text/event-stream" } });
+};

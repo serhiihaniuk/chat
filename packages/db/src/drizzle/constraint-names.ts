@@ -16,5 +16,4 @@ export const SIDECHAT_UNIQUE_INDEXES = {
   TOOL_INVOCATIONS_TURN_CALL: "tool_invocations_turn_call_uq",
   CLIENT_TOOL_DISPATCHES_TURN_CALL: "client_tool_dispatches_turn_call_uq",
   TOOL_APPROVALS_TURN_CALL: "tool_approvals_turn_call_uq",
-  HOST_COMMAND_RESULTS_TURN_COMMAND: "host_command_results_turn_command_uq",
 } as const;

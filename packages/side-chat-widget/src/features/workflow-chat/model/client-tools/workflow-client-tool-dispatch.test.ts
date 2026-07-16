@@ -8,9 +8,9 @@ import { dispatchWorkflowClientTool } from "./workflow-client-tool-dispatch.js";
 
 const capabilities: HostCapabilities = {
   schemaVersion: "test.capabilities.v1",
-  commands: [
+  tools: [
     {
-      commandName: "open_resource",
+      toolName: "open_resource",
       description: "Open a host resource.",
       inputSchema: { type: "object" },
     },
@@ -63,7 +63,7 @@ describe("dispatchWorkflowClientTool", () => {
   it("posts an unsupported result without invoking a missing capability", async () => {
     const dispatch = vi.fn<NonNullable<WidgetHostBridge["dispatchToolCall"]>>();
     const bridge = createBridge({
-      capabilities: { schemaVersion: "test.capabilities.v1", commands: [] },
+      capabilities: { schemaVersion: "test.capabilities.v1", tools: [] },
       dispatchToolCall: dispatch,
     });
     const request = vi.fn<typeof fetch>(() => Promise.resolve(Response.json({ accepted: true })));
@@ -83,7 +83,7 @@ describe("dispatchWorkflowClientTool", () => {
     expect(dispatch).not.toHaveBeenCalled();
     expect(outcome).toMatchObject({
       outputPosted: true,
-      result: { status: "unsupported", resultCode: "unsupported_command" },
+      result: { status: "unsupported", resultCode: "unsupported_tool" },
     });
   });
 
@@ -151,7 +151,6 @@ function createBridge({
         origin: "https://test.example",
       }),
     getCapabilities: () => Promise.resolve(currentCapabilities),
-    dispatchCommand: () => Promise.reject(new Error("legacy path is not used")),
     dispatchToolCall,
   };
 }

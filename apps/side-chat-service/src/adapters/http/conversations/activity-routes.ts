@@ -1,4 +1,3 @@
-import { encodeTurnActivitySseEvent } from "@side-chat/chat-protocol";
 import { Hono } from "hono";
 
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
@@ -6,6 +5,7 @@ import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import { recordTelemetrySafely } from "#application/telemetry/record-telemetry-safely";
 import { createActivitySubscriptionStream } from "#application/turn/activity/activity-subscription-stream";
 import type { TurnActivityDispatcher } from "#application/turn/activity/turn-activity-dispatcher";
+import type { TurnActivityStreamEvent } from "#domain/turn-activity";
 
 import type { AuthVariables } from "../auth-middleware.js";
 import { HTTP_HEADERS, QUERY_HTTP_ROUTES } from "../http-contract.js";
@@ -54,7 +54,7 @@ function recordKeepalive(telemetry: Pick<TelemetrySink, "record">): void {
 }
 
 function encodeActivityEvents(
-  events: ReadableStream<Parameters<typeof encodeTurnActivitySseEvent>[0]>,
+  events: ReadableStream<TurnActivityStreamEvent>,
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return events.pipeThrough(
@@ -65,3 +65,6 @@ function encodeActivityEvents(
     }),
   );
 }
+
+const encodeTurnActivitySseEvent = (event: TurnActivityStreamEvent): string =>
+  `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;

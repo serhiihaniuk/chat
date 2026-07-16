@@ -5,18 +5,10 @@
     "moduleResolution": "NodeNext",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "@side-chat/ai-runtime-contract": ["./packages/ai-runtime-contract/src/index.ts"],
-      "@side-chat/agent-runtime": ["./packages/agent-runtime/src/index.ts"],
-      "@side-chat/partner-ai-service": ["./apps/partner-ai-service/src/index.ts"],
-      "@side-chat/partner-ai-core": ["./packages/partner-ai-core/src/index.ts"],
-      "@side-chat/chat-protocol": ["./packages/chat-protocol/src/index.ts"],
       "@side-chat/db": ["./packages/db/src/index.ts"],
       "@side-chat/host-bridge": ["./packages/host-bridge/src/index.ts"],
       "@side-chat/shared": ["./packages/shared/src/index.ts"],
       "@side-chat/stream-profile": ["./packages/stream-profile/src/index.ts"],
-      "@side-chat/side-chat-widget/testing": [
-        "./packages/side-chat-widget/src/entities/chat/testing.ts"
-      ],
       "@side-chat/side-chat-widget": ["./packages/side-chat-widget/src/index.ts"]
     },
     "lib": ["ES2024", "DOM", "DOM.Iterable"],

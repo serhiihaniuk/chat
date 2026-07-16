@@ -38,14 +38,13 @@ describe("sidechat drizzle schema and migration", () => {
       "toolInvocations",
       "clientToolDispatches",
       "toolApprovals",
-      "hostCommandResults",
       "auditEvents",
     ]);
   });
 
   it("generates table DDL without PostgreSQL enum lifecycle types", () => {
     expect(migration).not.toMatch(/CREATE TYPE .* AS ENUM/u);
-    expect(migration).toContain('"sidechat"."host_command_results"');
+    expect(migration).not.toContain('"sidechat"."host_command_results"');
     expect(migration).toContain('"sidechat"."client_tool_dispatches"');
     expect(migration).toContain('"sidechat"."tool_approvals"');
     expect(migration).toContain('"sidechat"."conversation_title_runs"');

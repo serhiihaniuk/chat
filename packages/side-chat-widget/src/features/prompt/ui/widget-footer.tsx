@@ -1,6 +1,5 @@
 import { BrainCircuitIcon, GaugeIcon, SparklesIcon, type LucideIcon } from "lucide-react";
 
-import type { WidgetStatus } from "#entities/chat";
 import { Composer } from "#shared/ui/composer";
 import { ModelSelector, type Model, type ThinkingLevel } from "#shared/ui/model-selector";
 import { ToolsMenu, type ToolMenuItem } from "#shared/ui/tools-menu";
@@ -16,6 +15,8 @@ type WidgetFooterModel = {
   readonly key: string;
   readonly label: string;
 };
+
+type WidgetStatus = "error" | "idle" | "streaming" | "submitted";
 
 export const WidgetFooter = ({
   contextUsedTokens,

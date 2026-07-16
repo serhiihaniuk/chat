@@ -2,7 +2,7 @@ export {
   createHarnessHostBridge,
   createHarnessHostContext,
   type HarnessHostBridge,
-  type HarnessHostCommandRecord,
+  type HarnessHostToolRecord,
 } from "./host/fake-host-bridge.js";
 export {
   createDemoHostSurface,
@@ -17,12 +17,9 @@ export {
 import { mountBrowserHarness } from "./app/harness-app.js";
 export { mountBrowserHarness };
 export {
-  createLocalServiceClient,
   createWorkflowServiceClient,
   resolveLocalApiBaseUrl,
-  withLocalAuth,
-} from "./clients/local-service-client.js";
-export { createMockEvents, createMockStreamClient } from "./clients/mock-stream-client.js";
+} from "./clients/workflow-service-client.js";
 export {
   modeLabel,
   parseWidgetHarnessConfig,

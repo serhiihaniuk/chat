@@ -12,11 +12,9 @@ import {
 
 import {
   CLIENT_TOOL_DISPATCH_STATES,
-  HOST_COMMAND_RESULT_STATUSES,
   TOOL_INVOCATION_STATUSES,
   TOOL_APPROVAL_STATES,
   type ClientToolDispatchState,
-  type HostCommandResultStatus,
   type ToolInvocationStatus,
   type ToolApprovalState,
 } from "#schema-contract";
@@ -38,7 +36,7 @@ type InteractionSchemaDependencies = {
   readonly inList: typeof inList;
 };
 
-/** Model-tool records, legacy browser-interaction records, and maintenance links. */
+/** Model-tool records, client-tool coordination, approvals, and maintenance links. */
 export const defineInteractionTables = ({
   sidechat,
   assistantTurns,
@@ -125,36 +123,6 @@ export const defineInteractionTables = ({
     inList,
   });
 
-  const hostCommandResults = sidechat.table(
-    "host_command_results",
-    {
-      hostCommandId: text("host_command_id").primaryKey(),
-      assistantTurnId: text("assistant_turn_id")
-        .notNull()
-        .references(() => assistantTurns.assistantTurnId),
-      workspaceId: workspaceIdColumn(),
-      commandId: text("command_id").notNull(),
-      commandType: text("command_type").notNull(),
-      resourceId: text("resource_id"),
-      status: text("status").$type<HostCommandResultStatus>().notNull(),
-      resultCode: text("result_code").notNull(),
-      commandRedactedJson: jsonb("command_redacted_json").$type<JsonObject>().notNull(),
-      resultRedactedJson: jsonb("result_redacted_json").$type<JsonObject>(),
-      createdAt: createdAt(),
-      resolvedAt: timestamp("resolved_at", {
-        mode: "string",
-        withTimezone: true,
-      }),
-    },
-    (table) => [
-      uniqueIndex(SIDECHAT_UNIQUE_INDEXES.HOST_COMMAND_RESULTS_TURN_COMMAND).on(
-        table.assistantTurnId,
-        table.commandId,
-      ),
-      check("host_command_results_status_check", inList("status", HOST_COMMAND_RESULT_STATUSES)),
-    ],
-  );
-
   const conversationTitleRuns = sidechat.table(
     "conversation_title_runs",
     {
@@ -178,7 +146,6 @@ export const defineInteractionTables = ({
     toolInvocations,
     clientToolDispatches,
     toolApprovals,
-    hostCommandResults,
     conversationTitleRuns,
   };
 };

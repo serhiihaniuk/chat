@@ -9,8 +9,8 @@ import {
   WORKFLOW_CHAT_QUERY_SCOPE,
   type WorkflowChatClient,
   type WorkflowConversationClient,
+  type TurnActivityEvent,
 } from "#entities/workflow-chat";
-import type { TurnActivityEvent } from "@side-chat/chat-protocol";
 
 import {
   findConversationTitle,

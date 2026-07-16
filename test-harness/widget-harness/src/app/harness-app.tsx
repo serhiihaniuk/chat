@@ -1,7 +1,7 @@
 import { createElement, useEffect, useState, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 
-import { isRecord } from "@side-chat/chat-protocol";
+import { isRecord } from "@side-chat/shared";
 import {
   connectIframeHostContextProvider,
   createHostBridge,
@@ -18,18 +18,13 @@ import { createHarnessHostBridge, HARNESS_HOST_CAPABILITIES } from "#host/fake-h
 import { createDemoHostSurface } from "#host/demo-host-surface";
 import { createPostMessageHostBridge } from "#host/post-message-host-bridge";
 import { DemoHostPanel } from "#app/demo-host-panel";
-import {
-  createLocalServiceClient,
-  createWorkflowServiceClient,
-} from "#clients/local-service-client";
-import { createMockStreamClient } from "#clients/mock-stream-client";
+import { createWorkflowServiceClient } from "#clients/workflow-service-client";
 import {
   parseWidgetHarnessConfig,
   WIDGET_HARNESS_OPEN_CONTROLS,
   type WidgetHarnessConfig,
 } from "#config/modes";
 
-const SERVICE_DEFAULT_TURN_PROFILE_ID = "default";
 const SET_OPEN_MESSAGE_TYPE = "sidechat.widget.setOpen";
 const OPEN_CHANGE_MESSAGE_TYPE = "sidechat.widget.openChange";
 const READY_MESSAGE_TYPE = "sidechat.widget.ready";
@@ -169,37 +164,14 @@ const createWidgetHarnessProps = (
   config: WidgetHarnessConfig,
   hostBridge: WidgetHostBridge | undefined,
 ): SideChatWidgetProps => {
-  if (config.mode === "workflow-service") {
-    return {
-      workflowChat: createWorkflowServiceClient(config),
-      workflowActiveTurnStorageKey: `side-chat-widget:${config.workspaceId}:workflow-active-turn`,
-      workflowConversationSelectionStorageKey: `side-chat-widget:${config.workspaceId}:workflow-conversation-selection`,
-      hostBridge,
-      defaultOpen: config.defaultOpen,
-      defaultPanelSize: resolveHarnessPanelSize(),
-      labels: {
-        title: "Workspace Assistant",
-        placeholder: "Ask about this page",
-        send: "Send",
-      },
-      quickActions: HARNESS_QUICK_ACTIONS,
-      panelSizeStorageKey: `side-chat-widget:${config.workspaceId}:panel-size`,
-    };
-  }
-
-  const client =
-    config.mode === "local-service"
-      ? createLocalServiceClient(config)
-      : createMockStreamClient(config);
-  const props: SideChatWidgetProps = {
-    turnProfiles: [{ id: SERVICE_DEFAULT_TURN_PROFILE_ID, label: "Default profile" }],
-    client,
-    conversationStorageKey: `side-chat-widget:${config.workspaceId}:conversations`,
+  return {
+    workflowChat: createWorkflowServiceClient(config),
+    workflowActiveTurnStorageKey: `side-chat-widget:${config.workspaceId}:workflow-active-turn`,
+    workflowConversationSelectionStorageKey: `side-chat-widget:${config.workspaceId}:workflow-conversation-selection`,
+    hostBridge,
     panelSizeStorageKey: `side-chat-widget:${config.workspaceId}:panel-size`,
-    defaultTurnProfileId: SERVICE_DEFAULT_TURN_PROFILE_ID,
     defaultOpen: config.defaultOpen,
     defaultPanelSize: resolveHarnessPanelSize(),
-    hostBridge,
     labels: {
       title: "Workspace Assistant",
       placeholder: "Ask about this page",
@@ -207,7 +179,6 @@ const createWidgetHarnessProps = (
     },
     quickActions: HARNESS_QUICK_ACTIONS,
   };
-  return props;
 };
 
 const resolveHarnessPanelSize = (): {

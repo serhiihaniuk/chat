@@ -240,7 +240,6 @@ export const {
   toolInvocations,
   clientToolDispatches,
   toolApprovals,
-  hostCommandResults,
   conversationTitleRuns,
 } = defineInteractionTables({
   sidechat,
@@ -281,6 +280,5 @@ export const sidechatTables = {
   toolInvocations,
   clientToolDispatches,
   toolApprovals,
-  hostCommandResults,
   auditEvents,
 } as const;

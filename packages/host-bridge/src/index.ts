@@ -1,36 +1,24 @@
 export {
-  isHostCommandActivityEvent,
-  supportsCommand,
   supportsTool,
   toClientToolDefinitions,
-  toHostCommand,
-  type BrowserHostCommandCapability,
+  type BrowserToolCapability,
   type HostCapabilities,
-  type HostCommand,
-  type HostCommandActivityEvent,
   type HostClientToolDefinition,
   type HostToolCall,
-} from "./commands/capability.js";
+} from "./tools/tool-capability.js";
 export {
-  createCommandResult,
-  createFailedResult,
-  createRejectedResult,
-  createUnsupportedResult,
-  HOST_COMMAND_RESULT_STATUSES,
-  type CommandResultInput,
-  type HostCommandResult,
-  type HostCommandResultStatus,
   createFailedToolResult,
   createToolResult,
   createUnsupportedToolResult,
+  HOST_TOOL_RESULT_STATUSES,
   type HostToolResult,
-} from "./commands/command-result.js";
+  type HostToolResultStatus,
+  type ToolResultInput,
+} from "./tools/tool-result.js";
 export {
-  dispatchSupportedCommand,
   dispatchSupportedToolCall,
-  type HostCommandDispatcher,
   type HostToolDispatcher,
-} from "./commands/command-dispatcher.js";
+} from "./tools/tool-dispatcher.js";
 export {
   createHostBridge,
   type HostBridge,
@@ -40,7 +28,8 @@ export {
 } from "./bridge/bridge.js";
 export {
   createStaticHostContextProvider,
-  toProtocolHostContext,
+  toHostContext,
+  type HostContext,
   type HostContextProvider,
   type HostContextRequest,
   type HostContextSnapshot,

@@ -7,7 +7,6 @@ export const SIDE_CHAT_ACTIVITY_KINDS = {
   PROGRESS: "progress",
   REASONING: "reasoning",
   TOOL: "tool",
-  HOST_COMMAND: "host_command",
 } as const;
 
 export const SIDE_CHAT_ACTIVITY_STATUSES = {
@@ -39,17 +38,6 @@ type SideChatToolActivityItem = SideChatActivityBase<typeof SIDE_CHAT_ACTIVITY_K
   };
 };
 
-type SideChatHostCommandActivityItem = SideChatActivityBase<
-  typeof SIDE_CHAT_ACTIVITY_KINDS.HOST_COMMAND
-> & {
-  readonly hostCommand: {
-    readonly commandId?: string | undefined;
-    readonly commandName: string;
-    readonly payload?: JsonValue | undefined;
-    readonly result?: JsonValue | undefined;
-  };
-};
-
 /**
  * Public activity-rendering input owned by the widget, not either transport.
  *
@@ -59,8 +47,7 @@ type SideChatHostCommandActivityItem = SideChatActivityBase<
 export type SideChatActivityItem =
   | SideChatActivityBase<typeof SIDE_CHAT_ACTIVITY_KINDS.PROGRESS>
   | SideChatActivityBase<typeof SIDE_CHAT_ACTIVITY_KINDS.REASONING>
-  | SideChatToolActivityItem
-  | SideChatHostCommandActivityItem;
+  | SideChatToolActivityItem;
 
 /** Return a node to replace one eligible activity item, or undefined for its default. */
 export type RenderActivityItem = (item: SideChatActivityItem) => ReactNode | undefined;

@@ -11,7 +11,10 @@
   "include": ["*.ts"],
   "references": [
     {
-      "path": "../../../packages/chat-protocol"
+      "path": "../../../packages/shared"
+    },
+    {
+      "path": "../../../packages/stream-profile"
     }
   ]
 }

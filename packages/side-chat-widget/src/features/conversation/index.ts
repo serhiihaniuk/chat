@@ -1,8 +1,6 @@
 export type { ConversationGroup, ConversationSummaryView } from "./model/conversation-options.js";
-export { toProtocolSideChatActivityItem } from "./ui/activity/protocol-activity-item.js";
 export { ConversationSidebar } from "./ui/sidebar/conversation-sidebar.js";
 export { ConversationSwitcher } from "./ui/switcher/conversation-switcher.js";
-export { WidgetConversation } from "./ui/widget-conversation.js";
 export { WidgetHeaderTitle } from "./ui/widget-header-title.js";
 export {
   WidgetEmptyState,

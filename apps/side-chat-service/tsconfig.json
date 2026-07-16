@@ -9,8 +9,8 @@
     "types": ["node"]
   },
   "references": [
-    { "path": "../../packages/chat-protocol" },
     { "path": "../../packages/db" },
+    { "path": "../../packages/shared" },
     { "path": "../../packages/stream-profile" }
   ],
   "include": ["src/**/*.ts", "nitro.config.ts", "sidechat*.config.ts"]

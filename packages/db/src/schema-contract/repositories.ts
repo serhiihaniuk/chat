@@ -6,7 +6,6 @@ import type {
   ContextSnapshotRecord,
   ConversationRecord,
   ConversationSummaryRecord,
-  HostCommandResultRecord,
   MessageRecord,
   ToolInvocationRecord,
   UsageRecord,
@@ -15,13 +14,11 @@ import type {
   ActorId,
   AssistantTurnId,
   ConversationId,
-  HostCommandId,
   HostSurfaceId,
   MessageId,
   ModelId,
   ProviderRequestId,
   RequestId,
-  ResourceId,
   SubjectId,
   TargetId,
   ToolCallId,
@@ -129,7 +126,7 @@ export type RecordTurnContextSnapshotCommand = RepositoryCommandEnvelope & {
 export type FindAssistantTurnCommand = {
   readonly workspaceId: WorkspaceId;
   // A turn belongs to the subject that started it; reads (status, stream replay,
-  // host-command result) are scoped to that subject so a leaked turn id from
+  // tool result) are scoped to that subject so a leaked turn id from
   // another user cannot be tailed. Cross-subject lookups return `undefined`.
   readonly subjectId: SubjectId;
   readonly assistantTurnId: AssistantTurnId;
@@ -245,24 +242,6 @@ export type SubmitClientToolOutputResult = {
   readonly disposition: SubmitClientToolOutputDisposition;
 };
 
-export type FindHostCommandResultCommand = {
-  readonly workspaceId: WorkspaceId;
-  readonly assistantTurnId: AssistantTurnId;
-  readonly commandId: HostCommandId;
-};
-
-export type RecordHostCommandResultCommand = RepositoryCommandEnvelope & {
-  readonly assistantTurnId: AssistantTurnId;
-  readonly commandId: HostCommandId;
-  readonly commandType: string;
-  readonly resourceId?: ResourceId | undefined;
-  readonly status: HostCommandResultRecord["status"];
-  readonly resultCode: string;
-  readonly commandRedactedJson: JsonObject;
-  readonly resultRedactedJson?: JsonObject | undefined;
-  readonly resolvedAt?: string | undefined;
-};
-
 export type {
   ConversationSnapshotRecord,
   FindConversationCommand,
@@ -311,7 +290,6 @@ export type RepositoryCommandInput =
   | CreateOrGetToolApprovalCommand
   | DecideToolApprovalCommand
   | ExpireToolApprovalCommand
-  | RecordHostCommandResultCommand
   | ReadConversationHistoryCommand
   | ReadConversationSnapshotCommand
   | ListConversationsCommand
@@ -422,20 +400,6 @@ export type InteractionRepositoryContract = ClientToolDispatchRepositoryContract
     readonly recordToolInvocation: (
       command: RecordToolInvocationCommand,
     ) => Promise<RepositoryCommandResult<ToolInvocationRecord>>;
-    readonly recordHostCommandResult: (
-      command: RecordHostCommandResultCommand,
-    ) => Promise<RepositoryCommandResult<HostCommandResultRecord>>;
-    /**
-     * Read one turn's host-command row by command id (workspace-scoped).
-     *
-     * The result relay reads through this twice: the result route to prove the
-     * command belongs to the caller's turn before persisting the browser's
-     * result, and the awaiting owner (listener or poll) to fetch the settled
-     * result. Returns `undefined` for an unknown or cross-workspace command.
-     */
-    readonly findHostCommandResult: (
-      command: FindHostCommandResultCommand,
-    ) => Promise<HostCommandResultRecord | undefined>;
     readonly appendAuditEvent: (
       command: AppendAuditEventCommand,
     ) => Promise<RepositoryCommandResult<AuditEventRecord>>;

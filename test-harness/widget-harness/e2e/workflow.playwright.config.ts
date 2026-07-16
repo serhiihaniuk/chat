@@ -13,7 +13,6 @@ export default defineConfig({
   testMatch: [
     "workflow-interactions.spec.ts",
     "workflow-iframe.spec.ts",
-    "workflow-look-parity.spec.ts",
     "workflow-multitab.spec.ts",
   ],
   fullyParallel: false,

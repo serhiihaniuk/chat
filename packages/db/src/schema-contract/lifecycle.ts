@@ -7,7 +7,6 @@ export const SCHEMA_ENTITY_TYPES = [
   "tool_invocation",
   "client_tool_dispatch",
   "tool_approval",
-  "host_command_result",
   "audit_event",
 ] as const;
 
@@ -59,26 +58,6 @@ export type ClientToolDispatchState = (typeof CLIENT_TOOL_DISPATCH_STATES)[numbe
 /** Durable authorization state for one gated tool call. */
 export const TOOL_APPROVAL_STATES = ["requested", "approved", "denied", "expired"] as const;
 export type ToolApprovalState = (typeof TOOL_APPROVAL_STATES)[number];
-
-export const HOST_COMMAND_RESULT_STATUSES = [
-  "emitted",
-  "applied",
-  "rejected",
-  "unsupported",
-  "failed",
-  "timed_out",
-] as const;
-export type HostCommandResultStatus = (typeof HOST_COMMAND_RESULT_STATUSES)[number];
-
-/**
- * Postgres channel that signals a saved host-command result.
- *
- * Any instance may receive the browser request, but only the owner of the paused
- * tool loop can settle it. The notification is only a wake-up signal; the saved
- * result row is the source of truth, so a missed notification affects latency,
- * not correctness (ADR 0009).
- */
-export const HOST_COMMAND_RESULT_NOTIFY_CHANNEL = "host_command_result";
 
 /**
  * Identity-only assistant-turn lifecycle notifications for subject activity SSE.

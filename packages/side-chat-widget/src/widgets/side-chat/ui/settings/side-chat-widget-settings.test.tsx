@@ -3,12 +3,9 @@ import { describe, expect, it } from "vitest";
 import { SideChatWidget } from "../side-chat-widget.js";
 import {
   clickButton,
-  completed,
-  delta,
-  fakeClient,
+  fakeWorkflowChat,
   installWidgetTestDom,
   mountWidget,
-  started,
 } from "../widget-test-env.js";
 
 installWidgetTestDom();
@@ -19,14 +16,9 @@ const APPEARANCE_STORAGE_KEY = "side-chat-widget:appearance";
 const renderThemeWidget = () =>
   mountWidget(
     <SideChatWidget
-      client={fakeClient(async function* () {
-        await Promise.resolve();
-        yield started();
-        yield delta("hi");
-        yield completed();
-      })}
       labels={{ placeholder: "Message", send: "Send", title: "Workspace Assistant" }}
       themeStorageKey={THEME_STORAGE_KEY}
+      workflowChat={fakeWorkflowChat()}
     />,
   );
 

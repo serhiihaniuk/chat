@@ -126,8 +126,6 @@ export const fakeRepositories = (
   decideToolApproval: rejects("decideToolApproval"),
   expireToolApproval: rejects("expireToolApproval"),
   recordToolInvocation: rejects("recordToolInvocation"),
-  recordHostCommandResult: rejects("recordHostCommandResult"),
-  findHostCommandResult: rejects("findHostCommandResult"),
   appendAuditEvent: rejects("appendAuditEvent"),
   ...overrides,
 });
