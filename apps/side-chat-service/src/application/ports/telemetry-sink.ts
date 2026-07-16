@@ -45,6 +45,7 @@ type AiTelemetryRecord = Readonly<{
 type ServiceTelemetryRecord = Readonly<{
   type:
     | "service.boot"
+    | "service.shutdown.stage"
     | "capacity.admitted"
     | "capacity.queued"
     | "capacity.rejected"

@@ -2,6 +2,9 @@ import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
 import { envValue, serviceProcessEnv } from "#config/environment/process-environment";
 import { BoundedTurnAdmission } from "#adapters/capacity/bounded-turn-admission";
 import { recordServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
+import { createShutdownCoordinator } from "../lifecycle/process/shutdown-coordinator.js";
+import { publishProcessLifecycle } from "../lifecycle/process/process-lifecycle.js";
+import { startWorkflowWorld } from "../lifecycle/process/workflow-world.js";
 
 import { startTestingServiceWithConfiguredPersistence } from "./testing.js";
 import { resolveServiceSettings } from "../settings/resolve-service-settings.js";
@@ -26,14 +29,31 @@ const settings = {
   },
   persistence: { databaseUrl },
 };
-const service = await startTestingServiceWithConfiguredPersistence(settings, [], {
-  turnExecution: createWorkflowTurnExecution(settings, startTestingChatTurn),
-  turnAdmission: new BoundedTurnAdmission({
-    ...settings.capacity,
-    telemetry: { record: recordServiceTelemetry },
-  }),
-  turnReplay: createWorkflowTurnReplay(),
-  resumeClientTool: resumeTestingClientToolResult,
+const world = await startWorkflowWorld();
+const admission = new BoundedTurnAdmission({
+  ...settings.capacity,
+  telemetry: { record: recordServiceTelemetry },
 });
+let service;
+try {
+  service = await startTestingServiceWithConfiguredPersistence(settings, [], {
+    turnExecution: createWorkflowTurnExecution(settings, startTestingChatTurn),
+    turnAdmission: admission,
+    turnReplay: createWorkflowTurnReplay(),
+    resumeClientTool: resumeTestingClientToolResult,
+  });
+} catch (error) {
+  await world.close();
+  throw error;
+}
+const lifecycle = createShutdownCoordinator({
+  admission,
+  scope: service.scope,
+  closeStreams: service.closeStreams,
+  closeWorld: world.close,
+  drainBudgetMs: settings.capacity.drainBudgetMs,
+  telemetry: { record: recordServiceTelemetry },
+});
+publishProcessLifecycle(lifecycle);
 
 export default service.app;

@@ -12,6 +12,7 @@ export const SERVICE_ENV_KEYS = {
   WORKFLOW_POSTGRES_URL: "WORKFLOW_POSTGRES_URL",
   WORKFLOW_POSTGRES_WORKER_CONCURRENCY: "WORKFLOW_POSTGRES_WORKER_CONCURRENCY",
   WORKFLOW_POSTGRES_MAX_POOL_SIZE: "WORKFLOW_POSTGRES_MAX_POOL_SIZE",
+  SIDECHAT_DRAIN_BUDGET_MS: "SIDECHAT_DRAIN_BUDGET_MS",
   WORKFLOW_LOCAL_DATA_DIR: "WORKFLOW_LOCAL_DATA_DIR",
   WORKFLOW_LOCAL_BASE_URL: "WORKFLOW_LOCAL_BASE_URL",
   SIDECHAT_DATABASE_URL: "SIDECHAT_DATABASE_URL",
@@ -133,6 +134,7 @@ export interface SideChatConfig {
     readonly maxActiveTurns: ConfigValue<number>;
     readonly queueSize: ConfigValue<number>;
     readonly queueTimeoutMs: ConfigValue<number>;
+    readonly drainBudgetMs: ConfigValue<number>;
   };
   readonly agent: {
     readonly instructions: ConfigValue<string>;

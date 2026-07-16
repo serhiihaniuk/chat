@@ -27,6 +27,7 @@ export type Settings = Readonly<{
     maxActiveTurns: number;
     queueSize: number;
     queueTimeoutMs: number;
+    drainBudgetMs: number;
   }>;
   agent: Readonly<{
     instructions: string;

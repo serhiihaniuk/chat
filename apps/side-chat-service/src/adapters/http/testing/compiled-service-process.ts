@@ -1,14 +1,22 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { once } from "node:events";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { rmSync } from "node:fs";
+import { resolve } from "node:path";
 
 import {
   assertProductionBundleExcludesTestingCode,
   assertProductionBundleUsesPostgresWorld,
 } from "./production-bundle-guard.js";
-import { availableLocalPort, localPortAcceptsConnections } from "./local-port.js";
+import { runCompiledCommand } from "./compiled-service/command.js";
+import {
+  crashCompiledProcess,
+  requestCompiledShutdown,
+  stopCompiledProcess,
+  type CompiledShutdownResult,
+} from "./compiled-service/process-control.js";
+import {
+  launchCompiledProcess,
+  observeStartupFailure,
+  waitForCompiledReady,
+} from "./compiled-service/runtime.js";
 
 const repoRoot = resolve(import.meta.dirname, "../../../../../..");
 const serviceRoot = resolve(repoRoot, "apps/side-chat-service");
@@ -16,7 +24,17 @@ const serviceRoot = resolve(repoRoot, "apps/side-chat-service");
 export type CompiledService = Readonly<{
   baseUrl: string;
   output: () => string;
+  shutdown: (requestCount?: number) => Promise<CompiledShutdownResult>;
+  crash: () => Promise<void>;
   close: () => Promise<void>;
+}>;
+
+export type { CompiledShutdownResult } from "./compiled-service/process-control.js";
+
+export type CompiledStartupFailure = Readonly<{
+  exitCode: number | null;
+  openedPort: boolean;
+  output: string;
 }>;
 
 export type CompiledServiceOptions = Readonly<{
@@ -53,12 +71,12 @@ export async function startCompiledService(
 export async function prepareCompiledService(
   options: CompiledServiceOptions,
 ): Promise<PreparedCompiledService> {
-  await runCommand(options, "npm", [
-    "run",
-    "build:testing",
-    "--workspace",
-    "@side-chat/side-chat-service",
-  ]);
+  await runCompiledCommand(
+    options,
+    "npm",
+    ["run", "build:testing", "--workspace", "@side-chat/side-chat-service"],
+    repoRoot,
+  );
   return {
     start: () => startPreparedService(options),
     close: async () => {
@@ -67,154 +85,40 @@ export async function prepareCompiledService(
   };
 }
 
-async function startPreparedService(options: CompiledServiceOptions): Promise<CompiledService> {
-  const port = await availableLocalPort();
-  const baseUrl = `http://127.0.0.1:${port}`;
-  const workflowDataDir = mkdtempSync(join(tmpdir(), "side-chat-workflow-data-"));
-  let serviceOutput = "";
-  const service = startService(options, port, workflowDataDir, (chunk) => {
-    serviceOutput += chunk;
-  });
-  await waitForReady(service, port, () => serviceOutput);
+export async function startPreparedService(
+  options: CompiledServiceOptions,
+): Promise<CompiledService> {
+  const process = await launchCompiledProcess(options, repoRoot, serviceRoot);
+  await waitForCompiledReady(process);
   return {
-    baseUrl,
-    output: () => serviceOutput,
+    baseUrl: process.baseUrl,
+    output: process.output,
+    shutdown: (requestCount = 1) => requestCompiledShutdown(process.child, requestCount),
+    crash: () => crashCompiledProcess(process.child),
     close: async () => {
-      await stopService(service);
-      rmSync(workflowDataDir, { recursive: true, force: true });
+      await stopCompiledProcess(process.child);
+      rmSync(process.workflowDataDir, { recursive: true, force: true });
     },
   };
 }
 
-function startService(
+/** Proves failed boot never exposes the reserved port and still terminates. */
+export async function observeCompiledStartupFailure(
   options: CompiledServiceOptions,
-  port: number,
-  workflowDataDir: string,
-  captureOutput: (chunk: string) => void,
-): ChildProcess {
-  const child = spawn(process.execPath, [".output/server/index.mjs"], {
-    cwd: serviceRoot,
-    env: cleanEnv(
-      {
-        ...options.environment,
-        PORT: String(port),
-        [options.configNameEnvKey]: options.configName,
-        [options.localDataDirectoryEnvKey]: workflowDataDir,
-        [options.localBaseUrlEnvKey]: `http://127.0.0.1:${port}`,
-      },
-      options.targetWorldEnvKey,
-      options.useConfiguredTargetWorld ?? false,
-    ),
-    shell: false,
-    stdio: "pipe",
-  });
-  child.stdout?.on("data", (chunk) => captureOutput(String(chunk)));
-  child.stderr?.on("data", (chunk) => captureOutput(String(chunk)));
-  return child;
-}
-
-async function waitForReady(
-  service: ChildProcess,
-  port: number,
-  output: () => string,
-): Promise<void> {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    if (service.exitCode !== null) {
-      throw new Error(`Service exited:\n${output()}`);
-    }
-    try {
-      if (await localPortAcceptsConnections(port)) return;
-    } catch {
-      // The child process may not have bound its port yet.
-    }
-    await delay(100);
-  }
-  throw new Error(`Timed out waiting for service:\n${output()}`);
-}
-
-async function stopService(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null) return;
-  child.kill("SIGTERM");
-  try {
-    await once(child, "exit", { signal: AbortSignal.timeout(5_000) });
-    return;
-  } catch {
-    if (child.exitCode !== null) return;
-  }
-
-  child.kill("SIGKILL");
-  try {
-    await once(child, "exit", { signal: AbortSignal.timeout(5_000) });
-  } catch {
-    if (child.exitCode !== null) return;
-    throw new Error("Compiled service did not exit after SIGKILL");
-  }
+): Promise<CompiledStartupFailure> {
+  return observeStartupFailure(options, repoRoot, serviceRoot);
 }
 
 async function restoreProductionBuild(options: CompiledServiceOptions): Promise<void> {
-  await runCommand(options, "npm", ["run", "build", "--workspace", "@side-chat/side-chat-service"]);
+  await runCompiledCommand(
+    options,
+    "npm",
+    ["run", "build", "--workspace", "@side-chat/side-chat-service"],
+    repoRoot,
+  );
   assertProductionBundleExcludesTestingCode(
     resolve(serviceRoot, ".output"),
     options.providerObservationPrefix,
   );
   assertProductionBundleUsesPostgresWorld(resolve(serviceRoot, ".output"));
-}
-
-async function runCommand(
-  options: CompiledServiceOptions,
-  command: string,
-  args: ReadonlyArray<string>,
-): Promise<void> {
-  await new Promise<void>((resolveRun, rejectRun) => {
-    const child = spawn(resolveCommand(command), resolveArgs(command, args), {
-      cwd: repoRoot,
-      env: cleanEnv(
-        options.environment,
-        options.targetWorldEnvKey,
-        options.useConfiguredTargetWorld ?? false,
-      ),
-      shell: false,
-      stdio: "inherit",
-    });
-    child.once("error", rejectRun);
-    child.once("exit", (code) => {
-      if (code === 0) {
-        resolveRun();
-        return;
-      }
-      rejectRun(new Error(`${command} exited with ${code ?? "unknown"}`));
-    });
-  });
-}
-
-function resolveCommand(command: string): string {
-  return process.platform === "win32" && command === "npm" ? "cmd.exe" : command;
-}
-
-function resolveArgs(command: string, args: ReadonlyArray<string>): ReadonlyArray<string> {
-  return process.platform === "win32" && command === "npm"
-    ? ["/d", "/s", "/c", "npm", ...args]
-    : args;
-}
-
-/** Keeps spawned builds isolated from malformed shell entries and postgres targets. */
-function cleanEnv(
-  env: Readonly<Record<string, string | undefined>>,
-  targetWorldEnvKey: string,
-  preserveTargetWorld: boolean,
-): NodeJS.ProcessEnv {
-  return Object.fromEntries(
-    Object.entries(env).filter(
-      ([key, value]) =>
-        key.length > 0 &&
-        !key.startsWith("=") &&
-        (preserveTargetWorld || key !== targetWorldEnvKey) &&
-        value !== undefined,
-    ),
-  );
-}
-
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
 }

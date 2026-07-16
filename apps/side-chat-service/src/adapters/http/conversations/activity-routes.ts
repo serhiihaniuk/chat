@@ -10,6 +10,7 @@ import type { TurnActivityDispatcher } from "#application/turn/activity/turn-act
 import type { AuthVariables } from "../auth-middleware.js";
 import { HTTP_HEADERS, QUERY_HTTP_ROUTES } from "../http-contract.js";
 import { withIdleSseKeepalive } from "../stream/keepalive.js";
+import type { ActiveStreamRegistry } from "../stream/active-stream-registry.js";
 
 const SSE_HEADERS = {
   "content-type": "text/event-stream; charset=utf-8",
@@ -23,6 +24,7 @@ export function createActivityRoutes(dependencies: {
   readonly queries: Pick<ConversationQueryStore, "listActiveTurns">;
   readonly keepaliveIntervalMs: number;
   readonly telemetry: Pick<TelemetrySink, "record">;
+  readonly activeStreams?: ActiveStreamRegistry | undefined;
 }): Hono<AuthVariables> {
   const app = new Hono<AuthVariables>();
   app.get(QUERY_HTTP_ROUTES.ACTIVITY, (context) => {
@@ -33,14 +35,12 @@ export function createActivityRoutes(dependencies: {
     );
     const encoded = encodeActivityEvents(events);
     const requestId = context.req.header(HTTP_HEADERS.REQUEST_ID) || crypto.randomUUID();
-    return new Response(
-      withIdleSseKeepalive(encoded, dependencies.keepaliveIntervalMs, {
-        onKeepalive: () => recordKeepalive(dependencies.telemetry),
-      }),
-      {
-        headers: { ...SSE_HEADERS, [HTTP_HEADERS.REQUEST_ID]: requestId },
-      },
-    );
+    const bytes = withIdleSseKeepalive(encoded, dependencies.keepaliveIntervalMs, {
+      onKeepalive: () => recordKeepalive(dependencies.telemetry),
+    });
+    return new Response(dependencies.activeStreams?.track(bytes) ?? bytes, {
+      headers: { ...SSE_HEADERS, [HTTP_HEADERS.REQUEST_ID]: requestId },
+    });
   });
   return app;
 }

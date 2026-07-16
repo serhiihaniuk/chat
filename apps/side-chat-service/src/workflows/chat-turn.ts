@@ -48,6 +48,7 @@ export type ChatTurnExecutionDependencies = Readonly<{
   resolveRejectedClaim: typeof resolveRejectedChatTurnClaim;
   createCancellationHook: (token: string) => PromiseLike<Readonly<{ reason: string }>>;
   createAgent: typeof createChatTurnAgent;
+  closeJournal?: () => Promise<void>;
 }>;
 
 const DEFAULT_CHAT_TURN_EXECUTION_DEPENDENCIES: ChatTurnExecutionDependencies = {
@@ -76,12 +77,14 @@ export async function executeChatTurn(
 
   const initialClaim = await dependencies.claimExecution(databaseUrl, input, workflowRunId);
   if (initialClaim !== TURN_CLAIM_DISPOSITIONS.EXECUTE) {
-    return await dependencies.resolveRejectedClaim(
+    const outcome = await dependencies.resolveRejectedClaim(
       initialClaim,
       databaseUrl,
       input,
       finalizeChatTurn,
     );
+    await closeJournalForExecution(dependencies);
+    return outcome;
   }
 
   const cancellation = dependencies.createCancellationHook(
@@ -89,12 +92,14 @@ export async function executeChatTurn(
   );
   const providerClaim = await dependencies.claimExecution(databaseUrl, input, workflowRunId);
   if (providerClaim !== TURN_CLAIM_DISPOSITIONS.EXECUTE) {
-    return await dependencies.resolveRejectedClaim(
+    const outcome = await dependencies.resolveRejectedClaim(
       providerClaim,
       databaseUrl,
       input,
       finalizeChatTurn,
     );
+    await closeJournalForExecution(dependencies);
+    return outcome;
   }
   const resolvedModel = modelProvider.modelFor({
     modelId: input.modelId,
@@ -145,6 +150,7 @@ export async function executeChatTurn(
     writable,
     input,
   );
+  await closeJournalForExecution(dependencies);
   const outcome = await foldChatTurnJournalProjection(
     workflowRunId,
     input.turnId,
@@ -155,6 +161,19 @@ export async function executeChatTurn(
     await finalizeChatTurn(databaseUrl, input, outcome);
   }
   return outcome;
+}
+
+/** Ensure a recovered or aborted provider step cannot leave replay subscribers waiting forever. */
+async function closeChatTurnJournal(): Promise<void> {
+  "use step";
+
+  await getWritable<ChatTurnJournalPart>().close();
+}
+
+function closeJournalForExecution(dependencies: ChatTurnExecutionDependencies): Promise<void> {
+  return dependencies.closeJournal === undefined
+    ? closeChatTurnJournal()
+    : dependencies.closeJournal();
 }
 
 /**

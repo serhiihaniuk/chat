@@ -17,6 +17,7 @@ import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-acce
 import type { HostContextPolicy } from "#domain/host-context";
 import type { TurnCancellationStore } from "#application/ports/turn/turn-store";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
+import type { ActiveStreamRegistry } from "../stream/active-stream-registry.js";
 
 import type { AuthVariables } from "../auth-middleware.js";
 import { errorResponse, HTTP_ERROR } from "../error-response.js";
@@ -62,6 +63,7 @@ export type ChatRouteDependencies = RunTurnDependencies &
     serverToolNames: ReadonlySet<string>;
     hostContextPolicy: HostContextPolicy;
     telemetry: Pick<TelemetrySink, "record">;
+    activeStreams?: ActiveStreamRegistry | undefined;
   }>;
 
 /** HTTP owns validation and stream encoding; application services own turn policy and state. */
@@ -110,6 +112,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
         keepaliveIntervalMs: dependencies.keepaliveIntervalMs,
         outboundTransforms: dependencies.outboundTransforms ?? [],
         onKeepalive: createChatKeepaliveObserver(dependencies.telemetry),
+        activeStreams: dependencies.activeStreams,
       });
     } catch (error) {
       return mapTurnError(requestId, error);
@@ -225,6 +228,7 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
         keepaliveIntervalMs: dependencies.keepaliveIntervalMs,
         outboundTransforms: dependencies.outboundTransforms ?? [],
         onKeepalive: createChatKeepaliveObserver(dependencies.telemetry),
+        activeStreams: dependencies.activeStreams,
       });
     } catch (error) {
       return mapTurnError(requestId, error);

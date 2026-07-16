@@ -22,6 +22,7 @@
     "test:db:container": "node scripts/run-db-container-tests.mjs",
     "test:db:local": "npm run test:db:container",
     "test:service:compatibility": "npm test --workspace @side-chat/side-chat-service",
+    "test:service:lifecycle": "node scripts/test-service-lifecycle.mjs",
     "db:generate": "npm run db:generate --workspace @side-chat/db",
     "db:reset": "node scripts/reset-database.mjs",
     "db:workflow:setup": "node scripts/setup-workflow-postgres.mjs",

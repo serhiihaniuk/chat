@@ -53,6 +53,11 @@ function readCapacity(candidate: unknown, issues: SettingsIssue[]): Settings["ca
       "capacity.queueTimeoutMs",
       issues,
     ),
+    drainBudgetMs: readRequiredPositiveInteger(
+      value["drainBudgetMs"],
+      "capacity.drainBudgetMs",
+      issues,
+    ),
   };
 }
 

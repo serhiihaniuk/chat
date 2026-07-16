@@ -57,6 +57,7 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
       maxActiveTurns: 16,
       queueSize: 32,
       queueTimeoutMs: 5_000,
+      drainBudgetMs: 20_000,
     },
     agent: {
       instructions: "You are a concise Side Chat assistant.",

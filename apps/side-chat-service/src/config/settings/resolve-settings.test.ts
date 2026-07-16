@@ -15,6 +15,7 @@ describe("service settings", () => {
       maxActiveTurns: 16,
       queueSize: 32,
       queueTimeoutMs: 5_000,
+      drainBudgetMs: 20_000,
     });
     expect(result.settings.workflow).toMatchObject({
       workerConcurrency: 50,

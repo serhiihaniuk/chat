@@ -3,8 +3,6 @@ import { getWorld, healthCheck } from "workflow/runtime";
 import type { Readiness } from "#adapters/http/health/health-app";
 import type { Settings } from "#config/settings/resolve-settings";
 
-import type { StartedServiceScope } from "../resource-scope.js";
-
 export interface WorkflowHealthProbe {
   readonly check: (timeoutMs: number) => Promise<boolean>;
 }
@@ -18,7 +16,7 @@ export const workflowSdkHealthProbe: WorkflowHealthProbe = {
 
 /** Probe the world selected by Workflow/Nitro; never create a parallel worker or database. */
 export function createWorkflowReadiness(
-  scope: StartedServiceScope,
+  scope: Readonly<{ isReady: () => boolean }>,
   settings: Settings,
   probe: WorkflowHealthProbe = workflowSdkHealthProbe,
 ): Readiness {

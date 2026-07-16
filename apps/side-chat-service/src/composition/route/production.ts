@@ -11,6 +11,7 @@ import { createChatRoutes } from "#adapters/http/chat/chat-routes";
 import { createCapabilityRoutes } from "#adapters/http/capabilities/capability-routes";
 import { createQueryRoutes } from "#adapters/http/conversations/query-routes";
 import { createActivityRoutes } from "#adapters/http/conversations/activity-routes";
+import { ActiveStreamRegistry } from "#adapters/http/stream/active-stream-registry";
 import { structuredPartCatalogsForServerTools } from "#application/conversations/read-conversation-history";
 import { recordServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
 import { createTurnActivityDispatcher } from "#application/turn/activity/turn-activity-dispatcher";
@@ -54,15 +55,12 @@ export async function startProductionService(
   const authorizer = createServiceAuthorizer(settings.auth);
   const persistence = createProductionPersistence(settings);
   const activityDispatcher = createTurnActivityDispatcher(persistence.activityNotificationSource);
+  const activeStreams = new ActiveStreamRegistry();
   const maintenanceStarters = createMaintenanceStarters(settings, options.archiveWorkflowJournal);
   // The persistence close is registered first so its pool is disposed even if a
   // later starter (telemetry, workflow readiness) fails during startup.
   const scope = await startServiceScope(settings, [
     persistence.registerClose,
-    () => ({
-      name: "turn activity dispatcher",
-      close: () => activityDispatcher.shutdown(),
-    }),
     ...maintenanceStarters.beforeTelemetry,
     startConfiguredTelemetry,
     ...maintenanceStarters.afterTelemetry,
@@ -97,6 +95,7 @@ export async function startProductionService(
       serverToolNames: new Set(serverTools.map((definition) => definition.name)),
       hostContextPolicy: settings.hostContext,
       telemetry: { record: recordServiceTelemetry },
+      activeStreams,
       // In-memory dev has no durable workflow finalize; the route projects the
       // terminal itself. Postgres deployments leave it to the workflow step.
       ...(persistence.durable
@@ -134,6 +133,7 @@ export async function startProductionService(
       queries: persistence.store,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       telemetry: { record: recordServiceTelemetry },
+      activeStreams,
     }),
   );
   return {
@@ -141,6 +141,10 @@ export async function startProductionService(
     modelProvider,
     admission,
     scope,
+    closeStreams: async () => {
+      await activeStreams.shutdown();
+      await activityDispatcher.shutdown();
+    },
   };
 }
 

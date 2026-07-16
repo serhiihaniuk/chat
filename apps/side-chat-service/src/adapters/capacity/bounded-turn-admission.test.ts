@@ -200,6 +200,28 @@ describe("BoundedTurnAdmission", () => {
     expect(admission.snapshot()).toMatchObject({ admitted: 1, active: 0 });
   });
 
+  it("stops new admission, rejects queued work, and resolves when active turns drain", async () => {
+    const admission = createAdmission({ maxActiveTurns: 1, queueSize: 1 });
+    const active = await admission.admitTurn("conversation-1");
+    const queued = admission.admitTurn("conversation-2");
+    const idle = admission.whenIdle();
+
+    admission.stopAccepting();
+
+    await expect(queued).rejects.toMatchObject({
+      code: TURN_REJECTION_CODES.CAPACITY,
+      retryAfterSeconds: 5,
+    });
+    await expect(admission.admitTurn("conversation-3")).rejects.toMatchObject({
+      code: TURN_REJECTION_CODES.CAPACITY,
+    });
+    expect(admission.snapshot()).toMatchObject({ active: 1, rejected: 2 });
+
+    await active.release();
+    await expect(idle).resolves.toBeUndefined();
+    await expect(admission.whenIdle()).resolves.toBeUndefined();
+  });
+
   it("keeps FIFO ordering and counters stable across repeated saturated batches", async () => {
     for (let round = 0; round < 25; round += 1) {
       const admission = createAdmission({ maxActiveTurns: 3, queueSize: 17 });

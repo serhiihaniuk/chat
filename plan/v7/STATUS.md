@@ -46,13 +46,15 @@ Evidence: [`evidence/02-workflow-cancellation-reexamination.md`](./evidence/02-w
 | [16a Widget parity verification](./16a-widget-parity-verification.md)                   | `complete`    | Codex      | 14, 15, 16     | Real-provider-first parity pass; generated titles; approvals/tools/sources; token-owned presentation; full replacement-stack verification |
 | [17 Admission + capacity](./17-admission-capacity.md)                                   | `complete`    | Codex      | 05, 11         | bounded admission; no-residue rejection; engine-owned suspension; originating-tab authority                                               |
 | [18 Telemetry completion](./18-telemetry-completion.md)                                 | `complete`    | Codex      | 08, 11, 12, 17 | SDK/service inventory; bounded labels; privacy sentinels; exact prune bytes; stuck-run alarm                                              |
-| [19 Shutdown + lifecycle smoke](./19-shutdown-lifecycle-smoke.md)                       | `not_started` | unassigned | 16, 17, 18     | bounded shutdown; compatibility suite rerun; lifecycle smoke                                                                              |
+| [19 Shutdown + lifecycle smoke](./19-shutdown-lifecycle-smoke.md)                       | `complete`    | Codex      | 16, 17, 18     | bounded shutdown; compatibility suite rerun; lifecycle smoke                                                                              |
 | [20 Cutover + deletion](./20-cutover-and-deletion.md)                                   | `not_started` | unassigned | 19             | consumers cut over; inventory deleted; searches clean                                                                                     |
 | [21 Governance, docs, final gate](./21-governance-docs-final-gate.md)                   | `not_started` | unassigned | 20             | rules/fixtures; docs current; full pinned gate                                                                                            |
 
 ## Execution log
 
 Newest first.
+
+Closure (2026-07-16): Step 19 is complete. The compiled service now owns signal ordering through Nitro's middleware output and a repository-owned Node listener. Readiness and admission close first; accepted turns drain within budget; streams, HTTP, the Workflow world, and product resources close in order under an idempotent hard deadline. Recovery-fenced Workflow paths explicitly close their durable journal so crash-resume replay reaches a terminal. Evidence: five persistent lifecycle cases and all 13 permanent compiled compatibility cases passed; bad-database boot never opened a port; the blocked-provider case recorded a timed-out drain and still exited; final rows were four assistant turns, five messages, and zero legacy context snapshots.
 
 Closure (2026-07-16): Step 18 is complete. The pinned AI SDK lifecycle bridge
 now maps content-free operation, step, model, and tool records into a fail-open

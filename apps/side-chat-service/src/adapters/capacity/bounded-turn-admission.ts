@@ -5,7 +5,13 @@ import type {
 } from "#application/ports/turn/turn-admission";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import { recordTelemetrySafely } from "#application/telemetry/record-telemetry-safely";
-import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
+import {
+  abortError,
+  capacityError,
+  drainingError,
+  requireNonNegativeInteger,
+  requirePositiveInteger,
+} from "./bounded-turn-admission-support.js";
 
 export const TURN_ADMISSION_RELEASE_MODES = {
   IDEMPOTENT: "idempotent",
@@ -63,9 +69,6 @@ type QueuedTurn = {
   settled: boolean;
 };
 
-const CAPACITY_RETRY_AFTER_SECONDS = 5;
-const CAPACITY_REJECTION_MESSAGE = "Turn capacity is temporarily exhausted";
-
 const SYSTEM_TURN_ADMISSION_CLOCK: TurnAdmissionClock = {
   now: () => Date.now(),
   schedule: (delayMs, task) => {
@@ -96,6 +99,8 @@ export class BoundedTurnAdmission implements TurnAdmission {
   readonly #releaseMode: TurnAdmissionReleaseMode;
   readonly #telemetry: Pick<TelemetrySink, "record">;
   readonly #queue: QueuedTurn[] = [];
+  readonly #idleWaiters = new Set<() => void>();
+  #accepting = true;
   readonly #counters: MutableAdmissionCounters = {
     admitted: 0,
     queued: 0,
@@ -123,6 +128,7 @@ export class BoundedTurnAdmission implements TurnAdmission {
     options: TurnAdmissionOptions = {},
   ): Promise<TurnAdmissionLease> {
     if (options.signal?.aborted === true) return Promise.reject(abortError(options.signal));
+    if (!this.#accepting) return this.#rejectDraining();
     if (this.#counters.active < this.#maxActiveTurns) {
       return Promise.resolve(this.#grantLease());
     }
@@ -136,6 +142,25 @@ export class BoundedTurnAdmission implements TurnAdmission {
 
   snapshot(): TurnAdmissionSnapshot {
     return { ...this.#counters };
+  }
+
+  /** Reject new and queued work while already admitted turns finish. */
+  stopAccepting(): void {
+    if (!this.#accepting) return;
+    this.#accepting = false;
+    for (const waiter of this.#queue.splice(0)) {
+      if (waiter.settled) continue;
+      this.#counters.rejected += 1;
+      this.#record({ type: "capacity.rejected", count: 1 });
+      this.#settleQueued(waiter);
+      waiter.reject(drainingError());
+    }
+    this.#resolveIdleWaiters();
+  }
+
+  whenIdle(): Promise<void> {
+    if (this.#counters.active === 0) return Promise.resolve();
+    return new Promise((resolve) => this.#idleWaiters.add(resolve));
   }
 
   #enqueue(signal: AbortSignal | undefined): Promise<TurnAdmissionLease> {
@@ -180,6 +205,7 @@ export class BoundedTurnAdmission implements TurnAdmission {
   #releasePermit(): void {
     this.#counters.active -= 1;
     this.#recordActive();
+    if (this.#counters.active === 0) this.#resolveIdleWaiters();
     const waiter = this.#queue.shift();
     if (waiter === undefined) return;
     this.#settleQueued(waiter);
@@ -235,28 +261,16 @@ export class BoundedTurnAdmission implements TurnAdmission {
   #record(record: Parameters<TelemetrySink["record"]>[0]): void {
     recordTelemetrySafely(this.#telemetry, record);
   }
-}
 
-function capacityError(): TurnRejectedError {
-  return new TurnRejectedError(
-    TURN_REJECTION_CODES.CAPACITY,
-    CAPACITY_REJECTION_MESSAGE,
-    CAPACITY_RETRY_AFTER_SECONDS,
-  );
-}
+  #rejectDraining(): Promise<TurnAdmissionLease> {
+    this.#counters.rejected += 1;
+    this.#record({ type: "capacity.rejected", count: 1 });
+    return Promise.reject(drainingError());
+  }
 
-function abortError(signal: AbortSignal | undefined): Error {
-  return signal?.reason instanceof Error
-    ? signal.reason
-    : new DOMException("Turn admission was cancelled", "AbortError");
-}
-
-function requirePositiveInteger(value: number, name: string): void {
-  if (Number.isSafeInteger(value) && value > 0) return;
-  throw new TypeError(`${name} must be a positive integer`);
-}
-
-function requireNonNegativeInteger(value: number, name: string): void {
-  if (Number.isSafeInteger(value) && value >= 0) return;
-  throw new TypeError(`${name} must be a non-negative integer`);
+  #resolveIdleWaiters(): void {
+    if (this.#counters.active !== 0) return;
+    for (const resolve of this.#idleWaiters) resolve();
+    this.#idleWaiters.clear();
+  }
 }

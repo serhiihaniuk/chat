@@ -53,7 +53,7 @@
     "build": "node ../../scripts/build-side-chat-service-production.mjs",
     "build:testing": "node ../../scripts/build-side-chat-service-testing.mjs",
     "dev": "nitro dev",
-    "start": "node .output/server/index.mjs",
+    "start": "node ../../scripts/run-side-chat-service.mjs",
     "test": "cd ../.. && vitest run apps/side-chat-service/src/composition/route/service-compatibility.integration.test.ts",
     "typecheck": "tsc --noEmit --pretty false"
   },

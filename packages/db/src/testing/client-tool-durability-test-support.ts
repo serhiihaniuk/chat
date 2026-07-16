@@ -71,6 +71,46 @@ export function createClientToolDurabilityProbe(connectionString: string) {
       );
       return Number(result.rows[0]?.count ?? "0");
     },
+    async measureLifecycleRows(): Promise<
+      Readonly<{
+        assistantTurns: number;
+        contextSnapshots: number;
+        messages: number;
+      }>
+    > {
+      const result = await observationPool.query<{
+        assistant_turns: number;
+        context_snapshots: number;
+        messages: number;
+      }>(`select
+        (select count(*)::int from sidechat.assistant_turns) as assistant_turns,
+        (select count(*)::int from sidechat.turn_context_snapshots) as context_snapshots,
+        (select count(*)::int from sidechat.messages) as messages`);
+      const counts = result.rows[0];
+      if (counts === undefined) throw new Error("Lifecycle row measurement returned no row");
+      return {
+        assistantTurns: counts.assistant_turns,
+        contextSnapshots: counts.context_snapshots,
+        messages: counts.messages,
+      };
+    },
+    async waitForWorkflowRunTerminal(runId: string): Promise<string> {
+      const deadline = Date.now() + 30_000;
+      while (Date.now() < deadline) {
+        const result = await observationPool.query<{ status: string }>(
+          `select status::text as status
+             from workflow.workflow_runs
+            where id = $1`,
+          [runId],
+        );
+        const status = result.rows[0]?.status;
+        if (status === "completed" || status === "failed" || status === "cancelled") {
+          return status;
+        }
+        await delay(50);
+      }
+      throw new Error("Workflow run did not reach a terminal status");
+    },
     async close(): Promise<void> {
       await Promise.all([repositories.close(), observationPool.end()]);
     },

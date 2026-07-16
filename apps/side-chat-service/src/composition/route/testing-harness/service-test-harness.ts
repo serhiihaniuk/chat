@@ -69,6 +69,7 @@ export async function createServiceTestHarness(
     request,
     unauthenticatedRequest: (path: string, init?: RequestInit) => service.app.request(path, init),
     close: async () => {
+      await service.closeStreams();
       await service.scope.close();
       globalThis.AI_SDK_TELEMETRY_INTEGRATIONS = previousTelemetry;
     },

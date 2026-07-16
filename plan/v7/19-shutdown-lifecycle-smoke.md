@@ -68,16 +68,16 @@ Wire the smoke into `docs/operations/verification.md` (what it proves, when to r
 
 ## Completion checklist
 
-- [ ] Ordered bounded shutdown with hard deadlines; repeated-signal safety.
-- [ ] Boot-failure release proven; port never opens on failed boot.
-- [ ] Smoke green, incl. crash-resume; rows/turn re-measured and recorded.
-- [ ] Drain-deploy guidance in operations docs.
-- [ ] All six edge cases pass.
+- [x] Ordered bounded shutdown with hard deadlines; repeated-signal safety.
+- [x] Boot-failure release proven; port never opens on failed boot.
+- [x] Smoke green, incl. crash-resume; rows/turn re-measured and recorded.
+- [x] Drain-deploy guidance in operations docs.
+- [x] All six edge cases pass.
 
 ## Handoff record
 
-Shutdown coordinator module: pending
+Shutdown coordinator module: `apps/side-chat-service/src/composition/lifecycle/process/shutdown-coordinator.ts`
 
-Smoke output + measured rows/turn: pending
+Smoke output + measured rows/turn: `npm run test:service:lifecycle` passed the five-case persistent lifecycle suite and the 13-case compiled compatibility suite. The final disposable database held four assistant turns, five messages, and no legacy context-snapshot rows.
 
-Stage-timeout observations: pending
+Stage-timeout observations: the never-resolving provider exhausted the 150 ms test drain budget, recorded `drain: timed_out`, completed streams/server/world/resources, and exited successfully within the six-second assertion window. Idle, double-signal, crash-resume, and bad-database paths also terminated themselves.

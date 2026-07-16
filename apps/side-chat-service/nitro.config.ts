@@ -7,6 +7,7 @@ import { defineConfig } from "nitro";
 // everything else. The compatibility suite supplies its own entry override
 // through the programmatic builder; this production config never names it.
 const config = {
+  preset: "node_middleware",
   modules: ["workflow/nitro"],
   workflow: { dirs: ["src/workflows/production"] },
   routes: {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { validateSettings } from "#config/settings/resolve-settings";
 import { createDefaultConfig } from "#config/settings/settings.test-fixture";
 
+import { startServiceScope } from "./resource-scope.js";
 import { startTestingService } from "../route/testing.js";
 
 describe("service composition", () => {
@@ -23,6 +24,22 @@ describe("service composition", () => {
       ]),
     ).rejects.toThrow("listener failed");
     expect(events).toEqual(["pool:closed", "worker:closed"]);
+  });
+
+  it("makes readiness false before idempotent resource disposal", async () => {
+    const events: string[] = [];
+    const scope = await startServiceScope(validSettings(), [
+      () => ({
+        name: "pool",
+        close: () => void events.push("pool:closed"),
+      }),
+    ]);
+
+    scope.beginShutdown();
+    expect(scope.isReady()).toBe(false);
+    await Promise.all([scope.close(), scope.close()]);
+
+    expect(events).toEqual(["pool:closed"]);
   });
 });
 

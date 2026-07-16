@@ -24,12 +24,14 @@ const claimExecutionMock = vi.fn<ChatTurnExecutionDependencies["claimExecution"]
 const createAgentMock = vi.fn<ChatTurnExecutionDependencies["createAgent"]>();
 const createHookMock = vi.fn<ChatTurnExecutionDependencies["createCancellationHook"]>();
 const resolveRejectedClaimMock = vi.fn<ChatTurnExecutionDependencies["resolveRejectedClaim"]>();
+const closeJournalMock = vi.fn<NonNullable<ChatTurnExecutionDependencies["closeJournal"]>>();
 
 beforeEach(() => {
   claimExecutionMock.mockReset();
   createAgentMock.mockReset();
   createHookMock.mockReset();
   resolveRejectedClaimMock.mockReset();
+  closeJournalMock.mockReset().mockResolvedValue(undefined);
 });
 
 describe("provider execution fence", () => {
@@ -71,6 +73,7 @@ describe("provider execution fence", () => {
           resolveRejectedClaim: resolveRejectedClaimMock,
           createCancellationHook: createHookMock,
           createAgent: createAgentMock,
+          closeJournal: closeJournalMock,
         },
       ),
     ).resolves.toEqual({ status: "cancelled", reason: "product_turn_fenced" });
@@ -78,6 +81,7 @@ describe("provider execution fence", () => {
     expect(claimExecutionMock).toHaveBeenCalledTimes(2);
     expect(modelFor).not.toHaveBeenCalled();
     expect(createAgentMock).not.toHaveBeenCalled();
+    expect(closeJournalMock).toHaveBeenCalledOnce();
   });
 });
 

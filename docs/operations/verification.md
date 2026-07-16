@@ -60,12 +60,13 @@ Every command below is a root `package.json` script (`package.json:11-31`).
 
 ### Browser, smoke, and audit lanes
 
-| Command                         | What it proves                                                                       | Needs Docker |
-| ------------------------------- | ------------------------------------------------------------------------------------ | ------------ |
-| `npm run test:e2e`              | Playwright drives the widget in a browser (direct page and iframe host).             | No           |
-| `npm run test:e2e:persistent`   | History survives a service restart, with the service plus a Testcontainers Postgres. | Yes          |
-| `npm run smoke:provider:openai` | A live OpenAI run streams end to end on the connection-bound POST.                   | No           |
-| `npm run audit`                 | `npm audit` reports no high-or-above advisory.                                       | No           |
+| Command                          | What it proves                                                                       | Needs Docker |
+| -------------------------------- | ------------------------------------------------------------------------------------ | ------------ |
+| `npm run test:e2e`               | Playwright drives the widget in a browser (direct page and iframe host).             | No           |
+| `npm run test:e2e:persistent`    | History survives a service restart, with the service plus a Testcontainers Postgres. | Yes          |
+| `npm run test:service:lifecycle` | Compiled boot, streaming, cancel, crash-resume, bounded drain, and compatibility.    | Yes          |
+| `npm run smoke:provider:openai`  | A live OpenAI run streams end to end on the connection-bound POST.                   | No           |
+| `npm run audit`                  | `npm audit` reports no high-or-above advisory.                                       | No           |
 
 The native iframe host-context contract has a narrower no-Docker lane. It proves the
 public parent/child adapter, default-off user choice, request correlation, and exclusion

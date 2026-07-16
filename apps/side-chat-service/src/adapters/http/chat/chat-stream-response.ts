@@ -1,6 +1,7 @@
 import { createUIMessageStreamResponse, type UIMessageChunk } from "ai";
 
 import { withIdleSseKeepalive } from "../stream/keepalive.js";
+import type { ActiveStreamRegistry } from "../stream/active-stream-registry.js";
 import { HTTP_HEADERS } from "../http-contract.js";
 
 /** One stage of outbound policy over the wire stream. Single-use — see {@link OutboundTransformFactory}. */
@@ -42,6 +43,7 @@ export function createChatStreamResponse(options: {
   readonly tailIndex?: number;
   readonly outboundTransforms?: readonly OutboundTransformFactory[];
   readonly onKeepalive?: (() => void) | undefined;
+  readonly activeStreams?: ActiveStreamRegistry | undefined;
 }): Response {
   const transformed = pipeOutboundTransforms(options.stream, options.outboundTransforms ?? []);
   const headers: Record<string, string> = {
@@ -55,18 +57,16 @@ export function createChatStreamResponse(options: {
     headers,
   });
   if (!response.body) return response;
-  return new Response(
-    withIdleSseKeepalive(
-      response.body,
-      options.keepaliveIntervalMs,
-      options.onKeepalive === undefined ? {} : { onKeepalive: options.onKeepalive },
-    ),
-    {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    },
+  const bytes = withIdleSseKeepalive(
+    response.body,
+    options.keepaliveIntervalMs,
+    options.onKeepalive === undefined ? {} : { onKeepalive: options.onKeepalive },
   );
+  return new Response(options.activeStreams?.track(bytes) ?? bytes, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
 }
 
 function pipeOutboundTransforms(

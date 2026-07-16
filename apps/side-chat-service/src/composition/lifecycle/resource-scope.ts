@@ -14,6 +14,7 @@ export type StartServicePart = (
 export type StartedServiceScope = {
   readonly settings: Settings;
   readonly isReady: () => boolean;
+  readonly beginShutdown: () => void;
   readonly close: () => Promise<void>;
 };
 
@@ -31,13 +32,15 @@ export async function startServiceScope(
   }
 
   let ready = true;
+  let closePromise: Promise<void> | undefined;
   return {
     settings,
     isReady: () => ready,
-    close: async () => {
-      if (!ready) return;
+    beginShutdown: () => void (ready = false),
+    close: () => {
       ready = false;
-      await closeStartedParts(startedParts);
+      closePromise ??= closeStartedParts(startedParts);
+      return closePromise;
     },
   };
 }

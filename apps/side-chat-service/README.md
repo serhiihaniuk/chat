@@ -36,10 +36,14 @@ The compatibility turn is a durable `"use workflow"` function in `src/workflows/
 ## Commands
 
 - `npm run build --workspace @side-chat/side-chat-service` (production Nitro build to `.output/`, statically bound to Postgres World)
+- `npm run start --workspace @side-chat/side-chat-service` (serve the compiled middleware through the repository-owned lifecycle listener)
 - `npm run test:service:compatibility`
+- `npm run test:service:lifecycle` (disposable Postgres proof of compiled boot, streaming, cancellation, crash-resume, bounded shutdown, and compatibility)
 - `npm run dev --workspace @side-chat/side-chat-service`
 
 The compatibility test builds and boots a testing-only Nitro workflow graph with a credential-free scripted provider, then rebuilds production and proves its artifact contains no compatibility or scripted-provider marker. It also guards the patch removal criterion: when its "unpatched probe" test starts failing because the probe streams successfully, an upstream fix has shipped and the patch module must be deleted.
+
+The production build uses Nitro's `node_middleware` preset behind `scripts/run-side-chat-service.mjs`. The owned Node listener keeps signal ordering under application control: readiness and admission close first, accepted turns drain within the configured budget, active streams and HTTP connections close, the Workflow world stops, and product resources close last. Repeated signals share one shutdown coordinator; a hard deadline prevents a blocked provider or cleanup stage from hanging process exit.
 
 Configuration is declared in the three app-root `sidechat*.config.ts` variants and selected through `SIDECHAT_CONFIG` (`default`, `fake`, or `azure`). Each standalone file visibly declares its provider connection, default model, complete request-selectable model catalog with per-model reasoning policy, conversation-title job, and exposed server-tool names. Azure deployment routing belongs to each model entry. Service-wide environment names live in uppercase `SERVICE_ENV_KEYS`; provider catalogs supply constants but do not select deployment behavior. Credentials and auth tokens remain secret references. Boot resolves those references, rejects invalid model relationships plus duplicate or unknown tool selections, and uses the same filtered catalogs for HTTP publication and Workflow execution.
 
