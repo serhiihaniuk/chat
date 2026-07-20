@@ -17,14 +17,14 @@ import { recordServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
 import { createTurnActivityDispatcher } from "#application/turn/activity/turn-activity-dispatcher";
 import type { Settings } from "#config/settings/resolve-settings";
 import { configuredTurnModelCatalog } from "#application/turn/turn-model-policy";
-import { selectRegisteredServerTools } from "#application/turn/tools/server-tools/registered-server-tools";
+import { selectRegisteredServerTools } from "#sidechat";
 import { createObservedScrubTransform } from "#application/telemetry/observed-scrub-transform";
 import { AUTH_PROFILES, WORKFLOW_JOURNAL_CLASSES } from "#config/declaration/side-chat-config";
 
 import { assertAiSdkDefaultProviderIsUnset } from "../lifecycle/ai-sdk-global-guard.js";
 import { startServiceScope, type StartServicePart } from "../lifecycle/resource-scope.js";
 import { createWorkflowReadiness } from "../lifecycle/readiness/workflow-readiness.js";
-import { createServiceAuthorizer } from "../auth/create-service-authorizer.js";
+import { createServiceAuthorizer } from "#auth/create-service-authorizer";
 import { createProductionModelProvider } from "../providers/production-model-provider.js";
 import {
   configuredModelCatalog,

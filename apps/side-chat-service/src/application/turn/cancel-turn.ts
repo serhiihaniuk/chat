@@ -3,7 +3,7 @@ import {
   CANCEL_REQUEST_DISPOSITIONS,
   type TurnCancellationStore,
 } from "#application/ports/turn/turn-store";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 
 export type CancelTurnInput = Readonly<{
   auth: AuthContext;

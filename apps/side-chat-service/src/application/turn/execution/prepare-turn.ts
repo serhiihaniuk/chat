@@ -10,7 +10,7 @@ import {
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
 import type { TurnModelPolicy } from "#application/turn/turn-model-policy";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 import type { HostContext } from "#domain/host-context";
 import {
   TURN_EXECUTION_ERROR_CODES,

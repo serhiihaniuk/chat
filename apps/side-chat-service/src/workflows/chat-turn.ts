@@ -7,7 +7,7 @@ import type { ClientToolDefinition } from "#application/turn/tools/client-tool-c
 import {
   selectServerToolDefinitions,
   type ServerToolDefinition,
-} from "#application/turn/tools/server-tools/server-tool-catalog";
+} from "@side-chat/side-chat-server";
 import { patchWorkflowRealmAbortSignal } from "./realm/abort-signal-patch.js";
 import type { ChatTurnJournalPart } from "./journal/chat-turn-journal.js";
 import {
@@ -114,7 +114,7 @@ export async function executeChatTurn(
     clientToolCapabilityDigest: input.clientToolCapabilityDigest,
     runId: workflowRunId,
     databaseUrl,
-    workspaceId: input.workspaceId,
+    workspaceId: input.actor.workspaceId,
     turnId: input.turnId,
     timeoutMs: input.clientToolTimeoutMs,
     abortSignal: controller.signal,
@@ -122,8 +122,7 @@ export async function executeChatTurn(
   const serverTools = createServerTools({
     definitions: selectServerToolDefinitions(serverToolDefinitions, input.enabledToolNames),
     databaseUrl,
-    workspaceId: input.workspaceId,
-    subjectId: input.subjectId,
+    actor: input.actor,
     conversationId: input.conversationId,
     turnId: input.turnId,
     runId: workflowRunId,
@@ -207,8 +206,8 @@ function finalizeChatTurn(
     identity: {
       conversationId: input.conversationId,
       turnId: input.turnId,
-      workspaceId: input.workspaceId,
-      subjectId: input.subjectId,
+      workspaceId: input.actor.workspaceId,
+      subjectId: input.actor.subjectId,
     },
     finalization: chatTurnFinalization(outcome),
   });

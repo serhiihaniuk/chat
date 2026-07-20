@@ -34,6 +34,11 @@ closures, and database clients never enter the journal. A model handle journals
 only provider identity, model id, and non-secret routing, then reconstructs the
 provider model inside the step realm.
 
+Request authentication is narrowed the same way. The route keeps the complete
+`AuthContext`; Workflow input carries only its secret-free `DurableActorRef`.
+Server-tool adapters receive that actor reference and resolve current authority
+or credentials inside the executing realm. Bearer tokens never enter Workflow.
+
 Client-tool originating-tab authority has a stricter split. The raw capability
 is an HTTP secret retained only by the originating widget tab. The route hashes
 it before Workflow start; Workflow input and journal may contain only the

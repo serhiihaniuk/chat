@@ -1,6 +1,6 @@
 import type { StoredConversationMessage } from "#application/ports/conversation-query-store";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 
 import { sameOwner } from "../active-turns.js";
 

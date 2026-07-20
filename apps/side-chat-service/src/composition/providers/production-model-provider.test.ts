@@ -6,7 +6,7 @@ import type { DurableLanguageModel, ProviderOptions } from "#application/ports/m
 import {
   DEFAULT_MOCK_WEB_SEARCH_MODEL_ID,
   MOCK_WEB_SEARCH_TOOL_NAME,
-} from "#application/turn/tools/server-tools/registry/mock-web-search-tool";
+} from "#integrations/mock-web-search/tool";
 import type { SideChatConfig } from "#config/declaration/side-chat-config";
 import { AZURE_PROVIDER } from "#config/providers/azure-provider-config";
 import { OPENAI_PROVIDER } from "#config/providers/openai-provider-config";

@@ -12,34 +12,41 @@ Prefer a registered catalog entry or an existing app-local port before adding a 
 
 ## Available seams
 
-| Need                         | Contract and binding point                                                                                                                                           | Boundary                                                                                                         |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Add a server tool            | Add a `ServerToolDefinition` under `apps/side-chat-service/src/application/turn/tools/server-tools/` and register it in the closed service catalog/config selection. | Executes inside the service; validate input and return durable-safe model output.                                |
-| Add a client tool            | Register a `HostClientToolDefinition` with `@side-chat/host-bridge`; advertise its bounded definition in the turn request.                                           | Executes only in the originating tab under the raw capability. See [client-tools.md](client-tools.md).           |
-| Require server-tool approval | Apply the registered approval policy and durable Workflow approval wait.                                                                                             | Approval UI and decisions use native AI SDK parts; see [tool-approvals.md](tool-approvals.md).                   |
-| Add a provider/model         | Add a provider adapter and model descriptor under the service adapters/composition/config catalogs.                                                                  | Provider SDK types and credentials stay inside `apps/side-chat-service`.                                         |
-| Change model settings        | Extend the validated model descriptor/config and map it in the provider adapter.                                                                                     | The browser may select only values published by the model catalog.                                               |
-| Add host context             | Extend `@side-chat/host-bridge` context production and the service's bounded host-context validator/rendering stage.                                                 | Context is untrusted user data, never authority or system instructions.                                          |
-| Add telemetry                | Implement the app-local `TelemetrySink` and register it during service composition.                                                                                  | Records must be bounded and scrubbed; never include prompts, provider output, secrets, or private tool payloads. |
-| Add an outbound transform    | Register a transform in the service stream composition around the shared scrub transform.                                                                            | Preserve native UI-message ordering, terminal discipline, cursor meaning, and privacy.                           |
-| Add a public `data-*` part   | Define and validate it in `@side-chat/stream-profile`, then add named producer and consumer tests.                                                                   | Use only when native AI SDK parts cannot represent the concept; requires privacy review.                         |
-| Render an activity item      | Pass `renderActivityItem` to `SideChatWidget`.                                                                                                                       | Presentation only; it cannot change execution, approval, or authority.                                           |
-| Change persistence           | Implement the app-local repository port in `@side-chat/db` and bind it in service composition.                                                                       | `pg` and Drizzle remain inside `packages/db`; preserve both schema ownership and transactions.                   |
-| Change authentication        | Implement the app-local `RequestAuthorizer` and bind it before route composition.                                                                                    | Every resource read/write remains tenant, workspace, and subject scoped.                                         |
+| Need                         | Contract and binding point                                                                                                                                  | Boundary                                                                                                         |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Add a server tool            | Define it with `@side-chat/side-chat-server`, place it under `apps/side-chat-service/src/integrations/`, and register its integration in `src/sidechat.ts`. | Executes inside the service; validate input and return durable-safe model output.                                |
+| Add a client tool            | Register a `HostClientToolDefinition` with `@side-chat/host-bridge`; advertise its bounded definition in the turn request.                                  | Executes only in the originating tab under the raw capability. See [client-tools.md](client-tools.md).           |
+| Require server-tool approval | Apply the registered approval policy and durable Workflow approval wait.                                                                                    | Approval UI and decisions use native AI SDK parts; see [tool-approvals.md](tool-approvals.md).                   |
+| Add a provider/model         | Add a provider adapter and model descriptor under the service adapters/composition/config catalogs.                                                         | Provider SDK types and credentials stay inside `apps/side-chat-service`.                                         |
+| Change model settings        | Extend the validated model descriptor/config and map it in the provider adapter.                                                                            | The browser may select only values published by the model catalog.                                               |
+| Add host context             | Extend `@side-chat/host-bridge` context production and the service's bounded host-context validator/rendering stage.                                        | Context is untrusted user data, never authority or system instructions.                                          |
+| Add telemetry                | Implement the app-local `TelemetrySink` and register it during service composition.                                                                         | Records must be bounded and scrubbed; never include prompts, provider output, secrets, or private tool payloads. |
+| Add an outbound transform    | Register a transform in the service stream composition around the shared scrub transform.                                                                   | Preserve native UI-message ordering, terminal discipline, cursor meaning, and privacy.                           |
+| Add a public `data-*` part   | Define and validate it in `@side-chat/stream-profile`, then add named producer and consumer tests.                                                          | Use only when native AI SDK parts cannot represent the concept; requires privacy review.                         |
+| Render an activity item      | Pass `renderActivityItem` to `SideChatWidget`.                                                                                                              | Presentation only; it cannot change execution, approval, or authority.                                           |
+| Change persistence           | Implement the app-local repository port in `@side-chat/db` and bind it in service composition.                                                              | `pg` and Drizzle remain inside `packages/db`; preserve both schema ownership and transactions.                   |
+| Change authentication        | Implement the public `RequestAuthorizer` contract under `apps/side-chat-service/src/auth/` and bind it before route composition.                            | Every resource read/write remains tenant, workspace, and subject scoped.                                         |
 
 ## Server tools
 
-Server tools are declared in the service's closed registry. A registration joins the model-visible name/schema with the executable so policy cannot advertise a tool that composition cannot run.
+Server tools are declared through the public server framework and grouped into
+integration modules. `src/sidechat.ts` is the single registered catalog used by
+route and Workflow composition, so policy cannot advertise a tool that durable
+execution cannot reload.
 
 When adding one:
 
-1. define the input schema and service-side implementation;
-2. register the definition in the server-tool catalog;
+1. define the input schema and integration adapter implementation;
+2. register the tool's integration in `src/sidechat.ts`;
 3. add its name to the validated `serverTools` configuration where the deployment should expose it;
 4. choose approval policy explicitly;
 5. add focused execution, schema, timeout, cancellation, and scrub tests.
 
 Do not read environment variables inside the tool module. Inject configured clients or credentials through service composition. Tool failures must collapse to safe model/public errors while private causes stay in scrubbed telemetry.
+
+Every execution receives a secret-free durable actor reference. Use it to check
+the current actor's authority in the integration adapter. Do not place request
+tokens, vendor credentials, or mutable authorization claims in Workflow input.
 
 ## Client tools
 

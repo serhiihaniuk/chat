@@ -21,8 +21,8 @@ export function claimChatTurnExecution(
     identity: {
       conversationId: input.conversationId,
       turnId: input.turnId,
-      workspaceId: input.workspaceId,
-      subjectId: input.subjectId,
+      workspaceId: input.actor.workspaceId,
+      subjectId: input.actor.subjectId,
     },
   });
 }

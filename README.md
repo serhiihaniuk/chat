@@ -26,10 +26,12 @@ host app
 | Area                          | Ownership                                                                                            |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `apps/side-chat-service`      | Hono routes, configuration, auth, durable workflows, AI SDK providers and tools, shutdown, telemetry |
+| `packages/side-chat-server`   | Side-effect-free server framework contracts and adopter integration registration                     |
 | `packages/db`                 | Drizzle schema, migrations, product repositories, activity notifications                             |
 | `packages/stream-profile`     | Browser-safe error, finish, metadata, header, and data-part vocabulary                               |
 | `packages/host-bridge`        | Browser page context and native client-tool capability/dispatch seam                                 |
 | `packages/side-chat-widget`   | React UI, conversation state, native stream projection, reconnect, approvals, client tools           |
+| `apps/docs`                   | Local design-token configurator and isolated live widget previews                                    |
 | `test-harness/widget-harness` | Local host page and browser verification surface                                                     |
 
 The browser validates service data at its boundary. Provider details remain in
@@ -49,6 +51,14 @@ npm run dev
 `npm run dev` builds the testing service, starts the deterministic fake service
 on port 3000, and starts the widget harness on port 5175. No provider key or
 Docker is required. The launcher prints the exact browser URL.
+
+Run the design-token configurator separately:
+
+```sh
+npm run dev:docs
+```
+
+The configurator opens on `http://127.0.0.1:5174` and does not require the service.
 
 For persistent database work, read
 [local development](docs/operations/local-development.md) and

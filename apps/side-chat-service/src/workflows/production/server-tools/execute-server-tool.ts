@@ -7,9 +7,11 @@ import {
 } from "#composition/workflow/production";
 import {
   requiresServerToolApproval,
+  type DurableActorRef,
   type ServerToolDefinition,
+  type ServerToolInvocation,
   type ServerToolTextGenerator,
-} from "#application/turn/tools/server-tools/server-tool-catalog";
+} from "@side-chat/side-chat-server";
 import { generateText } from "ai";
 import {
   deniedToolOutput,
@@ -19,6 +21,8 @@ import {
 export type ApprovedServerToolExecutionCommand = Readonly<{
   toolName: string;
   input: ToolApprovalInput;
+  actor: DurableActorRef;
+  invocation: ServerToolInvocation;
   executionKey: string;
 }>;
 
@@ -52,6 +56,8 @@ export async function executeApprovedServerTool<Input extends ToolApprovalInput>
     return deniedToolOutput(TOOL_APPROVAL_DENIAL_REASONS.POLICY_CHANGED);
   }
   return definition.execute(command.input, {
+    actor: command.actor,
+    invocation: command.invocation,
     executionKey: command.executionKey,
     ...(dependencies.generateText === undefined ? {} : { generateText: dependencies.generateText }),
   });

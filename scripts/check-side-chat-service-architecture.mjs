@@ -30,6 +30,7 @@ const allowedWorkflowDependencies = new Set([
   // Durable workflows persist native UI messages. This zero-dependency contract
   // owns their public metadata vocabulary; it is not an outer implementation.
   "@side-chat/stream-profile",
+  "@side-chat/side-chat-server",
 ]);
 const allowedApplicationDependencies = new Set([
   "ai",
@@ -37,6 +38,7 @@ const allowedApplicationDependencies = new Set([
   // Concrete provider packages remain adapter-private.
   "@ai-sdk/provider",
   "@side-chat/shared",
+  "@side-chat/side-chat-server",
   "@side-chat/stream-profile",
 ]);
 // Compatibility has its own non-production HTTP adapter. Keep its workflow
@@ -183,11 +185,15 @@ function isTestingOnlyProductionDependency(file) {
 }
 
 function resolveServiceImport(importer, specifier) {
+  if (specifier === "#sidechat") return `${sourceRoot}sidechat.ts`;
+
   const aliases = {
     "#adapters/": `${sourceRoot}adapters/`,
+    "#auth/": `${sourceRoot}auth/`,
     "#application/": `${sourceRoot}application/`,
     "#composition/": `${sourceRoot}composition/`,
     "#config/": `${sourceRoot}config/`,
+    "#integrations/": `${sourceRoot}integrations/`,
     "#testing/": `${sourceRoot}testing/`,
     "#workflows/": `${sourceRoot}workflows/`,
   };

@@ -2,7 +2,7 @@ import type { Readiness } from "#adapters/http/health/health-app";
 import type { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { ModelProvider } from "#application/ports/model-provider";
-import type { RequestAuthorizer } from "#application/ports/request-authorizer";
+import type { RequestAuthorizer, ServerToolDefinition } from "@side-chat/side-chat-server";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
 import type { TurnExecution } from "#application/ports/turn/turn-execution";
 import type { TurnReplay } from "#application/ports/turn/replay/turn-replay";
@@ -10,7 +10,6 @@ import type { ClientToolDispatchStore } from "#application/ports/turn/tools/clie
 import type { ResumeClientTool } from "#application/turn/tools/submit-client-tool-output";
 import type { ToolApprovalDecisionStore } from "#application/ports/turn/tools/tool-approval-store";
 import type { ResumeToolApproval } from "#application/turn/tools/approvals/submit-tool-approval";
-import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
 import type { SideChatConfig } from "#config/declaration/side-chat-config";
 import { validateSettings } from "#config/settings/resolve-settings";
 import { createDefaultConfig } from "#config/settings/settings.test-fixture";

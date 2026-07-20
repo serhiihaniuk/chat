@@ -1,5 +1,6 @@
 import type { ModelReasoningEffort } from "#application/ports/model-provider";
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
+import type { DurableActorRef } from "@side-chat/side-chat-server";
 
 export interface SerializableChatMessage {
   readonly role: "assistant" | "user";
@@ -8,8 +9,7 @@ export interface SerializableChatMessage {
 
 /** Everything crossing into the workflow realm is plain configuration data. */
 export interface ChatTurnWorkflowInput {
-  readonly workspaceId: string;
-  readonly subjectId: string;
+  readonly actor: DurableActorRef;
   readonly conversationId: string;
   readonly turnId: string;
   readonly requestId: string;

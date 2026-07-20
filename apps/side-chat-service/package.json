@@ -26,10 +26,25 @@
       "development": "./src/config/*.ts",
       "default": "./src/config/*.ts"
     },
+    "#auth/*": {
+      "types": "./src/auth/*.ts",
+      "development": "./src/auth/*.ts",
+      "default": "./src/auth/*.ts"
+    },
     "#domain/*": {
       "types": "./src/domain/*.ts",
       "development": "./src/domain/*.ts",
       "default": "./src/domain/*.ts"
+    },
+    "#integrations/*": {
+      "types": "./src/integrations/*.ts",
+      "development": "./src/integrations/*.ts",
+      "default": "./src/integrations/*.ts"
+    },
+    "#sidechat": {
+      "types": "./src/sidechat.ts",
+      "development": "./src/sidechat.ts",
+      "default": "./src/sidechat.ts"
     },
     "#testing/*": {
       "types": "./src/testing/*.ts",
@@ -64,6 +79,7 @@
     "@ai-sdk/provider": "4.0.3",
     "@ai-sdk/workflow": "1.0.22",
     "@side-chat/db": "0.0.0",
+    "@side-chat/side-chat-server": "0.0.0",
     "@side-chat/stream-profile": "0.0.0",
     "@workflow/serde": "5.0.0-beta.2",
     "@workflow/world-postgres": "5.0.0-beta.24",

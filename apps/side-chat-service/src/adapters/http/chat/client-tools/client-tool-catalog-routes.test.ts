@@ -4,10 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { HTTP_ERROR } from "#adapters/http/error-response";
 import { CHAT_HTTP_ROUTES, HTTP_HEADERS } from "#adapters/http/http-contract";
-import {
-  SERVER_TOOL_APPROVAL_POLICIES,
-  defineServerTool,
-} from "#application/turn/tools/server-tools/server-tool-catalog";
+import { SERVER_TOOL_APPROVAL_POLICIES, defineServerTool } from "@side-chat/side-chat-server";
 import type {
   StartedTurnExecution,
   TurnExecution,

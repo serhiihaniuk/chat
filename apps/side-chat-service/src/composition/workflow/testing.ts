@@ -1,5 +1,5 @@
 import { scriptedModelProvider } from "#testing/scripted-language-model";
-import { selectRegisteredServerTools } from "#application/turn/tools/server-tools/registered-server-tools";
+import { selectRegisteredServerTools } from "#sidechat";
 import { BUNDLED_CONFIG_NAMES } from "#config/declaration/bundled-config-catalog";
 import { SERVICE_ENV_KEYS } from "#config/declaration/side-chat-config";
 import { serviceProcessEnv } from "#config/environment/process-environment";

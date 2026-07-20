@@ -4,10 +4,12 @@
   },
   "files": ["vitest.config.ts", "playwright.config.ts"],
   "references": [
+    { "path": "./apps/docs" },
     { "path": "./apps/side-chat-service" },
     { "path": "./packages/side-chat-widget" },
     { "path": "./packages/host-bridge" },
     { "path": "./packages/shared" },
+    { "path": "./packages/side-chat-server" },
     { "path": "./packages/stream-profile" },
     { "path": "./packages/db" },
     { "path": "./test-harness/widget-harness" }

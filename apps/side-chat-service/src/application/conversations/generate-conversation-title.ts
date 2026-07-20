@@ -1,6 +1,6 @@
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import type { ConversationTitleStore } from "#application/ports/turn/title/conversation-title-store";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 
 export type ConversationTitleWorkflowInput = Readonly<{
   auth: AuthContext;

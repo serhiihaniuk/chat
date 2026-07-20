@@ -3,7 +3,7 @@ import type { UIMessage } from "ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { TURN_REJECTION_CODES } from "#application/turn/turn-errors";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 import {
   TURN_MESSAGE_ROLES,
   TURN_TERMINAL_STATUSES,

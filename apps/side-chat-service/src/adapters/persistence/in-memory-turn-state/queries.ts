@@ -7,7 +7,7 @@ import {
   type StoredConversationMessage,
 } from "#application/ports/conversation-query-store";
 import { TurnRejectedError } from "#application/turn/turn-errors";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 
 import { findLatestBoundTurn, type InMemoryStoredTurn } from "./active-turns.js";
 import { asError, runNotFound } from "./errors.js";

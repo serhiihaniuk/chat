@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 
-import type { RequestAuthorizer } from "#application/ports/request-authorizer";
+import type { RequestAuthorizer } from "@side-chat/side-chat-server";
 
 import { requireAuthentication } from "../auth-middleware.js";
 import { HTTP_ERROR } from "../error-response.js";

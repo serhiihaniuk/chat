@@ -6,13 +6,19 @@ Not source of truth for: cross-package ownership ([package boundaries](../../doc
 
 `@side-chat/side-chat-service` is the only backend application. It combines Hono/Nitro HTTP delivery, application policy and ports, Workflow DevKit durable execution, AI SDK 7 model/tool streaming, provider adapters, PostgreSQL composition, admission, telemetry, and process lifecycle.
 
+Adopter contracts come from the side-effect-free `@side-chat/side-chat-server`
+framework package. This application is the deployable reference composition.
+
 ## Structure
+
+- `src/sidechat.ts` — adopter manifest and registered integration catalog.
+- `src/auth` — configured request-authorizer adapters.
+- `src/integrations` — adopter-owned external adapters and server tools.
 
 - `src/domain` — app-owned value types and invariants.
 - `src/application/ports` — behavioral interfaces owned by service use cases.
 - `src/application/turn` — turn preparation, admission, tools, stream scrubbing, execution, and terminal projection.
 - `src/application/conversations` — conversation reads and post-turn title enrichment.
-- `src/adapters/auth` — request-authority implementations.
 - `src/adapters/http` — Hono routes, validation, auth middleware, safe errors, SSE, and replay translation.
 - `src/adapters/persistence` — app-side bindings to `@side-chat/db` plus explicit test substitutes.
 - `src/adapters/providers` — OpenAI/Azure AI SDK adapters behind the app-owned model port.

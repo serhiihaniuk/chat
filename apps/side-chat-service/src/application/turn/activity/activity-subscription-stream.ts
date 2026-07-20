@@ -8,7 +8,7 @@ import {
 
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import type { TurnActivityNotification } from "#application/ports/turn/activity/turn-activity-source";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 import type { ActivitySubscription, TurnActivityDispatcher } from "./turn-activity-dispatcher.js";
 
 /**

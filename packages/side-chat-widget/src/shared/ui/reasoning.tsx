@@ -56,7 +56,7 @@ export function Reasoning({
           className={cn("size-icon-sm transition-transform ease-out", open && "rotate-180")}
         />
       </Collapsible.Trigger>
-      <Collapsible.Panel className="sc-collapsible-panel ml-2">
+      <Collapsible.Panel className="sc-collapsible-panel ml-(--reasoning-rule-offset)">
         <div className="flex flex-col gap-2.5 py-2 pl-3.5">
           {items.map((item) => (
             <ReasoningEntry key={item.id} item={item} renderThought={renderThought} />

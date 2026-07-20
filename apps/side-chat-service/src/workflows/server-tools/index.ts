@@ -8,8 +8,9 @@ import {
 } from "#application/ports/turn/tools/tool-approval-store";
 import {
   requiresServerToolApproval,
+  type DurableActorRef,
   type ServerToolDefinition,
-} from "#application/turn/tools/server-tools/server-tool-catalog";
+} from "@side-chat/side-chat-server";
 import { WORKFLOW_CLOCK, type WorkflowClock } from "../clock/workflow-clock.js";
 import type { SuspendableTurnTimeout } from "../timeout/turn-timeout.js";
 import {
@@ -27,6 +28,11 @@ import {
   type ApprovedServerToolExecutionCommand,
 } from "../production/server-tools/execute-server-tool.js";
 import { readServerToolSources, writeServerToolSources } from "./server-tool-sources.js";
+import {
+  approvalIdentity,
+  serverToolExecutionKey,
+  serverToolInvocation,
+} from "./server-tool-identity.js";
 import { waitForAbort } from "../wait/abort-wait.js";
 
 export {
@@ -62,8 +68,7 @@ const DEFAULT_APPROVAL_GATE_DEPENDENCIES: ApprovalGateDependencies = {
 type ServerToolRuntimeOptions = Readonly<{
   definitions: readonly ServerToolDefinition[];
   databaseUrl: string | undefined;
-  workspaceId: string;
-  subjectId: string;
+  actor: DurableActorRef;
   conversationId: string;
   turnId: string;
   runId: string;
@@ -85,7 +90,13 @@ export function createServerTools(options: ServerToolRuntimeOptions): ToolSet {
           }
           const output = !(await requiresServerToolApproval(definition.approvalPolicy, input))
             ? await definition.execute(input, {
-                executionKey: executionKey(options.turnId, execution.toolCallId, "ungated"),
+                actor: options.actor,
+                invocation: serverToolInvocation(options, execution.toolCallId),
+                executionKey: serverToolExecutionKey(
+                  options.turnId,
+                  execution.toolCallId,
+                  "ungated",
+                ),
               })
             : await executeGatedServerTool({
                 ...options,
@@ -231,7 +242,13 @@ async function resolveApproval<Input extends ToolApprovalInput>(
     return dependencies.runExecutionStep({
       toolName: request.toolName,
       input: request.input,
-      executionKey: executionKey(request.turnId, request.toolCallId, approval.inputDigest),
+      actor: request.actor,
+      invocation: serverToolInvocation(request, request.toolCallId),
+      executionKey: serverToolExecutionKey(
+        request.turnId,
+        request.toolCallId,
+        approval.inputDigest,
+      ),
     });
   }
   return deniedToolOutput(
@@ -243,30 +260,6 @@ async function resolveApproval<Input extends ToolApprovalInput>(
 
 function terminalApproval(approval: ToolApprovalSnapshot): ToolApprovalSnapshot | undefined {
   return approval.state === TOOL_APPROVAL_STATES.REQUESTED ? undefined : approval;
-}
-
-function approvalIdentity(
-  request: Readonly<{
-    workspaceId: string;
-    subjectId: string;
-    conversationId: string;
-    turnId: string;
-    runId: string;
-    toolCallId: string;
-    toolName: string;
-  }>,
-  approvalId: string,
-) {
-  return {
-    workspaceId: request.workspaceId,
-    subjectId: request.subjectId,
-    conversationId: request.conversationId,
-    turnId: request.turnId,
-    runId: request.runId,
-    approvalId,
-    toolCallId: request.toolCallId,
-    toolName: request.toolName,
-  };
 }
 
 async function writeApprovalRequest(approvalId: string, toolCallId: string): Promise<true> {
@@ -284,10 +277,6 @@ async function writeApprovalRequest(approvalId: string, toolCallId: string): Pro
     writer.releaseLock();
   }
   return true;
-}
-
-function executionKey(turnId: string, toolCallId: string, digest: string): string {
-  return `${turnId}:${toolCallId}:${digest}`;
 }
 
 function isJsonValue(value: unknown): value is ToolApprovalInput {

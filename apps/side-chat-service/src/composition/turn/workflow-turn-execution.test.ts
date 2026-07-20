@@ -89,8 +89,10 @@ describe("createWorkflowTurnExecution", () => {
 
     expect(startTurn).toHaveBeenCalledWith(
       expect.objectContaining({
-        workspaceId: TURN_INPUT.auth.workspaceId,
-        subjectId: TURN_INPUT.auth.subjectId,
+        actor: {
+          workspaceId: TURN_INPUT.auth.workspaceId,
+          subjectId: TURN_INPUT.auth.subjectId,
+        },
         conversationId: TURN_INPUT.conversationId,
         providerTimeoutMs: settings.timeouts.providerMs,
         clientToolTimeoutMs: settings.timeouts.clientToolMs,

@@ -3,10 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "workspaces": [
+    "apps/docs",
     "apps/side-chat-service",
     "packages/db",
     "packages/host-bridge",
     "packages/shared",
+    "packages/side-chat-server",
     "packages/side-chat-widget",
     "packages/stream-profile",
     "test-harness/widget-harness"
@@ -14,6 +16,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "dev:docs": "npm run dev --workspace @side-chat/docs",
     "format": "oxfmt . --write",
     "format:check": "oxfmt . --check",
     "build": "tsc -b --pretty false",

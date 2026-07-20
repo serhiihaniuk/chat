@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 import type { TurnMessage, TurnRef, TurnTerminal } from "#domain/turn/turn";
 
 export type BeginTurnInput = Readonly<{

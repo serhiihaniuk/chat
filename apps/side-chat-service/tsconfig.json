@@ -10,6 +10,7 @@
   },
   "references": [
     { "path": "../../packages/db" },
+    { "path": "../../packages/side-chat-server" },
     { "path": "../../packages/shared" },
     { "path": "../../packages/stream-profile" }
   ],

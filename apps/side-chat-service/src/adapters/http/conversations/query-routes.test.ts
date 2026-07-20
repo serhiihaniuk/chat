@@ -6,10 +6,7 @@ import type {
   ConversationHistoryPage,
   ConversationQueryStore,
 } from "#application/ports/conversation-query-store";
-import {
-  SERVER_TOOL_APPROVAL_POLICIES,
-  defineServerTool,
-} from "#application/turn/tools/server-tools/server-tool-catalog";
+import { SERVER_TOOL_APPROVAL_POLICIES, defineServerTool } from "@side-chat/side-chat-server";
 import { createServiceTestHarness } from "#composition/route/testing-harness/service-test-harness";
 import { SCRIPTED_PROVIDER } from "#config/providers/scripted-provider-config";
 

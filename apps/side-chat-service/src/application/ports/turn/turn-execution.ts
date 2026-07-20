@@ -2,7 +2,7 @@ import type { UIMessage, UIMessageChunk } from "ai";
 import type { SideChatReasoningEffort } from "@side-chat/stream-profile";
 
 import type { ClientToolDefinition } from "#application/turn/tools/client-tool-catalog";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 import type {
   TurnExecutionErrorCode,
   TurnMessage,

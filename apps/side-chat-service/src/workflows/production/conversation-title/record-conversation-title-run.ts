@@ -1,6 +1,6 @@
 import { createPostgresTurnState } from "#adapters/persistence/postgres-turn-state";
 import { initializeProductionWorkflowServices } from "#composition/workflow/production";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 
 type TitleRunLinkage = Readonly<{
   auth: AuthContext;

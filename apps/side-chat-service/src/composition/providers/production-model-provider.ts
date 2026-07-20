@@ -21,7 +21,7 @@ import {
   type OpenAIModelSettings,
 } from "#config/providers/openai-provider-config";
 import type { Settings } from "#config/settings/resolve-settings";
-import { selectRegisteredServerTools } from "#application/turn/tools/server-tools/registered-server-tools";
+import { selectRegisteredServerTools } from "#sidechat";
 
 const PRODUCTION_MODEL_ERRORS = {
   UNSUPPORTED_PROVIDER: "Unsupported production model provider",

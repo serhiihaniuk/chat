@@ -9,16 +9,23 @@ Source of truth for: dependency direction and representation changes between cur
 | Owner                       | May depend on                                                                                                          | Must not absorb                                                          |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `apps/side-chat-service`    | `db`, `stream-profile`, `shared`, Hono, AI SDK/provider adapters, Workflow DevKit, Postgres World                      | React rendering, widget state, host-page behavior                        |
+| `packages/side-chat-server` | `shared`                                                                                                               | HTTP frameworks, providers, Workflow, PostgreSQL, React, process startup |
 | `packages/db`               | `shared`, Drizzle, `pg`                                                                                                | HTTP, providers, Workflow orchestration, browser DTOs, product policy    |
 | `packages/stream-profile`   | TypeScript primitives only                                                                                             | React, HTTP frameworks, providers, Workflow, database code               |
 | `packages/side-chat-widget` | `host-bridge`, `stream-profile`, `shared`, React, browser-safe AI SDK/Workflow transport, TanStack Query, UI libraries | Hono, PostgreSQL, provider SDKs, service internals, Workflow server APIs |
 | `packages/host-bridge`      | `shared`                                                                                                               | React, Hono, providers, Workflow, database code, widget internals        |
 | `packages/shared`           | TypeScript primitives only                                                                                             | Product, framework, provider, Workflow, or persistence policy            |
+| `apps/docs`                 | `side-chat-widget`, React, local Vite tooling                                                                          | Service internals, HTTP calls, providers, Workflow, or database access   |
+
+`apps/docs` may import the widget's public package exports and exported stylesheet.
+It must not reach into widget source through relative paths. The docs app treats CSS
+token values as local preview input and never promotes them to runtime configuration.
 
 ## Service dependency law
 
 Inside `apps/side-chat-service`, dependencies point toward application/domain ownership:
 
+- `sidechat.ts`, `auth`, and `integrations` form the visible adopter surface and depend on public `@side-chat/side-chat-server` contracts.
 - `domain` imports no application, adapter, composition, config, Workflow, or test modules.
 - `application` imports domain and application-owned ports, never adapters or composition.
 - `adapters` implement application ports and translate external representations.

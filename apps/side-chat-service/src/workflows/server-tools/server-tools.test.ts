@@ -5,7 +5,8 @@ import { TOOL_APPROVAL_STATES } from "#application/ports/turn/tools/tool-approva
 import {
   defineServerTool,
   SERVER_TOOL_APPROVAL_POLICIES,
-} from "#application/turn/tools/server-tools/server-tool-catalog";
+  type ServerToolExecutionContext,
+} from "@side-chat/side-chat-server";
 import { toolApprovalSnapshot } from "#testing/tool-approval-fixtures";
 import { CHAT_TURN_JOURNAL_PART_TYPES } from "../journal/chat-turn-journal.js";
 import {
@@ -20,6 +21,7 @@ import {
   writeServerToolSourcesTo,
   type ApprovalGateRuntime,
 } from "./index.js";
+import type { ApprovedServerToolExecutionCommand } from "../production/server-tools/execute-server-tool.js";
 
 const approvalStepMock = vi.fn<typeof runToolApprovalStep>();
 const createHookMock = vi.fn<ApprovalGateRuntime["createApprovalHook"]>();
@@ -28,7 +30,7 @@ const sleepMock = vi.fn<(milliseconds: number) => Promise<void>>();
 
 type TestServerExecute = (
   input: { issue: string },
-  context: Readonly<{ executionKey: string }>,
+  context: ServerToolExecutionContext,
 ) => Promise<{ created: boolean }>;
 
 const REQUESTED = toolApprovalSnapshot();
@@ -237,9 +239,13 @@ function approvalRequest(execute: ReturnType<typeof vi.fn<TestServerExecute>>) {
     approvalChunks,
     dependencies: {
       runApprovalStep: approvalStepMock,
-      runExecutionStep: async (command: { input: unknown; executionKey: string }) => {
+      runExecutionStep: async (command: ApprovedServerToolExecutionCommand) => {
         if (!isIssueInput(command.input)) throw new TypeError("Expected issue input");
-        return execute(command.input, { executionKey: command.executionKey });
+        return execute(command.input, {
+          actor: command.actor,
+          invocation: command.invocation,
+          executionKey: command.executionKey,
+        });
       },
     },
     runtime: {
@@ -263,8 +269,10 @@ function approvalRequest(execute: ReturnType<typeof vi.fn<TestServerExecute>>) {
       toolName: REQUESTED.toolName,
       input: { issue: "Investigate" },
       databaseUrl: "postgres://test",
-      workspaceId: REQUESTED.workspaceId,
-      subjectId: REQUESTED.subjectId,
+      actor: {
+        workspaceId: REQUESTED.workspaceId,
+        subjectId: REQUESTED.subjectId,
+      },
       conversationId: REQUESTED.conversationId,
       turnId: REQUESTED.turnId,
       runId: REQUESTED.runId,

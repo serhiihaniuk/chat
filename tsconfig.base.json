@@ -8,6 +8,7 @@
       "@side-chat/db": ["./packages/db/src/index.ts"],
       "@side-chat/host-bridge": ["./packages/host-bridge/src/index.ts"],
       "@side-chat/shared": ["./packages/shared/src/index.ts"],
+      "@side-chat/side-chat-server": ["./packages/side-chat-server/src/index.ts"],
       "@side-chat/stream-profile": ["./packages/stream-profile/src/index.ts"],
       "@side-chat/side-chat-widget": ["./packages/side-chat-widget/src/index.ts"]
     },

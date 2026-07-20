@@ -16,7 +16,7 @@ import {
 } from "#application/ports/turn/turn-store";
 import type { TurnRunAccess } from "#application/ports/turn/replay/turn-run-access";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 import type { TurnMessage, TurnRef, TurnTerminal } from "#domain/turn/turn";
 
 import {

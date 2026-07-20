@@ -9,8 +9,7 @@ import type {
   StoredConversationMessage,
 } from "#application/ports/conversation-query-store";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
-import type { AuthContext } from "#domain/auth-context";
-import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
+import type { AuthContext, ServerToolDefinition } from "@side-chat/side-chat-server";
 import { withoutTerminalToolApprovalMetadata } from "#application/turn/tools/approvals/terminal-tool-approval-metadata";
 
 export const UNAVAILABLE_HISTORY_TEXT = "Historical content is unavailable after an upgrade";

@@ -10,7 +10,7 @@ import {
   hasClientToolNameConflict,
   type ClientToolDefinition,
 } from "#application/turn/tools/client-tool-catalog";
-import { SERVER_TOOL_CATALOG_LIMITS } from "#application/turn/tools/server-tools/server-tool-catalog";
+import { SERVER_TOOL_CATALOG_LIMITS } from "@side-chat/side-chat-server";
 import { isSupportedClientToolSchema } from "#application/turn/tools/client-tool-schema";
 import type { HostContext, HostContextPolicy } from "#domain/host-context";
 import { TURN_MESSAGE_ROLES, type TurnMessage, type TurnMessageRole } from "#domain/turn/turn";

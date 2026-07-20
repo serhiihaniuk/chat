@@ -1,6 +1,6 @@
 import { serviceProcessEnv } from "#config/environment/process-environment";
-import { selectRegisteredServerTools } from "#application/turn/tools/server-tools/registered-server-tools";
-import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
+import { selectRegisteredServerTools } from "#sidechat";
+import type { ServerToolDefinition } from "@side-chat/side-chat-server";
 import {
   initializeWorkflowServices,
   workflowServices,

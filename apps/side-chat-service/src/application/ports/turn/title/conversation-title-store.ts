@@ -1,4 +1,4 @@
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 
 export type ConversationTitleEligibility = Readonly<{
   eligible: boolean;

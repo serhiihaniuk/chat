@@ -1,10 +1,7 @@
 import { getWritable } from "workflow";
 
 import type { ToolApprovalInput } from "#application/ports/turn/tools/tool-approval-store";
-import type {
-  ServerToolDefinition,
-  ServerToolSource,
-} from "#application/turn/tools/server-tools/server-tool-catalog";
+import type { ServerToolDefinition, ServerToolSource } from "@side-chat/side-chat-server";
 import {
   isDeniedToolOutput,
   type ToolApprovalDenialOutput,

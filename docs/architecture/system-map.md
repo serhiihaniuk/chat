@@ -11,6 +11,7 @@ Side Chat is one modular service plus browser packages. AI SDK 7 provides the na
 | Component                     | Owns                                                                                                                           | Primary entry points                                                                           |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
 | `apps/side-chat-service`      | HTTP, auth, turn policy, admission, native stream scrubbing, Workflow bundles, providers, configuration, and process lifecycle | `src/index.ts`, `src/composition/route/production.ts`, `src/workflows/production/chat-turn.ts` |
+| `packages/side-chat-server`   | Public authentication, durable actor, server-tool, approval-policy, integration, and adopter-manifest contracts                | `src/index.ts`                                                                                 |
 | `packages/db`                 | Product schema/repositories, activity notifications, client-tool and approval rows, Workflow journal maintenance               | `src/index.ts`, `src/repositories/postgres-drizzle/index.ts`                                   |
 | `packages/stream-profile`     | Browser-safe error, finish, reasoning, metadata, and client-tool capability vocabulary                                         | `src/index.ts`                                                                                 |
 | `packages/side-chat-widget`   | React UI, authenticated browser requests, native stream projection, conversation selection, replay, and activity refresh       | `src/index.ts`                                                                                 |
@@ -18,10 +19,24 @@ Side Chat is one modular service plus browser packages. AI SDK 7 provides the na
 | `packages/shared`             | Neutral JSON, branding, and record helpers                                                                                     | `src/index.ts`                                                                                 |
 | `test-harness/widget-harness` | Browser integration host and Playwright coverage                                                                               | `src/index.ts`, `e2e/`                                                                         |
 
+## Development-only surfaces
+
+`apps/docs` is the local design-system configurator. It reads the widget's public
+stylesheet as source data, renders public widget UI exports inside an isolated
+Shadow DOM, and applies temporary CSS custom-property overrides to that preview.
+It does not call the service, read provider configuration, or persist product data.
+
+The configurator entry point is `apps/docs/src/index.tsx`. Its token catalog is
+derived from `packages/side-chat-widget/styles.css`, so a new declared token appears
+without a second hand-maintained registry.
+
 ## Service structure
 
 `apps/side-chat-service/src` is organized by ownership:
 
+- `sidechat.ts`: adopter manifest that registers the available integrations once.
+- `auth`: configured request-authorizer adapters written or selected by adopters.
+- `integrations`: concrete external adapters and the server tools that use them.
 - `application/ports`: application-owned interfaces with production and deterministic substitutions.
 - `application/turn`: admission-aware preparation, stream safety, terminal release, cancellation, and tool decision policy.
 - `adapters/http`: Hono validation, auth, routes, SSE encoding, and error mapping.

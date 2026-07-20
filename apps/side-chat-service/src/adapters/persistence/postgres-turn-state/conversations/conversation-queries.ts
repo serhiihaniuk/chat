@@ -7,7 +7,7 @@ import {
   type ConversationQueryStore,
   type StoredConversationMessage,
 } from "#application/ports/conversation-query-store";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 
 /** Map the read projection without exposing repository records to HTTP. */
 export function createPostgresConversationQueries(

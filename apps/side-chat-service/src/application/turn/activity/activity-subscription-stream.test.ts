@@ -4,7 +4,7 @@ import type {
   TurnActivityNotification,
   TurnActivityNotificationSource,
 } from "#application/ports/turn/activity/turn-activity-source";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 import { createActivitySubscriptionStream } from "./activity-subscription-stream.js";
 import { createTurnActivityDispatcher } from "./turn-activity-dispatcher.js";
 

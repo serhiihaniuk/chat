@@ -7,7 +7,7 @@ import {
   type SidechatRepositories,
 } from "@side-chat/db";
 
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 import { TURN_MESSAGE_ROLES, type TurnMessage } from "#domain/turn/turn";
 
 type ClosableRepositories = SidechatRepositories & {

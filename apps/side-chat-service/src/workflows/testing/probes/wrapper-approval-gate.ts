@@ -51,8 +51,10 @@ export async function probeWrapperApprovalGate(requestId: string, toolCallId: st
       toolName: PROBE.TOOL_NAME,
       input: { requestId },
       databaseUrl: "compatibility://approval-gate",
-      workspaceId: "compatibility-workspace",
-      subjectId: "compatibility-subject",
+      actor: {
+        workspaceId: "compatibility-workspace",
+        subjectId: "compatibility-subject",
+      },
       conversationId: "compatibility-conversation",
       turnId: `turn-${requestId}`,
       runId: workflowRunId,

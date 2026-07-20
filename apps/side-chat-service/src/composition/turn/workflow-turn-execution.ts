@@ -7,6 +7,7 @@ import {
   type SideChatFinishReason,
   type SideChatMessageTerminal,
 } from "@side-chat/stream-profile";
+import { toDurableActorRef } from "@side-chat/side-chat-server";
 
 import type {
   StartedTurnExecution,
@@ -92,8 +93,7 @@ function assertClientToolsAvailable(
 
 function toWorkflowInput(settings: Settings, input: TurnExecutionInput): ChatTurnWorkflowInput {
   const required: ChatTurnWorkflowInput = {
-    workspaceId: input.auth.workspaceId,
-    subjectId: input.auth.subjectId,
+    actor: toDurableActorRef(input.auth),
     conversationId: input.conversationId,
     turnId: input.turnId,
     requestId: input.requestId,

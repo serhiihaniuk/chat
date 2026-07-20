@@ -367,8 +367,11 @@
   --message-table-cell-px: calc(var(--spacing) * 2);
   --message-table-cell-py: calc(var(--spacing) * 1);
 
-  /* Reasoning trace typography stays quieter than provider-authored answer copy. */
+  /* Reasoning trace typography stays quieter than provider-authored answer copy.
+     The fold rule is a hairline centered beneath the compact reasoning icon. */
   --reasoning-thought-weight: var(--weight-normal);
+  --collapsible-rule-width: 1px;
+  --reasoning-rule-offset: calc(var(--size-icon-sm) / 2 - var(--collapsible-rule-width) / 2);
 
   /* Tool detail — the expanded payload tree: row/key-value rhythm, the
      Input/Result panel padding, and the one-per-level nested indent. All resolve
@@ -775,7 +778,9 @@
 
 /* Collapsible panel — height animates from Base UI's exposed var, no JS measure */
 @utility sc-collapsible-panel {
-  @apply overflow-hidden border-l-2 border-border;
+  @apply overflow-hidden border-border;
+  border-left-width: var(--collapsible-rule-width);
+  border-left-style: solid;
   height: var(--collapsible-panel-height);
   transition: height var(--dur) var(--ease-out);
 }

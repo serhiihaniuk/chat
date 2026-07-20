@@ -2,7 +2,7 @@ import { loadSideChatConfig } from "#config/declaration/bundled-config-catalog";
 import type { ServiceEnv } from "#config/declaration/side-chat-config";
 import { resolveConfigEnvironment } from "#config/environment/resolve-config-environment";
 import { formatSettingsIssues, validateSettings } from "#config/settings/resolve-settings";
-import { REGISTERED_SERVER_TOOLS } from "#application/turn/tools/server-tools/registered-server-tools";
+import { REGISTERED_SERVER_TOOLS } from "#sidechat";
 
 /** Resolve one bundled declaration through the shared secret-safe validation boundary. */
 export function resolveServiceSettings(env: ServiceEnv) {

@@ -30,7 +30,7 @@ This skill owns the token/kit/theme/apps-docs contract. For prose-documentation
 quality, also use `side-chat-documentation`. For code-shape budgets, use the
 repository's configured `verify` gate.
 
-## The three-tier token model (canonical: apps/docs/content/docs/design-system/foundations/architecture.mdx)
+## The three-tier token model
 
 - **Tier 1 — Primitive.** Raw palette + scales: `--background`, `--foreground`,
   `--primary`, `--radius`, `--text-*`, size scales. Declared on the widget root
@@ -45,20 +45,18 @@ repository's configured `verify` gate.
 - **Tier 3 — Hook classes.** `@utility sc-*` classes read tier-2 tokens. The **only**
   layer that touches real CSS properties.
 
-Density (`apps/docs/content/docs/design-system/foundations/spacing.mdx`): there is no `--space-1..16` scale. Every
+Density: there is no `--space-1..16` scale. Every
 pad/gap is a `calc()` over one lever, `--space-unit`, bridged to Tailwind's `--spacing`
 (`--spacing: var(--space-unit, 0.25rem)`), so component tokens AND Tailwind spacing
 utilities re-scale together when the Density control changes. Any spacing token you add
 must resolve through `--spacing` or it won't respond to density.
 
-Themes (widget README "Adding a theme"; `apps/docs/content/docs/design-system/foundations/themes.mdx`): **four
+Themes (widget README "Adding a theme"): **four
 light themes, no dark mode.** Graphite is the base `:root`/root contract and carries no
 attribute; Sapphire/Sage/Ocean are light-only tier-2 overrides written via
 `[data-sidechat-theme="<id>"]` blocks. Light-only is deliberate — a future palette is a
 fifth theme, never a mode. The shipped widget root does **not** respond to the host's
-`.dark`/`prefers-color-scheme` (package README is authoritative). Note the drift: some
-foundations docs + the apps/docs Dark toggle still mention a host `.dark` on graphite —
-that's stale relative to the README; don't build on it or reintroduce a dark mode.
+`.dark`/`prefers-color-scheme` (package README is authoritative).
 
 ## Where everything lives
 
@@ -78,16 +76,13 @@ that's stale relative to the README; don't build on it or reintroduce a dark mod
 - `src/shared/ui/widget-root.tsx` — `SideChatWidgetRoot` + `usePortalContainer()`.
 - `src/shared/ai/**` — **copied vendor primitives (Streamdown wrapper). Do NOT restyle
   as project code** (boundary rule in the package README).
-- `apps/docs/` — the design-system site (Fumadocs + React Router SPA):
-  - `content/docs/design-system/foundations/*.mdx` — the canonical token/theme/spacing
-    docs. Link to these; never re-explain the tiers elsewhere.
-  - `content/docs/design-system/{primitives,components}/*.mdx` — one page per part.
-  - `app/components/demos/*.tsx` — each demo imports and renders the **REAL** widget
-    component (`@side-chat/side-chat-widget/ui/*`), never a copy.
-  - `app/components/preview.tsx` — `<Preview>` renders demos in an isolated **Shadow
-    DOM** with the widget's full stylesheet, so widget CSS never collides with Fumadocs.
-  - `app/data/tokens-components.ts` — the `<TokenTable group="…" />` data, one row per
-    token: `{ token, resolvesTo, property, usage }`.
+- `apps/docs/` — the local Vite/React token configurator:
+  - `src/token-catalog.ts` discovers every CSS custom property and named theme directly
+    from the public widget stylesheet. Do not add a second hand-maintained token list.
+  - `src/configurator/**` owns grouped controls, search, reset, validation, and JSON copy.
+  - `src/preview/**` renders **real** exported widget components inside an isolated
+    Shadow DOM with the compiled widget stylesheet.
+  - `README.md` defines the local-only boundary and run commands.
 - `design_system.html` (repo root) — the canonical visual reference; match it when a
   component's look is in question.
 
@@ -97,7 +92,7 @@ that's stale relative to the README; don't build on it or reintroduce a dark mod
    (`bg-popover`, `text-muted-foreground`, `rounded-xl`) or tier-2 tokens. A one-off hex
    or `mt-[13px]` is a review failure.
 2. **Every design-significant spacing/size is a named tier-2 token** that resolves
-   through `--spacing`, documented in `tokens-components.ts`. `gap-2` and inline
+   through `--spacing`. The docs catalog discovers it automatically. `gap-2` and inline
    `calc(var(--spacing)*N)` are density-aware but NOT tokens — promote reused/meaningful
    ones to `--<component>-<role>` and read that.
 3. **Base UI state via named variants** (`checked:`, `highlighted:`, `pressed:`,
@@ -121,13 +116,13 @@ that's stale relative to the README; don't build on it or reintroduce a dark mod
 2. If the value is design-significant spacing/size and reused or worth naming, add a
    tier-2 token (next workflow) and read it — don't inline `calc()`.
 3. Add or edit a hook class only for irreducible CSS (rule 5).
-4. If you changed a documented value, update its `tokens-components.ts` row.
+4. Run the catalog completeness test so the configurator remains aligned with the stylesheet.
 
-### Add a tier-2 token (docs first)
-1. **Document it first** in `apps/docs/app/data/tokens-components.ts` under the
-   component's group: `{ token: "--foo-bar", resolvesTo: "calc(var(--spacing) * N)" | "var(--tier1)", property: "…", usage: "…" }`. This is the contract.
-2. Define it in `styles.css` inside `.side-chat-widget-root` (spacing → `calc(var(--spacing) * N)` so density flows; colour → `var(--tier1)`).
-3. Read it from the hook class / component. Verify density moves it (see Verify).
+### Add a tier-2 token
+1. Define it in `styles.css` inside `.side-chat-widget-root` (spacing resolves through
+   `--spacing`; colour resolves through a tier-1 token).
+2. Read it from the hook class or component.
+3. Verify that the configurator discovers it and that density moves it when applicable.
 
 ### Base UI popup (menu, tooltip, dialog, hover card, …)
 Mirror an existing kit part (e.g. `shared/ui/tooltip.tsx`, `dialog.tsx`): `Root` →
@@ -142,12 +137,10 @@ Compose the parts yourself; state via named variants (rule 3).
 3. Add a `[data-sidechat-theme-preview="<id>"]` block for the settings swatch.
 `widget-themes.test.ts` fails if either block is missing.
 
-### Document a component in apps/docs
-1. `content/docs/design-system/{primitives,components}/<id>.mdx` — prose (role, anatomy,
-   the contract), a `<Preview>` with a demo, and `<TokenTable group="<id>" />`. Add the
-   page id to the section `meta.json`.
-2. `app/components/demos/<id>.tsx` — render the **real** exported component.
-3. Token rows in `tokens-components.ts`.
+### Add a preview scenario in apps/docs
+1. Add the closed scenario id in `src/preview/live-preview.tsx`.
+2. Render the real exported widget component from `src/preview/preview-content.tsx`.
+3. Keep docs-only layout in `src/preview/preview.css`; do not copy widget components.
 
 ## Verify
 
@@ -158,7 +151,7 @@ Compose the parts yourself; state via named variants (rule 3).
   Green before done. Note: the token discipline itself (no arbitrary values, no literal
   colours, Base UI named variants) is a **contract caught in review**, not an automated
   lint rule — `verify` will not stop you from hard-coding a pixel, so hold the line.
-- `npm run build -w @side-chat/docs` when you touched apps/docs.
+- `npm run build --workspace @side-chat/docs` when you touched apps/docs.
 - Completeness tests catch drift: `widget-themes.test.ts` (every theme id has its CSS
   blocks, incl. the `@font-face` asset paths). Mirror this — if you add a
   parse-once-render-many contract, pin it with a test.

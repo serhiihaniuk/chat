@@ -1,7 +1,7 @@
 # Local Development
 
 Read this when: you want the service and widget harness running locally without Docker or credentials.
-Source of truth for: `npm run dev` / `scripts/run-local-fake.mjs`, its processes, ports, and local fake configuration.
+Source of truth for: local service, widget harness, and design-token configurator commands and ports.
 Not source of truth for: deployment configuration ([configuration.md](configuration.md)), database tooling ([database.md](database.md)), or verification commands ([verification.md](verification.md)).
 
 ## Quick start
@@ -21,6 +21,22 @@ The launcher first builds the service's testing Workflow bundle, then starts:
 
 The launcher waits for both HTTP surfaces and prints the complete widget URL. `Ctrl+C` terminates both child processes. It does not install dependencies, prompt for provider credentials, mutate config, or start PostgreSQL.
 
+## Run the design-token configurator
+
+Start the docs app independently from the service and widget harness:
+
+```sh
+npm run dev:docs
+```
+
+Open `http://127.0.0.1:5174`. The app discovers every custom property declared in
+`packages/side-chat-widget/styles.css`, groups the tokens for editing, and applies
+safe temporary overrides to real widget components inside an isolated Shadow DOM.
+Search, modified-only filtering, group reset, global reset, and JSON export operate
+only in the browser. The configurator does not send requests or persist overrides.
+
+Run a production bundle check with `npm run build --workspace @side-chat/docs`.
+
 ## Port overrides
 
 Set these before launching:
@@ -29,6 +45,9 @@ Set these before launching:
 | ----------------------------- | ------: | ------------------------- |
 | `SIDECHAT_LOCAL_SERVICE_PORT` |  `3000` | Service listener port.    |
 | `SIDECHAT_LOCAL_WIDGET_PORT`  |  `5175` | Widget harness Vite port. |
+
+The docs app uses fixed port `5174` with Vite `strictPort`. Stop the process that
+owns that port before starting the configurator; it never selects another port.
 
 Only valid integer ports from 1 through 65535 are accepted; invalid values fall back to the defaults. Vite uses `strictPort`, so a collision fails visibly rather than selecting a different port.
 

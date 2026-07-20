@@ -7,10 +7,7 @@ import type {
   StoredConversationMessage,
 } from "#application/ports/conversation-query-store";
 import { createCollectingTelemetrySink } from "#testing/collecting-telemetry-sink";
-import {
-  defineServerTool,
-  SERVER_TOOL_APPROVAL_POLICIES,
-} from "#application/turn/tools/server-tools/server-tool-catalog";
+import { defineServerTool, SERVER_TOOL_APPROVAL_POLICIES } from "@side-chat/side-chat-server";
 
 import {
   readConversationHistory,

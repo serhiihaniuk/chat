@@ -1,6 +1,6 @@
 import type { JsonObject, JsonValue } from "@side-chat/shared";
 
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 
 export const CLIENT_TOOL_OUTPUT_STATES = {
   SETTLED: "settled",

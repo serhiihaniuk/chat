@@ -51,8 +51,10 @@ describe("provider execution fence", () => {
     await expect(
       executeChatTurn(
         {
-          workspaceId: "workspace-1",
-          subjectId: "subject-1",
+          actor: {
+            workspaceId: "workspace-1",
+            subjectId: "subject-1",
+          },
           conversationId: "conversation-1",
           turnId: "turn-1",
           requestId: "request-1",

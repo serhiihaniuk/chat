@@ -30,3 +30,4 @@ superseded architecture in this directory as if it were an active option.
 | [0008](0008-workflow-durable-execution-substrate.md)         | WorkflowAgent and Postgres World provide durable execution, recovery, waits, and replay behind exact pins and compatibility tests.              | Accepted |
 | [0009](0009-native-conversation-reconciliation.md)           | Atomic finalization, coherent snapshots, and snapshot-then-changes activity keep browser conversation state truthful.                           | Accepted |
 | [0010](0010-terminal-projection-reconciliation.md)           | Effective activity and product-side claim fencing reconcile terminal Workflow state without lease heartbeats or age-based death detection.      | Accepted |
+| [0011](0011-public-server-framework-and-adoption-surface.md) | A side-effect-free server framework package owns adopter contracts while the deployable app keeps proven app-local Workflow entrypoints.        | Accepted |

@@ -12,7 +12,7 @@ import { registerServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
 import type { ModelProvider } from "#application/ports/model-provider";
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import { createTurnActivityDispatcher } from "#application/turn/activity/turn-activity-dispatcher";
-import type { RequestAuthorizer } from "#application/ports/request-authorizer";
+import type { RequestAuthorizer, ServerToolDefinition } from "@side-chat/side-chat-server";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
 import type { TurnExecution } from "#application/ports/turn/turn-execution";
@@ -22,8 +22,7 @@ import type { ToolApprovalDecisionStore } from "#application/ports/turn/tools/to
 import type { ResumeToolApproval } from "#application/turn/tools/approvals/submit-tool-approval";
 import { TURN_REPLAY_RESULTS, type TurnReplay } from "#application/ports/turn/replay/turn-replay";
 import { configuredTurnModelCatalog } from "#application/turn/turn-model-policy";
-import type { ServerToolDefinition } from "#application/turn/tools/server-tools/server-tool-catalog";
-import { selectRegisteredServerTools } from "#application/turn/tools/server-tools/registered-server-tools";
+import { selectRegisteredServerTools } from "#sidechat";
 import { createObservedScrubTransform } from "#application/telemetry/observed-scrub-transform";
 import type { Settings } from "#config/settings/resolve-settings";
 import { scriptedModelProvider } from "#testing/scripted-language-model";
@@ -35,7 +34,7 @@ import {
   configuredModelCatalog,
   publishedModelCatalog,
 } from "../providers/configured-model-catalog.js";
-import { createServiceAuthorizer } from "../auth/create-service-authorizer.js";
+import { createServiceAuthorizer } from "#auth/create-service-authorizer";
 import { localChatConversation } from "./testing-harness/local-chat-fixture.js";
 import {
   createConfiguredTestingPersistence,

@@ -64,6 +64,18 @@ const forbiddenByArea = {
     /^@ai-sdk\//,
     /^@side-chat\//,
   ],
+  "packages/side-chat-server": [
+    /^react$/,
+    /^react-dom$/,
+    /^hono$/,
+    /^pg$/,
+    /^drizzle-orm$/,
+    /^ai$/,
+    /^@ai-sdk\//,
+    /^workflow$/,
+    /^@workflow\//,
+    /^@side-chat\/(db|host-bridge|side-chat-widget|stream-profile)$/,
+  ],
   "apps/side-chat-service": [/^@side-chat\/(host-bridge|side-chat-widget)$/],
 };
 

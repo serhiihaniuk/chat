@@ -1,6 +1,6 @@
 import type { JsonObject } from "@side-chat/shared";
 
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 
 export type StoredConversationMessage = Readonly<{
   id: string;

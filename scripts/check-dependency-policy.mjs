@@ -11,6 +11,16 @@ const errors = [];
 
 const forbidden = new Set(["shadcn", "@repo/shadcn-ui"]);
 const allowed = {
+  "@side-chat/docs": new Set([
+    "@side-chat/side-chat-widget",
+    "@tailwindcss/vite",
+    "@vitejs/plugin-react",
+    "lucide-react",
+    "react",
+    "react-dom",
+    "tailwindcss",
+    "vite",
+  ]),
   "@side-chat/side-chat-service": new Set([
     "@ai-sdk/azure",
     "@ai-sdk/deepseek",
@@ -25,6 +35,7 @@ const allowed = {
     "@workflow/serde",
     "@workflow/world-postgres",
     "@side-chat/db",
+    "@side-chat/side-chat-server",
     "@side-chat/stream-profile",
     "ai",
     "hono",
@@ -34,6 +45,7 @@ const allowed = {
     "zod",
   ]),
   "@side-chat/shared": new Set(),
+  "@side-chat/side-chat-server": new Set(["@side-chat/shared"]),
   "@side-chat/stream-profile": new Set(),
   "@side-chat/db": new Set(["@side-chat/shared", "@types/pg", "drizzle-kit", "drizzle-orm", "pg"]),
   "@side-chat/host-bridge": new Set(["@side-chat/shared"]),

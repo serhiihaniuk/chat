@@ -53,4 +53,18 @@ describe("shared icon size contract", () => {
       expect(source).not.toMatch(/\bsize-(?:2\.5|3\.5|4)\b/u);
     }
   });
+
+  it("centers the one-pixel reasoning rule beneath its compact icon", () => {
+    expect(styles).toContain("--collapsible-rule-width: 1px;");
+    expect(styles).toMatch(
+      /--reasoning-rule-offset:\s*calc\(\s*var\(--size-icon-sm\) \/ 2 - var\(--collapsible-rule-width\) \/ 2\s*\);/u,
+    );
+    expect(styles).toMatch(
+      /@utility sc-collapsible-panel \{[\s\S]*?border-left-width: var\(--collapsible-rule-width\);[\s\S]*?border-left-style: solid;/u,
+    );
+    expect(reasoningSource).toContain(
+      'className="sc-collapsible-panel ml-(--reasoning-rule-offset)"',
+    );
+    expect(reasoningSource).not.toContain("ml-2");
+  });
 });

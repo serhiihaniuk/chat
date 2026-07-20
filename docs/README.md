@@ -28,6 +28,7 @@ Side Chat has one production architecture: `apps/side-chat-service` runs AI SDK 
 | Need                                                | Document                                                                       |
 | --------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Local service and widget development                | [operations/local-development.md](operations/local-development.md)             |
+| Live design-token configuration and widget previews | [operations/local-development.md](operations/local-development.md)             |
 | Configuration and environment references            | [operations/configuration.md](operations/configuration.md)                     |
 | Admission, worker sizing, and deployment            | [operations/capacity-and-deployment.md](operations/capacity-and-deployment.md) |
 | Product schema, migrations, and journal maintenance | [operations/database.md](operations/database.md)                               |

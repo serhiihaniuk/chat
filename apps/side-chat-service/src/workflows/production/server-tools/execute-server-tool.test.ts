@@ -3,30 +3,28 @@ import { describe, expect, it, vi } from "vitest";
 import {
   SERVER_TOOL_APPROVAL_POLICIES,
   defineServerTool,
+  type ServerToolExecutionContext,
   type ServerToolTextGenerator,
-} from "#application/turn/tools/server-tools/server-tool-catalog";
+} from "@side-chat/side-chat-server";
 import { TOOL_APPROVAL_DENIAL_REASONS } from "../../tool-approvals/approval-output.js";
 import { isWorkflowRecord } from "../../tool-approvals/workflow-value-guards.js";
 import { executeApprovedServerTool } from "./execute-server-tool.js";
 
 type TestServerToolExecute = (
   input: { title: string },
-  context: {
-    executionKey: string;
-    generateText?:
-      | ((request: {
-          modelId: string;
-          system: string;
-          prompt: string;
-          maxOutputTokens: number;
-        }) => Promise<string>)
-      | undefined;
-  },
+  context: ServerToolExecutionContext,
 ) => Promise<unknown>;
 
 const COMMAND = {
   toolName: "jira.create_issue",
   input: { title: "Investigate" },
+  actor: { workspaceId: "workspace-1", subjectId: "subject-1" },
+  invocation: {
+    conversationId: "conversation-1",
+    turnId: "turn-1",
+    runId: "run-1",
+    toolCallId: "call-1",
+  },
   executionKey: "turn-1:call-1:sha256:digest",
 } as const;
 
@@ -59,6 +57,8 @@ describe("approved server-tool execution step", () => {
       created: true,
     });
     expect(execute).toHaveBeenCalledWith(COMMAND.input, {
+      actor: COMMAND.actor,
+      invocation: COMMAND.invocation,
       executionKey: COMMAND.executionKey,
     });
   });

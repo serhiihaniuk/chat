@@ -12,10 +12,7 @@ import {
   type ConversationQueryStore,
 } from "#application/ports/conversation-query-store";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
-import {
-  toServerToolCatalog,
-  type ServerToolDefinition,
-} from "#application/turn/tools/server-tools/server-tool-catalog";
+import { toServerToolCatalog, type ServerToolDefinition } from "@side-chat/side-chat-server";
 import { TURN_REJECTION_CODES } from "#application/turn/turn-errors";
 
 import type { AuthVariables } from "../auth-middleware.js";

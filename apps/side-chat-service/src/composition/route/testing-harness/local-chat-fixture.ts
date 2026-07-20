@@ -1,4 +1,4 @@
-import { staticSubjectId } from "#adapters/auth/static-token-authorizer";
+import { staticSubjectId } from "#auth/static-token-authorizer";
 import type { SeedConversation } from "#adapters/persistence/in-memory-turn-state";
 
 export const LOCAL_CHAT_CONVERSATION_ID = "conversation-1";

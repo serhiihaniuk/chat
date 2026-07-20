@@ -6,7 +6,7 @@ import {
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import { recordTelemetrySafely } from "#application/telemetry/record-telemetry-safely";
 import { TURN_REJECTION_CODES, TurnRejectedError } from "#application/turn/turn-errors";
-import type { AuthContext } from "#domain/auth-context";
+import type { AuthContext } from "@side-chat/side-chat-server";
 
 export type ResumeToolApproval = (runId: string, approvalId: string) => Promise<boolean>;
 

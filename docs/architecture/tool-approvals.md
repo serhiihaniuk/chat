@@ -47,15 +47,16 @@ tenant, or conversation authority.
 
 ## Primary code and tests
 
-| Responsibility                    | Location                                                         |
-| --------------------------------- | ---------------------------------------------------------------- |
-| Approval policy                   | `src/application/turn/tools/server-tools/server-tool-catalog.ts` |
-| Decision and workflow-store ports | `src/application/ports/turn/tools/tool-approval-store.ts`        |
-| Authenticated decision policy     | `src/application/turn/tools/approvals/submit-tool-approval.ts`   |
-| Workflow gate                     | `src/workflows/server-tools/index.ts`                            |
-| Persistence step                  | `src/workflows/production/approvals/tool-approval.ts`            |
-| Hook resumption                   | `src/workflows/tool-approvals/index.ts`                          |
-| HTTP route                        | `src/adapters/http/chat/chat-routes.ts`                          |
+| Responsibility                    | Location                                                       |
+| --------------------------------- | -------------------------------------------------------------- |
+| Approval contract                 | `packages/side-chat-server/src/server-tools/index.ts`          |
+| Adopter tool definitions          | `apps/side-chat-service/src/integrations/`                     |
+| Decision and workflow-store ports | `src/application/ports/turn/tools/tool-approval-store.ts`      |
+| Authenticated decision policy     | `src/application/turn/tools/approvals/submit-tool-approval.ts` |
+| Workflow gate                     | `src/workflows/server-tools/index.ts`                          |
+| Persistence step                  | `src/workflows/production/approvals/tool-approval.ts`          |
+| Hook resumption                   | `src/workflows/tool-approvals/index.ts`                        |
+| HTTP route                        | `src/adapters/http/chat/chat-routes.ts`                        |
 
 Run focused approval route, application, Workflow, and widget tests. Run
 `npm run test:service:compatibility` when changing compiled Workflow approval

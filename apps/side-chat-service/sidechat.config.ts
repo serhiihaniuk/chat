@@ -8,7 +8,7 @@ import {
   type SideChatConfig,
 } from "./src/config/declaration/side-chat-config.js";
 import { OPENAI_PROVIDER } from "./src/config/providers/openai-provider-config.js";
-import { MOCK_WEB_SEARCH_TOOL_NAME } from "./src/application/turn/tools/server-tools/registered-server-tools.js";
+import { MOCK_WEB_SEARCH_TOOL_NAME } from "./src/sidechat.js";
 
 /** Production defaults remain readable here; secrets resolve only during boot. */
 const config: SideChatConfig = defineSideChatConfig({
