@@ -1,0 +1,45 @@
+:host {
+  --docs-preview-min-height: 38rem;
+  --docs-preview-padding: 1.25rem;
+  display: block;
+  min-height: var(--docs-preview-min-height);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.docs-preview-widget {
+  width: 100%;
+  min-height: var(--docs-preview-min-height);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--background);
+  box-shadow: var(--shadow-panel);
+}
+
+.docs-token-probe {
+  display: none;
+}
+
+.docs-component-gallery {
+  display: grid;
+  gap: var(--space-6);
+  max-width: var(--measure-message);
+  margin: 0 auto;
+  padding: var(--docs-preview-padding);
+}
+
+.docs-component-gallery > section {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.docs-gallery-label {
+  color: var(--muted-foreground);
+  font-size: var(--sc-text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

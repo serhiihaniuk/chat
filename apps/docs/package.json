@@ -1,0 +1,44 @@
+{
+  "name": "@side-chat/docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "types": "./src/index.tsx",
+  "imports": {
+    "#configurator/token-overrides": {
+      "types": "./src/configurator/token-overrides.ts",
+      "development": "./src/configurator/token-overrides.ts",
+      "default": "./src/configurator/token-overrides.ts"
+    },
+    "#preview/*": {
+      "types": "./src/preview/*.tsx",
+      "development": "./src/preview/*.tsx",
+      "default": "./src/preview/*.tsx"
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.tsx",
+      "development": "./src/index.tsx",
+      "default": "./src/index.tsx"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b --pretty false && vite build",
+    "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
+    "test": "cd ../.. && vitest run apps/docs/src --passWithNoTests"
+  },
+  "dependencies": {
+    "@side-chat/side-chat-widget": "0.0.0",
+    "lucide-react": "1.16.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.0",
+    "@vitejs/plugin-react": "6.0.2",
+    "tailwindcss": "4.3.0",
+    "vite": "8.1.0"
+  }
+}

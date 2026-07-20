@@ -1,0 +1,35 @@
+{
+  "name": "@side-chat/side-chat-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "imports": {
+    "#auth": {
+      "types": "./src/auth/index.ts",
+      "development": "./src/auth/index.ts",
+      "default": "./dist/auth/index.js"
+    },
+    "#server-tools": {
+      "types": "./src/server-tools/index.ts",
+      "development": "./src/server-tools/index.ts",
+      "default": "./dist/server-tools/index.js"
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b --pretty false",
+    "typecheck": "tsc -b --pretty false",
+    "test": "cd ../.. && vitest run packages/side-chat-server/src"
+  },
+  "dependencies": {
+    "@side-chat/shared": "0.0.0"
+  }
+}
