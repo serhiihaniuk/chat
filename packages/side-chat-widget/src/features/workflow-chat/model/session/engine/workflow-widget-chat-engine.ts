@@ -1,12 +1,14 @@
-import { readUIMessageStream, type FinishReason, type UIMessageChunk } from "ai";
+import type { UIMessageChunk } from "ai";
 import { toClientToolDefinitions, type WidgetHostBridge } from "@side-chat/host-bridge";
-import { sideChatMessageMetadataSchema } from "@side-chat/stream-profile";
 
 import {
   createWorkflowChatTransport,
   type WorkflowConversationClient,
   type WorkflowUIMessage,
 } from "#entities/workflow-chat";
+import { consumeNativeMessages, type WorkflowWidgetChatStreamEnd } from "./native-message-drain.js";
+
+export type { WorkflowWidgetChatStreamEnd } from "./native-message-drain.js";
 
 export type WorkflowWidgetChatAttachmentMode =
   | Readonly<{
@@ -20,11 +22,6 @@ export type WorkflowWidgetChatAttachmentMode =
       messageId: string | undefined;
       trigger: "regenerate-message" | "submit-message";
     }>;
-
-export type WorkflowWidgetChatStreamEnd = Readonly<{
-  finishReason: FinishReason | undefined;
-  serverAborted: boolean;
-}>;
 
 export type WorkflowWidgetChatEngine = Readonly<{
   dispose: () => void;
@@ -45,25 +42,7 @@ type CreateWorkflowWidgetChatEngineInput = Readonly<{
   onTransportRecovered: () => void;
 }>;
 
-type WorkflowWidgetChatDrainScheduler = Readonly<{
-  maxMessagesPerSlice: number;
-  maxSliceMs: number;
-  now: () => number;
-  yieldToBrowser: (abortSignal: AbortSignal) => Promise<void>;
-}>;
-
-const WORKFLOW_WIDGET_STREAM_DRAIN = {
-  MAX_MESSAGES_PER_SLICE: 64,
-  MAX_SLICE_MS: 8,
-} as const;
 const HOST_CAPABILITIES_ERROR_MESSAGE = "Host client-tool capabilities could not be loaded.";
-
-const DEFAULT_DRAIN_SCHEDULER: WorkflowWidgetChatDrainScheduler = {
-  maxMessagesPerSlice: WORKFLOW_WIDGET_STREAM_DRAIN.MAX_MESSAGES_PER_SLICE,
-  maxSliceMs: WORKFLOW_WIDGET_STREAM_DRAIN.MAX_SLICE_MS,
-  now: () => performance.now(),
-  yieldToBrowser,
-};
 
 /**
  * Read one immutable attachment epoch without owning conversation state.
@@ -124,96 +103,6 @@ async function openStream(
     messages: [...input.messages],
     trigger: input.mode.trigger,
   });
-}
-
-export async function consumeNativeMessages(
-  stream: ReadableStream<UIMessageChunk>,
-  input: Pick<CreateWorkflowWidgetChatEngineInput, "onMessage" | "onStreamEnded">,
-  abortSignal: AbortSignal,
-  scheduler: WorkflowWidgetChatDrainScheduler = DEFAULT_DRAIN_SCHEDULER,
-): Promise<void> {
-  let finishReason: FinishReason | undefined;
-  let messagesInSlice = 0;
-  let pendingMessage: WorkflowUIMessage | undefined;
-  let scheduledFlush: Promise<void> | undefined;
-  let serverAborted = false;
-  let sliceStartedAt = scheduler.now();
-  const flushPendingMessage = (): void => {
-    if (!pendingMessage || abortSignal.aborted) return;
-    input.onMessage(pendingMessage);
-    pendingMessage = undefined;
-    messagesInSlice = 0;
-    sliceStartedAt = scheduler.now();
-  };
-  const schedulePendingFlush = (): Promise<void> => {
-    scheduledFlush ??= scheduler.yieldToBrowser(abortSignal).then(() => {
-      flushPendingMessage();
-      scheduledFlush = undefined;
-    });
-    return scheduledFlush;
-  };
-  const inspected = stream.pipeThrough(
-    new TransformStream<UIMessageChunk, UIMessageChunk>({
-      transform(chunk, controller) {
-        if (chunk.type === "finish") finishReason = chunk.finishReason;
-        if (chunk.type === "abort") serverAborted = true;
-        // Error chunks are server lifecycle input. Durable metadata/snapshot owns
-        // the terminal, so do not misclassify them as a dropped HTTP transport.
-        if (chunk.type === "error") return;
-        controller.enqueue(validateChunkMetadata(chunk));
-      },
-    }),
-  );
-  for await (const message of readUIMessageStream<WorkflowUIMessage>({
-    stream: inspected,
-    terminateOnError: true,
-  })) {
-    if (abortSignal.aborted) return;
-    // readUIMessageStream projections are cumulative. Consume every native
-    // part, but publish only the newest projection in each bounded slice so a
-    // packed durable replay cannot force one React render per historical token.
-    pendingMessage = message;
-    messagesInSlice += 1;
-    const sliceExpired = scheduler.now() - sliceStartedAt >= scheduler.maxSliceMs;
-    if (messagesInSlice < scheduler.maxMessagesPerSlice && !sliceExpired) {
-      void schedulePendingFlush();
-      continue;
-    }
-    flushPendingMessage();
-    await (scheduledFlush ?? scheduler.yieldToBrowser(abortSignal));
-    if (abortSignal.aborted) return;
-  }
-  if (scheduledFlush) await scheduledFlush;
-  if (abortSignal.aborted) return;
-  flushPendingMessage();
-  input.onStreamEnded({ finishReason, serverAborted });
-}
-
-function yieldToBrowser(abortSignal: AbortSignal): Promise<void> {
-  if (abortSignal.aborted) return Promise.resolve();
-  return new Promise((resolve) => {
-    const finish = (): void => {
-      clearTimeout(timer);
-      abortSignal.removeEventListener("abort", finish);
-      resolve();
-    };
-    const timer = setTimeout(finish, 0);
-    abortSignal.addEventListener("abort", finish, { once: true });
-  });
-}
-
-function validateChunkMetadata(chunk: UIMessageChunk): UIMessageChunk {
-  if (!("messageMetadata" in chunk)) return chunk;
-  const validation = sideChatMessageMetadataSchema["~standard"].validate(chunk.messageMetadata);
-  if ("issues" in validation) throw new Error("Workflow stream metadata is invalid.");
-  switch (chunk.type) {
-    case "start":
-      return { ...chunk, messageMetadata: validation.value };
-    case "finish":
-      return { ...chunk, messageMetadata: validation.value };
-    case "message-metadata":
-      return { ...chunk, messageMetadata: validation.value };
-  }
 }
 
 export async function readClientTools(
