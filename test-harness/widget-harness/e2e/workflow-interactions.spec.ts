@@ -237,7 +237,7 @@ test("restores approval after reload and immediately transitions its tool to run
 test("reattaches to an in-progress run on cold load and reassembles the answer", async ({
   page,
 }) => {
-  await seedWorkflowRecoveryCursor(page, recoveryStorageKey, {
+  await seedWorkflowRecoveryCursor(page, recoveryStorageKey, recoveryWorkspaceId, {
     conversationId: "conversation-task-16",
     runId: "run-refresh",
   });
@@ -596,7 +596,7 @@ test("discards a stale recovery cursor without routing to or selecting another c
   page,
 }) => {
   const stateRequests: string[] = [];
-  await seedWorkflowRecoveryCursor(page, parityRecoveryStorageKey, {
+  await seedWorkflowRecoveryCursor(page, parityRecoveryStorageKey, parityWorkspaceId, {
     conversationId: "conversation-stale",
     runId: "run-stale",
   });
@@ -715,11 +715,12 @@ test("lists workspace conversations in the sidebar and opens a different one", a
 async function seedWorkflowRecoveryCursor(
   page: Page,
   storageKey: string,
+  scopeKey: string,
   cursor: Readonly<{ conversationId: string; runId: string }>,
 ): Promise<void> {
   await page.addInitScript(({ key, value }) => sessionStorage.setItem(key, JSON.stringify(value)), {
     key: storageKey,
-    value: cursor,
+    value: { ...cursor, scopeKey },
   });
 }
 
