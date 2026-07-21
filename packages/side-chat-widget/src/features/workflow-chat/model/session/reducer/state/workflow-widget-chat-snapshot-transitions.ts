@@ -14,8 +14,12 @@ import {
   WORKFLOW_WIDGET_TRANSPORT,
   WORKFLOW_WIDGET_TURN,
 } from "./workflow-widget-chat-state-values.js";
+import type { WORKFLOW_CHAT_EVENT } from "./workflow-widget-chat-events.js";
 
-type SnapshotLoadedEvent = Extract<WorkflowWidgetChatEvent, { type: "SnapshotLoaded" }>;
+type SnapshotLoadedEvent = Extract<
+  WorkflowWidgetChatEvent,
+  { type: typeof WORKFLOW_CHAT_EVENT.SNAPSHOT_LOADED }
+>;
 type ActiveSnapshot = NonNullable<SnapshotLoadedEvent["activeTurn"]>;
 
 /** Reconcile one atomic server observation with any still-live attachment epoch. */

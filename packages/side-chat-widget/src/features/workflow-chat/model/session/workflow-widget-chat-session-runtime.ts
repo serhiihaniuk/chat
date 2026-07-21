@@ -11,7 +11,10 @@ import {
   type WorkflowWidgetChatAttachmentMode,
   type WorkflowWidgetChatStreamEnd,
 } from "./engine/workflow-widget-chat-engine.js";
-import type { WorkflowWidgetChatEvent } from "./reducer/workflow-widget-chat-reducer.js";
+import {
+  WORKFLOW_CHAT_EVENT,
+  type WorkflowWidgetChatEvent,
+} from "./reducer/workflow-widget-chat-reducer.js";
 import {
   decideWorkflowWidgetApproval,
   dispatchWorkflowWidgetClientTool,
@@ -40,12 +43,9 @@ import {
   type WorkflowWidgetChatSessionStore,
 } from "./workflow-widget-chat-session-store.js";
 
-/** Build the sole state and attachment authority for one conversation. */
-export function createWorkflowWidgetChatSession(
+export const createWorkflowWidgetChatSession = (
   context: WorkflowWidgetChatSessionContext,
-): WorkflowWidgetChatSession {
-  return new WorkflowWidgetConversationSession(context);
-}
+): WorkflowWidgetChatSession => new WorkflowWidgetConversationSession(context);
 
 class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
   private readonly store: WorkflowWidgetChatSessionStore;
@@ -96,7 +96,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
     const keepCurrentEpoch = shouldKeepWorkflowWidgetEpoch(activeTurn, previous);
     if (!keepCurrentEpoch) this.disposeEpoch();
     this.dispatch({
-      type: "SnapshotLoaded",
+      type: WORKFLOW_CHAT_EVENT.SNAPSHOT_LOADED,
       activeTurn,
       messages,
       observationId: stateObservationId,
@@ -126,7 +126,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
       const epochId = this.currentEpoch?.epochId;
       if (epochId) {
         this.dispatch({
-          type: "TransportDropped",
+          type: WORKFLOW_CHAT_EVENT.TRANSPORT_DROPPED,
           epochId,
           error: normalizeWorkflowChatError(error),
         });
@@ -145,7 +145,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
     if (assistantIndex < 0) return;
     const assistantMessageId = snapshot.messages[assistantIndex]?.id;
     const messages = snapshot.messages.slice(0, assistantIndex);
-    this.dispatch({ type: "RetryStarted", messages });
+    this.dispatch({ type: WORKFLOW_CHAT_EVENT.RETRY_STARTED, messages });
     await this.startEpoch(
       sendAttachment(
         assistantMessageId,
@@ -159,7 +159,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
     const snapshot = this.store.getSnapshot();
     if (this.disposed || !snapshot.activeEpoch || snapshot.terminal.kind !== "none") return;
     const runId = snapshot.activeRunId;
-    this.dispatch({ type: "CancelRequested", runId });
+    this.dispatch({ type: WORKFLOW_CHAT_EVENT.CANCEL_REQUESTED, runId });
     if (runId) requestWorkflowWidgetCancellation(this.effectContext(), runId);
   };
 
@@ -170,7 +170,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
       role: "user",
       parts: [{ type: "text", text }],
     };
-    this.dispatch({ type: "OptimisticMessageAdded", message });
+    this.dispatch({ type: WORKFLOW_CHAT_EVENT.OPTIMISTIC_MESSAGE_ADDED, message });
     await this.startEpoch(
       sendAttachment(message.id, "submit-message", createWorkflowClientToolCapability()),
     );
@@ -225,7 +225,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
       runId: mode.kind === "reconnect" ? mode.runId : undefined,
     };
     this.dispatch({
-      type: "AttachmentStarted",
+      type: WORKFLOW_CHAT_EVENT.ATTACHMENT_STARTED,
       epochId,
       reconnecting: mode.kind === "reconnect",
       runId: this.currentEpoch.runId,
@@ -235,7 +235,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
 
   private acceptMessage(epochId: string, message: WorkflowUIMessage): void {
     if (!this.isCurrentEpoch(epochId)) return;
-    this.dispatch({ type: "PartReceived", epochId, message });
+    this.dispatch({ type: WORKFLOW_CHAT_EVENT.PART_RECEIVED, epochId, message });
     const clientToolCapability = this.currentEpoch?.clientToolCapability;
     if (!clientToolCapability) return;
     for (const toolCall of readWorkflowClientToolCalls(message)) {
@@ -248,14 +248,14 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
     if (this.disposed || epoch?.epochId !== epochId) return;
     epoch.runId = runId;
     this.terminalNotificationRunId = undefined;
-    this.dispatch({ type: "RunAccepted", epochId, runId });
+    this.dispatch({ type: WORKFLOW_CHAT_EVENT.RUN_ACCEPTED, epochId, runId });
     this.context.lifecycle.onRunAccepted?.(runId, clientToolCapability);
     requestWorkflowWidgetCancellation(this.effectContext(), runId);
   }
 
   private endStream(epochId: string, end: WorkflowWidgetChatStreamEnd): void {
     if (!this.isCurrentEpoch(epochId)) return;
-    this.dispatch({ type: "StreamEnded", epochId, ...end });
+    this.dispatch({ type: WORKFLOW_CHAT_EVENT.STREAM_ENDED, epochId, ...end });
     const runId = this.store.getSnapshot().activeRunId;
     const hasPending = hasPendingWorkflowInteraction(this.store.getSnapshot());
     this.disposeEpoch();
@@ -265,18 +265,18 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
   private dropTransport(epochId: string, error: unknown): void {
     if (!this.isCurrentEpoch(epochId)) return;
     this.dispatch({
-      type: "TransportDropped",
+      type: WORKFLOW_CHAT_EVENT.TRANSPORT_DROPPED,
       epochId,
       error: normalizeWorkflowChatError(error),
     });
   }
 
   private recoverTransport(epochId: string): void {
-    this.dispatch({ type: "TransportRecovered", epochId });
+    this.dispatch({ type: WORKFLOW_CHAT_EVENT.TRANSPORT_RECOVERED, epochId });
   }
 
   private reconnectTransport(epochId: string): void {
-    this.dispatch({ type: "TransportReconnecting", epochId });
+    this.dispatch({ type: WORKFLOW_CHAT_EVENT.TRANSPORT_RECONNECTING, epochId });
   }
 
   private disposeEpoch(): void {
@@ -284,7 +284,7 @@ class WorkflowWidgetConversationSession implements WorkflowWidgetChatSession {
     if (!epoch) return;
     this.currentEpoch = undefined;
     epoch.engine.dispose();
-    this.dispatch({ type: "EpochDisposed", epochId: epoch.epochId });
+    this.dispatch({ type: WORKFLOW_CHAT_EVENT.EPOCH_DISPOSED, epochId: epoch.epochId });
   }
 
   private isCurrentEpoch(epochId: string): boolean {

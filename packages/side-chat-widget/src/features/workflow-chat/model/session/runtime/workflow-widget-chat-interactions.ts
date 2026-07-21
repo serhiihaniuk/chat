@@ -3,7 +3,10 @@ import {
   dispatchWorkflowClientTool,
   type WorkflowClientToolCall,
 } from "../../client-tools/workflow-client-tool-dispatch.js";
-import type { WorkflowWidgetChatEvent } from "../reducer/workflow-widget-chat-reducer.js";
+import {
+  WORKFLOW_CHAT_EVENT,
+  type WorkflowWidgetChatEvent,
+} from "../reducer/workflow-widget-chat-reducer.js";
 import type { WorkflowWidgetChatSessionSnapshot } from "../workflow-widget-chat-session-contract.js";
 import type { WorkflowWidgetChatRuntimeContext } from "./workflow-widget-chat-session-helpers.js";
 
@@ -32,7 +35,7 @@ export async function decidePendingWorkflowApproval(
   const runId = initial.activeRunId;
   if (!runId || !initial.pending.approvalIds.has(input.approvalId)) return undefined;
   input.dispatch({
-    type: "ApprovalRequestStarted",
+    type: WORKFLOW_CHAT_EVENT.APPROVAL_REQUEST_STARTED,
     approvalId: input.approvalId,
     decision: input.approved ? "approved" : "denied",
   });
@@ -47,7 +50,7 @@ export async function decidePendingWorkflowApproval(
   });
   if (input.readSnapshot().activeRunId !== runId) return undefined;
   input.dispatch({
-    type: "ApprovalDecisionRecorded",
+    type: WORKFLOW_CHAT_EVENT.APPROVAL_DECISION_RECORDED,
     approvalId: input.approvalId,
     decision,
   });
@@ -61,7 +64,10 @@ export async function dispatchPendingWorkflowClientTool(
 ): Promise<WorkflowWidgetInteractionContinuation | undefined> {
   const runId = input.readSnapshot().activeRunId;
   if (!runId) {
-    input.dispatch({ type: "ClientToolSettled", toolCallId: input.toolCall.toolCallId });
+    input.dispatch({
+      type: WORKFLOW_CHAT_EVENT.CLIENT_TOOL_SETTLED,
+      toolCallId: input.toolCall.toolCallId,
+    });
     return undefined;
   }
   const pending = input.readSnapshot().pending;
@@ -72,7 +78,10 @@ export async function dispatchPendingWorkflowClientTool(
   ) {
     return undefined;
   }
-  input.dispatch({ type: "ClientToolClaimed", toolCallId: input.toolCall.toolCallId });
+  input.dispatch({
+    type: WORKFLOW_CHAT_EVENT.CLIENT_TOOL_CLAIMED,
+    toolCallId: input.toolCall.toolCallId,
+  });
   if (!input.readSnapshot().pending.claimedClientToolCallIds.has(input.toolCall.toolCallId)) {
     return undefined;
   }
@@ -84,6 +93,9 @@ export async function dispatchPendingWorkflowClientTool(
     toolCall: input.toolCall,
   });
   if (input.readSnapshot().activeRunId !== runId) return undefined;
-  input.dispatch({ type: "ClientToolSettled", toolCallId: input.toolCall.toolCallId });
+  input.dispatch({
+    type: WORKFLOW_CHAT_EVENT.CLIENT_TOOL_SETTLED,
+    toolCallId: input.toolCall.toolCallId,
+  });
   return { reconnect: outcome.outputPosted, runId };
 }

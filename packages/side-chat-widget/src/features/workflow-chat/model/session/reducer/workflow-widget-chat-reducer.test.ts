@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { normalizeWorkflowChatError, type WorkflowUIMessage } from "#entities/workflow-chat";
 import {
   createWorkflowWidgetChatState,
+  WORKFLOW_CHAT_EVENT,
   WORKFLOW_WIDGET_TRANSPORT,
   WORKFLOW_WIDGET_TURN,
   workflowWidgetChatReducer,
@@ -23,7 +24,7 @@ const PARTIAL: WorkflowUIMessage = {
 function activeState() {
   let state = createWorkflowWidgetChatState([USER], { runId: "run-1", turnId: "turn-1" });
   state = workflowWidgetChatReducer(state, {
-    type: "AttachmentStarted",
+    type: WORKFLOW_CHAT_EVENT.ATTACHMENT_STARTED,
     epochId: "epoch-1",
     reconnecting: true,
     runId: "run-1",
@@ -35,12 +36,12 @@ describe("workflowWidgetChatReducer", () => {
   it("deduplicates progressive message projections by stable id", () => {
     let state = activeState();
     state = workflowWidgetChatReducer(state, {
-      type: "PartReceived",
+      type: WORKFLOW_CHAT_EVENT.PART_RECEIVED,
       epochId: "epoch-1",
       message: PARTIAL,
     });
     state = workflowWidgetChatReducer(state, {
-      type: "PartReceived",
+      type: WORKFLOW_CHAT_EVENT.PART_RECEIVED,
       epochId: "epoch-1",
       message: { ...PARTIAL, parts: [{ type: "text", text: "Partial answer" }] },
     });
@@ -55,13 +56,13 @@ describe("workflowWidgetChatReducer", () => {
       { runId: "run-1", turnId: "turn-1" },
     );
     state = workflowWidgetChatReducer(state, {
-      type: "AttachmentStarted",
+      type: WORKFLOW_CHAT_EVENT.ATTACHMENT_STARTED,
       epochId: "epoch-1",
       reconnecting: true,
       runId: "run-1",
     });
     state = workflowWidgetChatReducer(state, {
-      type: "PartReceived",
+      type: WORKFLOW_CHAT_EVENT.PART_RECEIVED,
       epochId: "epoch-1",
       message: PARTIAL,
     });
@@ -72,12 +73,12 @@ describe("workflowWidgetChatReducer", () => {
   it("merges a same-run snapshot without replacing the live attachment or partial", () => {
     let state = activeState();
     state = workflowWidgetChatReducer(state, {
-      type: "PartReceived",
+      type: WORKFLOW_CHAT_EVENT.PART_RECEIVED,
       epochId: "epoch-1",
       message: { ...PARTIAL, parts: [{ type: "text", text: "Live partial answer" }] },
     });
     state = workflowWidgetChatReducer(state, {
-      type: "SnapshotLoaded",
+      type: WORKFLOW_CHAT_EVENT.SNAPSHOT_LOADED,
       activeTurn: { runId: "run-1", turnId: "turn-1" },
       messages: [USER],
       observationId: "same-run-refresh",
@@ -91,9 +92,12 @@ describe("workflowWidgetChatReducer", () => {
 
   it("ignores late parts from disposed epochs", () => {
     let state = activeState();
-    state = workflowWidgetChatReducer(state, { type: "EpochDisposed", epochId: "epoch-1" });
     state = workflowWidgetChatReducer(state, {
-      type: "PartReceived",
+      type: WORKFLOW_CHAT_EVENT.EPOCH_DISPOSED,
+      epochId: "epoch-1",
+    });
+    state = workflowWidgetChatReducer(state, {
+      type: WORKFLOW_CHAT_EVENT.PART_RECEIVED,
       epochId: "epoch-1",
       message: PARTIAL,
     });
@@ -111,12 +115,12 @@ describe("workflowWidgetChatReducer", () => {
     };
     let state = activeState();
     state = workflowWidgetChatReducer(state, {
-      type: "PartReceived",
+      type: WORKFLOW_CHAT_EVENT.PART_RECEIVED,
       epochId: "epoch-1",
       message: terminalMessage,
     });
     state = workflowWidgetChatReducer(state, {
-      type: "PartReceived",
+      type: WORKFLOW_CHAT_EVENT.PART_RECEIVED,
       epochId: "epoch-1",
       message: { ...PARTIAL, parts: [{ type: "text", text: "Late overwrite" }] },
     });
@@ -130,7 +134,7 @@ describe("workflowWidgetChatReducer", () => {
     const error = normalizeWorkflowChatError(new Error("Connection lost."));
     let state = activeState();
     state = workflowWidgetChatReducer(state, {
-      type: "TransportDropped",
+      type: WORKFLOW_CHAT_EVENT.TRANSPORT_DROPPED,
       epochId: "epoch-1",
       error,
     });
@@ -143,11 +147,11 @@ describe("workflowWidgetChatReducer", () => {
   it("reports an automatic replay attempt as reconnecting until HTTP reconnects", () => {
     let state = activeState();
     state = workflowWidgetChatReducer(state, {
-      type: "TransportRecovered",
+      type: WORKFLOW_CHAT_EVENT.TRANSPORT_RECOVERED,
       epochId: "epoch-1",
     });
     state = workflowWidgetChatReducer(state, {
-      type: "TransportReconnecting",
+      type: WORKFLOW_CHAT_EVENT.TRANSPORT_RECONNECTING,
       epochId: "epoch-1",
     });
 
@@ -155,7 +159,7 @@ describe("workflowWidgetChatReducer", () => {
     expect(state.terminal).toEqual({ kind: "none" });
 
     state = workflowWidgetChatReducer(state, {
-      type: "TransportRecovered",
+      type: WORKFLOW_CHAT_EVENT.TRANSPORT_RECOVERED,
       epochId: "epoch-1",
     });
 
@@ -165,11 +169,14 @@ describe("workflowWidgetChatReducer", () => {
   it("keeps cancel provisional until a server snapshot confirms the outcome", () => {
     let state = activeState();
     state = workflowWidgetChatReducer(state, {
-      type: "PartReceived",
+      type: WORKFLOW_CHAT_EVENT.PART_RECEIVED,
       epochId: "epoch-1",
       message: PARTIAL,
     });
-    state = workflowWidgetChatReducer(state, { type: "CancelRequested", runId: "run-1" });
+    state = workflowWidgetChatReducer(state, {
+      type: WORKFLOW_CHAT_EVENT.CANCEL_REQUESTED,
+      runId: "run-1",
+    });
 
     expect(state.cancelRequested).toBe(true);
     expect(state.terminal).toEqual({ kind: "none" });
@@ -177,7 +184,7 @@ describe("workflowWidgetChatReducer", () => {
     expect(state.turn).toBe(WORKFLOW_WIDGET_TURN.STREAMING);
 
     state = workflowWidgetChatReducer(state, {
-      type: "SnapshotLoaded",
+      type: WORKFLOW_CHAT_EVENT.SNAPSHOT_LOADED,
       activeTurn: undefined,
       observationId: "terminal-snapshot",
       messages: [
@@ -211,20 +218,20 @@ describe("workflowWidgetChatReducer", () => {
     };
     let state = activeState();
     state = workflowWidgetChatReducer(state, {
-      type: "PartReceived",
+      type: WORKFLOW_CHAT_EVENT.PART_RECEIVED,
       epochId: "epoch-1",
       message: toolMessage,
     });
     state = workflowWidgetChatReducer(state, {
-      type: "ClientToolClaimed",
+      type: WORKFLOW_CHAT_EVENT.CLIENT_TOOL_CLAIMED,
       toolCallId: "tool-call-1",
     });
     state = workflowWidgetChatReducer(state, {
-      type: "ClientToolSettled",
+      type: WORKFLOW_CHAT_EVENT.CLIENT_TOOL_SETTLED,
       toolCallId: "tool-call-1",
     });
     state = workflowWidgetChatReducer(state, {
-      type: "SnapshotLoaded",
+      type: WORKFLOW_CHAT_EVENT.SNAPSHOT_LOADED,
       activeTurn: { runId: "run-1", turnId: "turn-1" },
       messages: [USER, toolMessage],
       observationId: "newer-snapshot",
@@ -251,23 +258,23 @@ describe("workflowWidgetChatReducer", () => {
     } satisfies WorkflowUIMessage;
     let state = activeState();
     state = workflowWidgetChatReducer(state, {
-      type: "PartReceived",
+      type: WORKFLOW_CHAT_EVENT.PART_RECEIVED,
       epochId: "epoch-1",
       message: approvalMessage,
     });
     state = workflowWidgetChatReducer(state, {
-      type: "ApprovalRequestStarted",
+      type: WORKFLOW_CHAT_EVENT.APPROVAL_REQUEST_STARTED,
       approvalId: "approval-1",
       decision: "approved",
     });
     expect(state.approvalDecisions).toEqual({ "approval-1": "approved" });
     state = workflowWidgetChatReducer(state, {
-      type: "ApprovalDecisionRecorded",
+      type: WORKFLOW_CHAT_EVENT.APPROVAL_DECISION_RECORDED,
       approvalId: "approval-1",
       decision: "approved",
     });
     state = workflowWidgetChatReducer(state, {
-      type: "SnapshotLoaded",
+      type: WORKFLOW_CHAT_EVENT.SNAPSHOT_LOADED,
       activeTurn: { runId: "run-1", turnId: "turn-1" },
       messages: [USER, approvalMessage],
       observationId: "newer-snapshot",

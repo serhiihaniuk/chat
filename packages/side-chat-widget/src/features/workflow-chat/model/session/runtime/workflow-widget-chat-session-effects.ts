@@ -1,6 +1,9 @@
 import { cancelWorkflowChatRun, normalizeWorkflowChatError } from "#entities/workflow-chat";
 import type { WorkflowClientToolCall } from "../../client-tools/workflow-client-tool-dispatch.js";
-import type { WorkflowWidgetChatEvent } from "../reducer/workflow-widget-chat-reducer.js";
+import {
+  WORKFLOW_CHAT_EVENT,
+  type WorkflowWidgetChatEvent,
+} from "../reducer/workflow-widget-chat-reducer.js";
 import type { WorkflowWidgetChatSessionSnapshot } from "../workflow-widget-chat-session-contract.js";
 import {
   decidePendingWorkflowApproval,
@@ -68,10 +71,10 @@ export function requestWorkflowWidgetCancellation(
   ) {
     return;
   }
-  context.dispatch({ type: "CancelDeliveryStarted", runId });
+  context.dispatch({ type: WORKFLOW_CHAT_EVENT.CANCEL_DELIVERY_STARTED, runId });
   void cancelWorkflowChatRun(context.client, runId).catch((error) => {
     context.dispatch({
-      type: "CancelDeliveryFailed",
+      type: WORKFLOW_CHAT_EVENT.CANCEL_DELIVERY_FAILED,
       runId,
       error: normalizeWorkflowChatError(error),
     });

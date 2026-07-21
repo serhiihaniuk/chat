@@ -5,7 +5,12 @@ import type {
 } from "#entities/workflow-chat";
 import type { WorkflowApprovalDecisions } from "../../approval/workflow-approval.js";
 import type { WorkflowChatTerminal } from "../../terminal/workflow-chat-terminal.js";
-import type { WorkflowWidgetChatEvent } from "./state/workflow-widget-chat-events.js";
+import {
+  WORKFLOW_CHAT_EVENT,
+  type WorkflowWidgetCancellationEvent,
+  type WorkflowWidgetChatEvent,
+  type WorkflowWidgetSessionControlEvent,
+} from "./state/workflow-widget-chat-events.js";
 import {
   addWorkflowWidgetPendingValue,
   emptyWorkflowWidgetPendingState,
@@ -36,6 +41,7 @@ import {
 
 export type { WorkflowWidgetPendingState } from "./workflow-widget-chat-pending.js";
 export type { WorkflowWidgetChatEvent } from "./state/workflow-widget-chat-events.js";
+export { WORKFLOW_CHAT_EVENT } from "./state/workflow-widget-chat-events.js";
 export {
   WORKFLOW_WIDGET_TRANSPORT,
   WORKFLOW_WIDGET_TURN,
@@ -67,31 +73,13 @@ export type WorkflowWidgetChatState = Readonly<{
   turn: WorkflowWidgetTurn;
 }>;
 
-type WorkflowWidgetSessionControlEvent = Extract<
-  WorkflowWidgetChatEvent,
-  {
-    type:
-      | "EpochDisposed"
-      | "RetryStarted"
-      | "ClientToolClaimed"
-      | "ClientToolSettled"
-      | "ApprovalRequestStarted"
-      | "ApprovalDecisionRecorded";
-  }
->;
-
-type WorkflowWidgetCancellationEvent = Extract<
-  WorkflowWidgetChatEvent,
-  { type: "CancelRequested" | "CancelDeliveryStarted" | "CancelDeliveryFailed" }
->;
-
 export function createWorkflowWidgetChatState(
   messages: readonly WorkflowUIMessage[],
   activeTurn?: WorkflowActiveTurn,
   observationId?: string,
 ): WorkflowWidgetChatState {
   return workflowWidgetChatReducer(emptyState(), {
-    type: "SnapshotLoaded",
+    type: WORKFLOW_CHAT_EVENT.SNAPSHOT_LOADED,
     activeTurn,
     messages,
     observationId,
@@ -106,23 +94,23 @@ export function workflowWidgetChatReducer(
   if (isSessionControlEvent(event)) return reduceSessionControlEvent(state, event);
   if (isCancellationEvent(event)) return reduceCancellationEvent(state, event);
   switch (event.type) {
-    case "SnapshotLoaded":
+    case WORKFLOW_CHAT_EVENT.SNAPSHOT_LOADED:
       return snapshotLoaded(state, event);
-    case "OptimisticMessageAdded":
+    case WORKFLOW_CHAT_EVENT.OPTIMISTIC_MESSAGE_ADDED:
       return optimisticMessageAdded(state, event.message);
-    case "AttachmentStarted":
+    case WORKFLOW_CHAT_EVENT.ATTACHMENT_STARTED:
       return attachmentStarted(state, event);
-    case "RunAccepted":
+    case WORKFLOW_CHAT_EVENT.RUN_ACCEPTED:
       return runAccepted(state, event);
-    case "PartReceived":
+    case WORKFLOW_CHAT_EVENT.PART_RECEIVED:
       return partReceived(state, event);
-    case "StreamEnded":
+    case WORKFLOW_CHAT_EVENT.STREAM_ENDED:
       return streamEnded(state, event);
-    case "TransportDropped":
+    case WORKFLOW_CHAT_EVENT.TRANSPORT_DROPPED:
       return transportDropped(state, event);
-    case "TransportReconnecting":
+    case WORKFLOW_CHAT_EVENT.TRANSPORT_RECONNECTING:
       return transportReconnecting(state, event.epochId);
-    case "TransportRecovered":
+    case WORKFLOW_CHAT_EVENT.TRANSPORT_RECOVERED:
       return transportRecovered(state, event.epochId);
   }
 }
@@ -132,11 +120,11 @@ function reduceCancellationEvent(
   event: WorkflowWidgetCancellationEvent,
 ): WorkflowWidgetChatState {
   switch (event.type) {
-    case "CancelRequested":
+    case WORKFLOW_CHAT_EVENT.CANCEL_REQUESTED:
       return cancelRequested(state, event.runId);
-    case "CancelDeliveryStarted":
+    case WORKFLOW_CHAT_EVENT.CANCEL_DELIVERY_STARTED:
       return cancelDeliveryStarted(state, event.runId);
-    case "CancelDeliveryFailed":
+    case WORKFLOW_CHAT_EVENT.CANCEL_DELIVERY_FAILED:
       return cancelDeliveryFailed(state, event.runId, event.error);
   }
 }
@@ -145,9 +133,9 @@ function isCancellationEvent(
   event: WorkflowWidgetChatEvent,
 ): event is WorkflowWidgetCancellationEvent {
   return (
-    event.type === "CancelRequested" ||
-    event.type === "CancelDeliveryStarted" ||
-    event.type === "CancelDeliveryFailed"
+    event.type === WORKFLOW_CHAT_EVENT.CANCEL_REQUESTED ||
+    event.type === WORKFLOW_CHAT_EVENT.CANCEL_DELIVERY_STARTED ||
+    event.type === WORKFLOW_CHAT_EVENT.CANCEL_DELIVERY_FAILED
   );
 }
 
@@ -156,17 +144,17 @@ function reduceSessionControlEvent(
   event: WorkflowWidgetSessionControlEvent,
 ): WorkflowWidgetChatState {
   switch (event.type) {
-    case "EpochDisposed":
+    case WORKFLOW_CHAT_EVENT.EPOCH_DISPOSED:
       return epochDisposed(state, event.epochId);
-    case "RetryStarted":
+    case WORKFLOW_CHAT_EVENT.RETRY_STARTED:
       return retryStarted(state, event.messages);
-    case "ClientToolClaimed":
+    case WORKFLOW_CHAT_EVENT.CLIENT_TOOL_CLAIMED:
       return clientToolClaimed(state, event.toolCallId);
-    case "ClientToolSettled":
+    case WORKFLOW_CHAT_EVENT.CLIENT_TOOL_SETTLED:
       return clientToolSettled(state, event.toolCallId);
-    case "ApprovalRequestStarted":
+    case WORKFLOW_CHAT_EVENT.APPROVAL_REQUEST_STARTED:
       return approvalRequestStarted(state, event.approvalId, event.decision);
-    case "ApprovalDecisionRecorded":
+    case WORKFLOW_CHAT_EVENT.APPROVAL_DECISION_RECORDED:
       return approvalDecisionRecorded(state, event.approvalId, event.decision);
   }
 }
@@ -175,12 +163,12 @@ function isSessionControlEvent(
   event: WorkflowWidgetChatEvent,
 ): event is WorkflowWidgetSessionControlEvent {
   return (
-    event.type === "EpochDisposed" ||
-    event.type === "RetryStarted" ||
-    event.type === "ClientToolClaimed" ||
-    event.type === "ClientToolSettled" ||
-    event.type === "ApprovalRequestStarted" ||
-    event.type === "ApprovalDecisionRecorded"
+    event.type === WORKFLOW_CHAT_EVENT.EPOCH_DISPOSED ||
+    event.type === WORKFLOW_CHAT_EVENT.RETRY_STARTED ||
+    event.type === WORKFLOW_CHAT_EVENT.CLIENT_TOOL_CLAIMED ||
+    event.type === WORKFLOW_CHAT_EVENT.CLIENT_TOOL_SETTLED ||
+    event.type === WORKFLOW_CHAT_EVENT.APPROVAL_REQUEST_STARTED ||
+    event.type === WORKFLOW_CHAT_EVENT.APPROVAL_DECISION_RECORDED
   );
 }
 

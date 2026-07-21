@@ -17,6 +17,7 @@ import type {
   WorkflowWidgetChatEvent,
   WorkflowWidgetChatState,
 } from "./workflow-widget-chat-reducer.js";
+import type { WORKFLOW_CHAT_EVENT } from "./state/workflow-widget-chat-events.js";
 import {
   EMPTY_WORKFLOW_CHAT_TERMINAL,
   WORKFLOW_WIDGET_TRANSPORT,
@@ -58,7 +59,7 @@ export function optimisticMessageAdded(
 
 export function attachmentStarted(
   state: WorkflowWidgetChatState,
-  event: Extract<WorkflowWidgetChatEvent, { type: "AttachmentStarted" }>,
+  event: Extract<WorkflowWidgetChatEvent, { type: typeof WORKFLOW_CHAT_EVENT.ATTACHMENT_STARTED }>,
 ): WorkflowWidgetChatState {
   return {
     ...state,
@@ -73,7 +74,7 @@ export function attachmentStarted(
 
 export function runAccepted(
   state: WorkflowWidgetChatState,
-  event: Extract<WorkflowWidgetChatEvent, { type: "RunAccepted" }>,
+  event: Extract<WorkflowWidgetChatEvent, { type: typeof WORKFLOW_CHAT_EVENT.RUN_ACCEPTED }>,
 ): WorkflowWidgetChatState {
   if (!isCurrentEpoch(state, event.epochId)) return state;
   const runChanged = state.activeRunId !== undefined && state.activeRunId !== event.runId;
@@ -95,7 +96,7 @@ export function runAccepted(
 
 export function partReceived(
   state: WorkflowWidgetChatState,
-  event: Extract<WorkflowWidgetChatEvent, { type: "PartReceived" }>,
+  event: Extract<WorkflowWidgetChatEvent, { type: typeof WORKFLOW_CHAT_EVENT.PART_RECEIVED }>,
 ): WorkflowWidgetChatState {
   if (!isCurrentEpoch(state, event.epochId) || state.terminal.kind !== "none") return state;
   const messages = upsertWorkflowMessage(state.messages, event.message);
@@ -121,7 +122,7 @@ export function partReceived(
 
 export function streamEnded(
   state: WorkflowWidgetChatState,
-  event: Extract<WorkflowWidgetChatEvent, { type: "StreamEnded" }>,
+  event: Extract<WorkflowWidgetChatEvent, { type: typeof WORKFLOW_CHAT_EVENT.STREAM_ENDED }>,
 ): WorkflowWidgetChatState {
   if (!isCurrentEpoch(state, event.epochId)) return state;
   const terminal = terminalFromServerEnd(state, event);
@@ -138,7 +139,7 @@ export function streamEnded(
 
 export function transportDropped(
   state: WorkflowWidgetChatState,
-  event: Extract<WorkflowWidgetChatEvent, { type: "TransportDropped" }>,
+  event: Extract<WorkflowWidgetChatEvent, { type: typeof WORKFLOW_CHAT_EVENT.TRANSPORT_DROPPED }>,
 ): WorkflowWidgetChatState {
   if (!isCurrentEpoch(state, event.epochId) || state.terminal.kind !== "none") return state;
   return {
@@ -244,7 +245,7 @@ function turnAfterStreamEnd(
 
 function terminalFromServerEnd(
   state: WorkflowWidgetChatState,
-  event: Extract<WorkflowWidgetChatEvent, { type: "StreamEnded" }>,
+  event: Extract<WorkflowWidgetChatEvent, { type: typeof WORKFLOW_CHAT_EVENT.STREAM_ENDED }>,
 ): WorkflowChatTerminal {
   if (state.terminal.kind !== "none") return state.terminal;
   const base = lastAssistantTerminalBase(state.messages);
