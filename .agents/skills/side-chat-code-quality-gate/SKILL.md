@@ -1,19 +1,13 @@
 ---
 name: side-chat-code-quality-gate
-description: Review, write, refactor, or gate TypeScript, React, Node, documentation, tests, architecture, comments, and repository governance for human-level readability, simplicity, maintainability, correctness, security, and configured quality checks. Use for hard-to-understand code, oversized functions/files, unclear async or framework boundaries, AI-generated code review, code smells, or repository-wide audits. Do not use for testing-only design; use the testing skill when the main task is test strategy.
+description: Review, write, refactor, or gate TypeScript, React, and Node production code and non-trivial code comments for human readability, simplicity, maintainability, correctness, security boundaries, and configured repository checks. Use for code review, code smells, cognitive complexity, oversized functions or files, unclear async or framework boundaries, package coupling, AI-generated code cleanup, or repository-wide code-quality audits. Use the documentation, testing-architecture, or design-system skill instead when that concern is primary; combine skills only when production-code quality is also in scope.
 ---
 
 # Repository Code Quality Gate
 
 Use this skill to keep code boring, explicit, locally understandable, and compatible with the repository's actual architecture and gates. The goal is not generic clean-code advice. The goal is code that a maintainer can read and safely change without already knowing the entire system.
 
-## When to use this skill
-
-Use it for code quality, docs quality, readability, maintainability, code smells, cognitive complexity, oversized code, hard-to-understand generated code, async/framework readability, comments, architecture cleanup, static checks, package boundaries, UI quality, service quality, or repository-wide review.
-
-Use it during any non-trivial implementation or durable-documentation change. Before finalizing the change, check the diff against this gate.
-
-Use the testing skill instead when test design, fixture strategy, test level, or test architecture is the primary task. Keep using this skill for production-code readability and maintainability in a testing change.
+For docs quality, testing architecture, or widget design-system work outside production-code quality, use the repository's dedicated skill instead of broadening this one.
 
 ## Discover current repository truth first
 
