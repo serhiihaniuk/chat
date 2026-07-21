@@ -25,6 +25,10 @@ Not source of truth for: product workflow or domain terms.
 - Optional-field compaction, soft brands, redaction, and diagnostic logging
   primitives.
 
+`src/json.ts` owns JSON types, narrowing, parsing, normalization, and compaction.
+Sibling modules import that concrete owner; `src/index.ts` is an outward-only
+package barrel and must not become an internal dependency.
+
 ## Boundary Rules
 
 - Keep dependencies minimal.

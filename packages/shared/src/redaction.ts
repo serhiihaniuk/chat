@@ -1,4 +1,4 @@
-import type { JsonObject, JsonPrimitive, JsonValue } from "./index.js";
+import type { JsonObject, JsonPrimitive, JsonValue } from "./json.js";
 
 /**
  * Key-based recursive redaction for anything about to reach a log or telemetry sink.

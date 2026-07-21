@@ -1,4 +1,4 @@
-import type { JsonObject } from "./index.js";
+import type { JsonObject } from "./json.js";
 
 export const DIAGNOSTIC_LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
 
