@@ -23,6 +23,10 @@ opted-in send -> getContext -> untrusted request context
 dynamic client tool -> getCapabilities -> dispatchToolCall -> safe tool result
 ```
 
+The package owns the browser client-tool definition passed from capability
+discovery to the widget transport. Consumers reuse `HostClientToolDefinition`
+instead of redeclaring an identical request shape.
+
 ## Boundary rules
 
 - Keep the package browser-safe and framework-light.

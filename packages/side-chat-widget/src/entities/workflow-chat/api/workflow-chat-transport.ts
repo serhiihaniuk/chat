@@ -5,8 +5,11 @@ import {
   type WorkflowChatTransportOptions,
 } from "@ai-sdk/workflow";
 import type { ChatRequestOptions, ChatTransport } from "ai";
-import type { HostContextRequest, WidgetHostBridge } from "@side-chat/host-bridge";
-import type { JsonObject } from "@side-chat/shared";
+import type {
+  HostClientToolDefinition,
+  HostContext,
+  HostContextRequest,
+} from "@side-chat/host-bridge";
 import { SIDE_CHAT_CLIENT_TOOL_CAPABILITY } from "@side-chat/stream-profile";
 
 import {
@@ -35,17 +38,13 @@ type CreateWorkflowChatTransportInput = Readonly<{
   onReconnectConnected?: (() => void) | undefined;
 }>;
 
-type WidgetHostContextCollector = NonNullable<WidgetHostBridge["getContext"]>;
-type WorkflowHostContext = Awaited<ReturnType<WidgetHostContextCollector>>;
+type WorkflowHostContext = HostContext;
 type WorkflowHostContextCollector = (
   request: HostContextRequest,
 ) => Promise<WorkflowHostContext | undefined>;
 
-export type WorkflowClientToolDefinition = Readonly<{
-  readonly name: string;
-  readonly description: string;
-  readonly inputSchema: JsonObject;
-}>;
+/** Transport-facing name for the client-tool definition owned by host-bridge. */
+export type WorkflowClientToolDefinition = HostClientToolDefinition;
 
 type AiSdkSendOptions = Parameters<ChatTransport<WorkflowUIMessage>["sendMessages"]>[0];
 type AiSdkReconnectOptions = Parameters<ChatTransport<WorkflowUIMessage>["reconnectToStream"]>[0];
