@@ -3,8 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "./dist/src/index.js",
-  "types": "./src/index.ts",
   "imports": {
     "#application/*": {
       "types": "./src/application/*.ts",
@@ -55,13 +53,6 @@
       "types": "./src/workflows/*.ts",
       "development": "./src/workflows/*.ts",
       "default": "./src/workflows/*.ts"
-    }
-  },
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "development": "./src/index.ts",
-      "default": "./dist/src/index.js"
     }
   },
   "scripts": {

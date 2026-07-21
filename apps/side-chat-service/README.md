@@ -6,6 +6,10 @@ Not source of truth for: cross-package ownership ([package boundaries](../../doc
 
 `@side-chat/side-chat-service` is the only backend application. It combines Hono/Nitro HTTP delivery, application policy and ports, Workflow DevKit durable execution, AI SDK 7 model/tool streaming, provider adapters, PostgreSQL composition, admission, telemetry, and process lifecycle.
 
+This workspace is an executable Nitro application, not an importable library.
+Its package name selects workspace scripts; it does not publish a package
+entrypoint.
+
 Adopter contracts come from the side-effect-free `@side-chat/side-chat-server`
 framework package. This application is the deployable reference composition.
 

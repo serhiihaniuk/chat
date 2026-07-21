@@ -785,6 +785,40 @@ expectFailure("package exports fixture", "check-package-exports.mjs", (root) => 
   });
 });
 
+expectSuccess(
+  "executable workspace without package export fixture",
+  "check-package-exports.mjs",
+  (root) => {
+    writeJson(join(root, "tsconfig.json"), { references: [{ path: "./apps/preview" }] });
+    writeJson(join(root, "apps/preview/package.json"), {
+      name: "@side-chat/preview",
+      version: "0.0.0",
+      private: true,
+      type: "module",
+      scripts: { typecheck: "tsc" },
+    });
+  },
+);
+
+expectFailure(
+  "executable workspace false public export fixture",
+  "check-package-exports.mjs",
+  (root) => {
+    writeJson(join(root, "tsconfig.json"), { references: [{ path: "./apps/preview" }] });
+    writeJson(join(root, "apps/preview/package.json"), {
+      name: "@side-chat/preview",
+      version: "0.0.0",
+      private: true,
+      type: "module",
+      main: "./dist/index.js",
+      types: "./src/index.ts",
+      exports: { ".": "./dist/index.js" },
+      scripts: { typecheck: "tsc" },
+    });
+  },
+  "executable workspace must not publish a package entrypoint",
+);
+
 expectFailure("unused dependency fixture", "check-unused-dependencies.mjs", (root) => {
   writeJson(join(root, "packages/orphan/package.json"), {
     name: "@side-chat/orphan",

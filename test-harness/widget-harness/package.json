@@ -3,8 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "imports": {
     "#app/*": {
       "types": "./src/app/*.tsx",
@@ -25,12 +23,6 @@
       "types": "./src/host/*.ts",
       "development": "./src/host/*.ts",
       "default": "./dist/host/*.js"
-    }
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
     }
   },
   "scripts": {

@@ -1,7 +1,7 @@
 # widget-harness
 
 Read this when: editing the browser harness or Playwright scenarios.
-Source of truth for: this harness's ownership, public surface, and local
+Source of truth for: this harness's ownership, executable surface, and local
 boundaries.
 Not source of truth for: production host app behavior.
 
@@ -20,9 +20,11 @@ Not source of truth for: production host app behavior.
 - Provider configuration.
 - Widget package internals beyond harness integration.
 
-## Public Surface
+## Runtime Entrypoints
 
-Harness app entrypoint, browser mode selection, and E2E scenarios.
+`src/config/browser.ts` mounts the Vite app. Vite host configuration and E2E
+scenarios launch the remaining development surfaces. The harness is not an
+importable library and publishes no package entrypoint.
 
 ## Main Flows
 

@@ -15,6 +15,8 @@ editable, resettable, and exportable without overwhelming the default workflow.
 
 The catalog derives from the stylesheet. Do not add a parallel token registry.
 Token names and defaults remain owned by `packages/side-chat-widget/styles.css`.
+This workspace is a Vite application, not an importable package; `src/index.tsx`
+is its browser entrypoint and is not exported.
 
 ## Boundary
 

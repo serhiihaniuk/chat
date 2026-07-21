@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "types": "./src/index.tsx",
   "imports": {
     "#configurator/token-overrides": {
       "types": "./src/configurator/token-overrides.ts",
@@ -14,13 +13,6 @@
       "types": "./src/preview/*.tsx",
       "development": "./src/preview/*.tsx",
       "default": "./src/preview/*.tsx"
-    }
-  },
-  "exports": {
-    ".": {
-      "types": "./src/index.tsx",
-      "development": "./src/index.tsx",
-      "default": "./src/index.tsx"
     }
   },
   "scripts": {

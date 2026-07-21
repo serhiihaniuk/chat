@@ -15,6 +15,7 @@ const references = new Set(
 for (const packageJsonPath of listWorkspacePackageJsons(root)) {
   const packageJson = readJson(root, packageJsonPath);
   const workspacePath = packageJsonPath.replace("/package.json", "");
+  const isExecutableWorkspace = /^(?:apps|test-harness)\//u.test(workspacePath);
 
   if (!packageJson.name?.startsWith("@side-chat/"))
     errors.push(`${packageJsonPath}: package name must be @side-chat scoped`);
@@ -22,9 +23,15 @@ for (const packageJsonPath of listWorkspacePackageJsons(root)) {
   if (packageJson.private !== true)
     errors.push(`${packageJsonPath}: private must be true before publishing ADRs`);
   if (packageJson.type !== "module") errors.push(`${packageJsonPath}: type must be module`);
-  if (!packageJson.exports?.["."])
-    errors.push(`${packageJsonPath}: public entrypoint export is required`);
-  if (!packageJson.types) errors.push(`${packageJsonPath}: types path is required`);
+  if (isExecutableWorkspace) {
+    if (packageJson.exports?.["."] || packageJson.main || packageJson.types) {
+      errors.push(`${packageJsonPath}: executable workspace must not publish a package entrypoint`);
+    }
+  } else {
+    if (!packageJson.exports?.["."])
+      errors.push(`${packageJsonPath}: library public entrypoint export is required`);
+    if (!packageJson.types) errors.push(`${packageJsonPath}: library types path is required`);
+  }
   if (!packageJson.scripts?.typecheck)
     errors.push(`${packageJsonPath}: typecheck script is required`);
   if (!references.has(workspacePath))
