@@ -13,6 +13,22 @@ const allowedCatalogInputs = new Set([
   "apps/side-chat-service/sidechat.azure.config.ts",
   "apps/side-chat-service/sidechat.fake.config.ts",
 ]);
+const allowedServiceEntryFiles = new Set([
+  productionEntry,
+  `${sourceRoot}sidechat.ts`,
+  `${sourceRoot}sidechat.test.ts`,
+]);
+const serviceTopLevelDirectories = new Set([
+  "adapters",
+  "application",
+  "auth",
+  "composition",
+  "config",
+  "domain",
+  "integrations",
+  "testing",
+  "workflows",
+]);
 // Each exception is one pool-owning Node `use step` seam. Keeping exact
 // file/specifier pairs prevents this from becoming a general adapter escape.
 const workflowStepBoundaryImports = new Set([
@@ -87,6 +103,7 @@ for (const file of sourceFiles) {
   const layer = file.slice(sourceRoot.length).split("/")[0];
   const imports = importSpecifiers(source);
 
+  checkKnownTopLevelModule(file, layer);
   checkPlainTypeScriptBoundary(file, imports);
   checkLayerImports(file, layer, imports);
   checkPhysicalWorkflowBoundary(file, layer, source, imports);
@@ -98,6 +115,11 @@ function checkPlainTypeScriptBoundary(file, imports) {
       report(file, `v7 service must not import Effect dependency ${specifier}`);
     }
   }
+}
+
+function checkKnownTopLevelModule(file, layer) {
+  if (allowedServiceEntryFiles.has(file) || serviceTopLevelDirectories.has(layer)) return;
+  report(file, `unknown service top-level module ${layer}`);
 }
 
 checkProductionGraph();

@@ -28,7 +28,7 @@ framework package. This application is the deployable reference composition.
 - `src/workflows` — durable chat, claim, timeout, abort, server-tool, client-tool, approval, and testing workflows.
 - `src/testing` — deterministic doubles reachable only from testing composition.
 
-The architecture gate in `scripts/check-side-chat-service-architecture.mjs` enforces app-layer direction, Workflow import placement, provider isolation, and production/testing separation.
+The architecture gate in `scripts/check-side-chat-service-architecture.mjs` enforces the documented top-level module catalog, app-layer direction, Workflow import placement, provider isolation, and production/testing separation. New top-level source folders require an explicit ownership decision here and in the gate.
 
 ## Runtime surface
 

@@ -562,6 +562,19 @@ expectFailure(
 );
 
 expectFailure(
+  "service unknown top-level module fixture",
+  "check-side-chat-service-architecture.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "apps/side-chat-service/src/unclassified/feature.ts",
+      "export const feature = true;\n",
+    );
+  },
+  "unknown service top-level module unclassified",
+);
+
+expectFailure(
   "service application dependency allowlist fixture",
   "check-side-chat-service-architecture.mjs",
   (root) => {
