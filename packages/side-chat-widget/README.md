@@ -30,7 +30,8 @@ session reducer.
 Client tools are dynamic AI SDK tool calls. The widget checks
 `hostBridge.getCapabilities`, dispatches once through `dispatchToolCall`, and
 posts the safe outcome to the durable workflow hook. Server tools never cross
-into the host bridge.
+into the host bridge. Omitting `getCapabilities` disables client tools; a
+capability-provider failure stops the send with a fixed safe integration error.
 
 `renderActivityItem` customizes normalized progress, reasoning, or tool activity.
 It receives no provider, database, approval, or service-internal DTO.

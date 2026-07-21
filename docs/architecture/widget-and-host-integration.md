@@ -47,6 +47,8 @@ Host context is untrusted reference material:
 
 A host may register browser-side tools with the bridge. At turn start, the widget creates a high-entropy raw capability secret for that tab and request. The HTTP boundary hashes it; only the digest is stored with the durable tool authority and Workflow input. The raw value remains in the originating tab's live cursor.
 
+An absent `getCapabilities` method means that the host exposes no client tools. If an implemented capability provider throws or returns an invalid value, the widget stops before sending the turn and surfaces a fixed, safe integration error. It must not silently reinterpret a broken host integration as an empty tool catalog or expose the host exception text.
+
 When a client-tool input appears in the native stream:
 
 1. the widget verifies that the active cursor still owns the raw capability;

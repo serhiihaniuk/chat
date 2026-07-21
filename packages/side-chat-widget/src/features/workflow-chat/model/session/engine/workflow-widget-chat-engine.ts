@@ -56,6 +56,7 @@ const WORKFLOW_WIDGET_STREAM_DRAIN = {
   MAX_MESSAGES_PER_SLICE: 64,
   MAX_SLICE_MS: 8,
 } as const;
+const HOST_CAPABILITIES_ERROR_MESSAGE = "Host client-tool capabilities could not be loaded.";
 
 const DEFAULT_DRAIN_SCHEDULER: WorkflowWidgetChatDrainScheduler = {
   maxMessagesPerSlice: WORKFLOW_WIDGET_STREAM_DRAIN.MAX_MESSAGES_PER_SLICE,
@@ -215,14 +216,14 @@ function validateChunkMetadata(chunk: UIMessageChunk): UIMessageChunk {
   }
 }
 
-async function readClientTools(
+export async function readClientTools(
   hostBridge: WidgetHostBridge | undefined,
 ): Promise<ReturnType<typeof toClientToolDefinitions>> {
+  if (!hostBridge?.getCapabilities) return [];
   try {
-    const capabilities = await hostBridge?.getCapabilities?.();
-    return capabilities ? toClientToolDefinitions(capabilities) : [];
+    return toClientToolDefinitions(await hostBridge.getCapabilities());
   } catch {
-    return [];
+    throw new Error(HOST_CAPABILITIES_ERROR_MESSAGE);
   }
 }
 
