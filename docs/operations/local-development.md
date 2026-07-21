@@ -37,6 +37,20 @@ only in the browser. The configurator does not send requests or persist override
 
 Run a production bundle check with `npm run build --workspace @side-chat/docs`.
 
+## Zed TypeScript diagnostics
+
+The repository uses native TypeScript 7 for command-line checks and the JavaScript
+TypeScript 6 compatibility implementation for editor tooling that still speaks the
+`tsserver` protocol. Project-local Zed settings therefore point `vtsls` at
+`node_modules/@typescript/old/lib`. Do not point it at `node_modules/typescript/lib`:
+the installed `@typescript/typescript6` compatibility package exposes forwarding
+shims there, not the complete standard-library and `tsserver` SDK expected by
+`vtsls`.
+
+After changing dependencies or this setting, restart Zed's TypeScript language
+server so it reloads the workspace SDK. `npm run typecheck` remains the canonical
+repository-wide compiler result.
+
 ## Port overrides
 
 Set these before launching:
