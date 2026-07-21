@@ -18,10 +18,12 @@ Token names and defaults remain owned by `packages/side-chat-widget/styles.css`.
 
 ## Boundary
 
-The app imports only public widget exports and the exported stylesheet. It does not
-call Side Chat HTTP routes, read environment credentials, import service modules, or
-persist product data. Preview overrides remain in memory and exported JSON reaches
-the clipboard only after a user action.
+The app imports only the widget root API, explicitly exported visual primitives,
+and the exported stylesheet. It owns preview composition, sample conversations,
+and other showcase-only state; those fixtures must not leak into widget shared UI.
+It does not call Side Chat HTTP routes, read environment credentials, import service
+modules, or persist product data. Preview overrides remain in memory and exported
+JSON reaches the clipboard only after a user action.
 
 The preview mounts in a Shadow DOM so widget Tailwind tokens and resets cannot alter
 the docs chrome. Popup portals remain inside `SideChatWidgetRoot`, which keeps theme

@@ -5,17 +5,22 @@ import { Composer } from "@side-chat/side-chat-widget/ui/composer";
 import { ErrorNotice } from "@side-chat/side-chat-widget/ui/error-notice";
 import { MessageActions } from "@side-chat/side-chat-widget/ui/message-actions";
 import { Reasoning } from "@side-chat/side-chat-widget/ui/reasoning";
-import { SettingsSection } from "@side-chat/side-chat-widget/ui/settings";
-import { Shell } from "@side-chat/side-chat-widget/ui/shell";
 
+import { ChatPreview } from "./chat-preview.js";
 import { PREVIEW_SCENARIOS } from "./live-preview.js";
+import { SettingsPreview } from "./settings-preview.js";
 
-export type PreviewScenario = (typeof PREVIEW_SCENARIOS)[keyof typeof PREVIEW_SCENARIOS];
+export type PreviewScenario =
+  (typeof PREVIEW_SCENARIOS)[keyof typeof PREVIEW_SCENARIOS];
 
-export function PreviewContent({ scenario }: { readonly scenario: PreviewScenario }): ReactElement {
-  if (scenario === PREVIEW_SCENARIOS.SETTINGS) return <SettingsSection />;
+export function PreviewContent({
+  scenario,
+}: {
+  readonly scenario: PreviewScenario;
+}): ReactElement {
+  if (scenario === PREVIEW_SCENARIOS.SETTINGS) return <SettingsPreview />;
   if (scenario === PREVIEW_SCENARIOS.COMPONENTS) return <ComponentGallery />;
-  return <Shell />;
+  return <ChatPreview />;
 }
 
 function ComponentGallery(): ReactElement {
@@ -26,14 +31,21 @@ function ComponentGallery(): ReactElement {
         <span className="docs-gallery-label">Reasoning and tool activity</span>
         <Reasoning
           items={[
-            { id: "thought-1", kind: "thought", text: "Checking the current workspace context." },
+            {
+              id: "thought-1",
+              kind: "thought",
+              text: "Checking the current workspace context.",
+            },
             {
               id: "tool-1",
               kind: "node",
               node: (
                 <ToolDetailRow
                   defaultOpen
-                  detail={{ input: { resourceId: 4821 }, result: { status: "opened" } }}
+                  detail={{
+                    input: { resourceId: 4821 },
+                    result: { status: "opened" },
+                  }}
                   name="Open resource"
                   state="success"
                 />
@@ -47,8 +59,14 @@ function ComponentGallery(): ReactElement {
       </section>
       <section>
         <span className="docs-gallery-label">Status and actions</span>
-        <ErrorNotice message="The request could not be completed." onRetry={() => undefined} />
-        <MessageActions copyText="A sample assistant response." onRetry={() => undefined} />
+        <ErrorNotice
+          message="The request could not be completed."
+          onRetry={() => undefined}
+        />
+        <MessageActions
+          copyText="A sample assistant response."
+          onRetry={() => undefined}
+        />
       </section>
       <section>
         <span className="docs-gallery-label">Composer</span>

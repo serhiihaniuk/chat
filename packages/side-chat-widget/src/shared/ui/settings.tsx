@@ -1,9 +1,12 @@
-import { useCallback, useState, type ReactElement, type ReactNode } from "react";
+import {
+  useCallback,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 import { Tabs } from "@base-ui/react/tabs";
-import { ChevronLeft, X } from "lucide-react";
 
-import { cn } from "#shared/lib/cn";
 import { ScrollArea } from "#shared/ui/scroll-area";
 import {
   createSettingsGroups,
@@ -11,7 +14,10 @@ import {
   type SettingsGroup,
   type ThemePreview,
 } from "#shared/ui/settings-groups";
-import { NarrowSettingsSelect, WideSettingsNav } from "./settings/settings-nav.js";
+import {
+  NarrowSettingsSelect,
+  WideSettingsNav,
+} from "./settings/settings-nav.js";
 
 type SettingsPanelProps = {
   theme?: ThemePreview;
@@ -90,12 +96,36 @@ export function SettingsPanel({
   railHeader,
 }: SettingsPanelProps): ReactElement {
   const [group, setGroup] = useState("theme");
-  const [theme, setTheme] = useControlledValue(themeProp, onThemeChange, "graphite");
-  const [accent, setAccent] = useControlledValue(accentProp, onAccentChange, "default");
-  const [corners, setCorners] = useControlledValue(cornersProp, onCornersChange, "default");
-  const [density, setDensity] = useControlledValue(densityProp, onDensityChange, "cozy");
-  const [elevation, setElevation] = useControlledValue(elevationProp, onElevationChange, "soft");
-  const [textSize, setTextSize] = useControlledValue(textSizeProp, onTextSizeChange, "default");
+  const [theme, setTheme] = useControlledValue(
+    themeProp,
+    onThemeChange,
+    "graphite",
+  );
+  const [accent, setAccent] = useControlledValue(
+    accentProp,
+    onAccentChange,
+    "default",
+  );
+  const [corners, setCorners] = useControlledValue(
+    cornersProp,
+    onCornersChange,
+    "default",
+  );
+  const [density, setDensity] = useControlledValue(
+    densityProp,
+    onDensityChange,
+    "cozy",
+  );
+  const [elevation, setElevation] = useControlledValue(
+    elevationProp,
+    onElevationChange,
+    "soft",
+  );
+  const [textSize, setTextSize] = useControlledValue(
+    textSizeProp,
+    onTextSizeChange,
+    "default",
+  );
   const [typeface, setTypeface] = useControlledValue(
     typefaceProp,
     onTypefaceChange,
@@ -152,11 +182,19 @@ export function SettingsPanel({
     >
       {/* Both navigators render; the side-chat-widget container query shows either
           the rail or the top Select using the same breakpoint as the shell. */}
-      <WideSettingsNav activeGroupId={group} groups={groups} railHeader={railHeader} />
+      <WideSettingsNav
+        activeGroupId={group}
+        groups={groups}
+        railHeader={railHeader}
+      />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {header}
         <div className="sc-settings-narrow shrink-0 border-b border-(--settings-nav-border) p-3">
-          <NarrowSettingsSelect active={active} groups={groups} onGroupChange={setGroup} />
+          <NarrowSettingsSelect
+            active={active}
+            groups={groups}
+            onGroupChange={setGroup}
+          />
         </div>
         <SettingsPanels groups={groups} />
       </div>
@@ -164,8 +202,12 @@ export function SettingsPanel({
   );
 }
 
-const findActiveGroup = (groups: readonly SettingsGroup[], groupId: string): SettingsGroup => {
-  const active = groups.find((candidate) => candidate.id === groupId) ?? groups[0];
+const findActiveGroup = (
+  groups: readonly SettingsGroup[],
+  groupId: string,
+): SettingsGroup => {
+  const active =
+    groups.find((candidate) => candidate.id === groupId) ?? groups[0];
   if (!active) throw new Error("Settings require at least one group");
   return active;
 };
@@ -177,32 +219,17 @@ const SettingsPanels = ({
 }): ReactElement => (
   <>
     {groups.map((group) => (
-      <Tabs.Panel key={group.id} value={group.id} className="relative min-w-0 flex-1">
+      <Tabs.Panel
+        key={group.id}
+        value={group.id}
+        className="relative min-w-0 flex-1"
+      >
         <ScrollArea className="absolute inset-0 p-(--settings-content-pad)">
-          <div className="mx-auto w-full max-w-measure-message">{group.render(false)}</div>
+          <div className="mx-auto w-full max-w-measure-message">
+            {group.render(false)}
+          </div>
         </ScrollArea>
       </Tabs.Panel>
     ))}
   </>
 );
-
-function SettingsFrame({ className }: { className?: string }): ReactElement {
-  return (
-    <div className={cn("sc-settings-frame", className)}>
-      <div className="sc-settings-header">
-        <span className="sc-settings-header-icon">
-          <ChevronLeft size={18} strokeWidth={1.8} />
-        </span>
-        <span className="sc-settings-header-title">Settings</span>
-        <span className="sc-settings-header-icon">
-          <X size={18} strokeWidth={1.8} />
-        </span>
-      </div>
-      <SettingsPanel />
-    </div>
-  );
-}
-
-export function SettingsSection(): ReactElement {
-  return <SettingsFrame className="sc-settings-frame-wide" />;
-}

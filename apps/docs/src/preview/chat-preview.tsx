@@ -1,28 +1,39 @@
-/**
- * Shell composition for the floating widget panel.
- *
- * The shell owns the two-column demo layout: conversation rail, header, native
- * scrolling message log, and composer. Floating chrome and drag resize belong to
- * the panel feature in the live widget, so this showcase stays static.
- */
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
+
 import { Plus, Settings, X } from "lucide-react";
 
-import { AgentMark } from "#shared/ui/agent-mark";
-import { Button, IconButton } from "#shared/ui/button";
-import { Composer } from "#shared/ui/composer";
-import { ConversationItem } from "#shared/ui/conversation-item";
-import { Message } from "#shared/ui/message";
-import { ScrollArea } from "#shared/ui/scroll-area";
+import { AgentMark } from "@side-chat/side-chat-widget/ui/agent-mark";
+import { Button, IconButton } from "@side-chat/side-chat-widget/ui/button";
+import { Composer } from "@side-chat/side-chat-widget/ui/composer";
+import { ConversationItem } from "@side-chat/side-chat-widget/ui/conversation-item";
+import { Message } from "@side-chat/side-chat-widget/ui/message";
+import { ScrollArea } from "@side-chat/side-chat-widget/ui/scroll-area";
 
-type Convo = { id: string; title: string; when: string; active?: boolean };
-type Bucket = { id: string; label: string; items: Convo[] };
+type ConversationPreview = {
+  readonly active?: boolean;
+  readonly id: string;
+  readonly title: string;
+  readonly when: string;
+};
 
-const BUCKETS: Bucket[] = [
+type ConversationBucket = {
+  readonly id: string;
+  readonly items: readonly ConversationPreview[];
+  readonly label: string;
+};
+
+const CONVERSATION_BUCKETS: readonly ConversationBucket[] = [
   {
     id: "recent",
     label: "Recent",
-    items: [{ id: "c1", title: "Page Summary Request", when: "30m ago", active: true }],
+    items: [
+      {
+        id: "c1",
+        title: "Page Summary Request",
+        when: "30m ago",
+        active: true,
+      },
+    ],
   },
   {
     id: "week",
@@ -42,20 +53,19 @@ const BUCKETS: Bucket[] = [
   },
 ];
 
-const THREAD: { id: string; role: "user" | "assistant"; text: string }[] = [
-  { id: "m1", role: "user", text: "Summarize this page" },
+const PREVIEW_MESSAGES = [
+  { id: "m1", role: "user" as const, text: "Summarize this page" },
   {
     id: "m2",
-    role: "assistant",
+    role: "assistant" as const,
     text: "I can summarize it, but I do not have the page open yet. Open it and I will pull the key points.",
   },
 ];
 
-export function Shell(): ReactElement {
+export function ChatPreview(): ReactElement {
   return (
     <div className="flex min-h-0 flex-1">
-      <SidebarRail />
-
+      <ConversationRail />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sc-header">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -76,15 +86,17 @@ export function Shell(): ReactElement {
             </IconButton>
           </div>
         </header>
-
         <div className="flex-1 overflow-y-auto px-4 py-4">
           <div className="mx-auto flex max-w-measure-message flex-col gap-4">
-            {THREAD.map((message) => (
-              <Message key={message.id} role={message.role} text={message.text} />
+            {PREVIEW_MESSAGES.map((message) => (
+              <Message
+                key={message.id}
+                role={message.role}
+                text={message.text}
+              />
             ))}
           </div>
         </div>
-
         <div className="shrink-0 px-3 pb-3">
           <Composer placeholder="Ask about this page..." />
         </div>
@@ -93,13 +105,13 @@ export function Shell(): ReactElement {
   );
 }
 
-export function SidebarRail(): ReactElement {
+function ConversationRail(): ReactElement {
   return (
     <aside className="sc-rail">
       <div className="sc-rail-newchat border-b border-border">
         <Button
-          type="button"
           className="w-full justify-start gap-2 px-2.5 py-2 text-left"
+          type="button"
           variant="secondary"
         >
           <Plus className="size-4 text-primary" />
@@ -108,24 +120,25 @@ export function SidebarRail(): ReactElement {
       </div>
       <div className="min-h-0 flex-1">
         <ScrollArea className="px-2 pb-2">
-          <div className="flex flex-col" style={{ gap: "var(--rail-group-gap)" }}>
-            {BUCKETS.map((bucket) =>
-              bucket.items.length ? (
-                <section key={bucket.id} className="flex flex-col gap-px">
-                  <div className="px-2 pt-3 pb-1.5 text-2xs font-bold uppercase tracking-wider text-muted-foreground">
-                    {bucket.label}
-                  </div>
-                  {bucket.items.map((conversation) => (
-                    <ConversationItem
-                      key={conversation.id}
-                      active={conversation.active}
-                      title={conversation.title}
-                      when={conversation.when}
-                    />
-                  ))}
-                </section>
-              ) : null,
-            )}
+          <div
+            className="flex flex-col"
+            style={{ gap: "var(--rail-group-gap)" }}
+          >
+            {CONVERSATION_BUCKETS.map((bucket) => (
+              <section key={bucket.id} className="flex flex-col gap-px">
+                <div className="px-2 pt-3 pb-1.5 text-2xs font-bold uppercase tracking-wider text-muted-foreground">
+                  {bucket.label}
+                </div>
+                {bucket.items.map((conversation) => (
+                  <ConversationItem
+                    active={conversation.active}
+                    key={conversation.id}
+                    title={conversation.title}
+                    when={conversation.when}
+                  />
+                ))}
+              </section>
+            ))}
           </div>
         </ScrollArea>
       </div>

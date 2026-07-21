@@ -46,15 +46,65 @@
       "development": "./src/index.ts",
       "default": "./dist/index.js"
     },
-    "./ui/*": {
-      "types": "./src/shared/ui/*.tsx",
-      "development": "./src/shared/ui/*.tsx",
-      "default": "./dist/shared/ui/*.js"
+    "./ui/activity/tool-detail": {
+      "types": "./src/shared/ui/activity/tool-detail.tsx",
+      "development": "./src/shared/ui/activity/tool-detail.tsx",
+      "default": "./dist/shared/ui/activity/tool-detail.js"
     },
-    "./ai/*": {
-      "types": "./src/shared/ai/*.tsx",
-      "development": "./src/shared/ai/*.tsx",
-      "default": "./dist/shared/ai/*.js"
+    "./ui/agent-mark": {
+      "types": "./src/shared/ui/agent-mark.tsx",
+      "development": "./src/shared/ui/agent-mark.tsx",
+      "default": "./dist/shared/ui/agent-mark.js"
+    },
+    "./ui/button": {
+      "types": "./src/shared/ui/button.tsx",
+      "development": "./src/shared/ui/button.tsx",
+      "default": "./dist/shared/ui/button.js"
+    },
+    "./ui/composer": {
+      "types": "./src/shared/ui/composer.tsx",
+      "development": "./src/shared/ui/composer.tsx",
+      "default": "./dist/shared/ui/composer.js"
+    },
+    "./ui/conversation-item": {
+      "types": "./src/shared/ui/conversation-item.tsx",
+      "development": "./src/shared/ui/conversation-item.tsx",
+      "default": "./dist/shared/ui/conversation-item.js"
+    },
+    "./ui/error-notice": {
+      "types": "./src/shared/ui/error-notice.tsx",
+      "development": "./src/shared/ui/error-notice.tsx",
+      "default": "./dist/shared/ui/error-notice.js"
+    },
+    "./ui/message": {
+      "types": "./src/shared/ui/message.tsx",
+      "development": "./src/shared/ui/message.tsx",
+      "default": "./dist/shared/ui/message.js"
+    },
+    "./ui/message-actions": {
+      "types": "./src/shared/ui/message-actions.tsx",
+      "development": "./src/shared/ui/message-actions.tsx",
+      "default": "./dist/shared/ui/message-actions.js"
+    },
+    "./ui/reasoning": {
+      "types": "./src/shared/ui/reasoning.tsx",
+      "development": "./src/shared/ui/reasoning.tsx",
+      "default": "./dist/shared/ui/reasoning.js"
+    },
+    "./ui/scroll-area": {
+      "types": "./src/shared/ui/scroll-area.tsx",
+      "development": "./src/shared/ui/scroll-area.tsx",
+      "default": "./dist/shared/ui/scroll-area.js"
+    },
+    "./ui/settings": {
+      "types": "./src/shared/ui/settings.tsx",
+      "development": "./src/shared/ui/settings.tsx",
+      "default": "./dist/shared/ui/settings.js"
+    },
+    "./ui/widget-root": {
+      "types": "./src/shared/ui/widget-root.tsx",
+      "development": "./src/shared/ui/widget-root.tsx",
+      "default": "./dist/shared/ui/widget-root.js"
     },
     "./styles.css": "./styles.css"
   },

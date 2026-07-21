@@ -13,6 +13,12 @@ authenticated workspace/subject for browser caches and live sessions; hosts must
 change it when that scope changes and must never put credentials in it.
 An optional `hostBridge` supplies page context and native client tools.
 
+The package root is the product integration surface. The enumerated `./ui/...`
+subpaths expose reusable visual primitives only for the local design-token docs
+app. They are deliberately explicit so new shared files do not become public by
+accident. Preview fixtures, sample conversations, and showcase composition belong
+to `apps/docs`, not to this package.
+
 The widget owns:
 
 - conversation selection, catalog queries, and coherent state reads;
@@ -42,6 +48,8 @@ It receives no provider, database, approval, or service-internal DTO.
 - Keep AI SDK stream mechanics inside workflow-chat entity/feature slices.
 - Keep rendering separate from transport, execution, and approval authority.
 - Treat `src/shared/ai/**` as quarantined copied visual primitives.
+- Keep documentation scenarios and sample data out of `src/shared/**`.
+- Enumerate every supported package subpath; do not add wildcard exports.
 
 ## Appearance
 
