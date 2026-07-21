@@ -7,7 +7,7 @@ type DynamicInputDelta = Extract<UIMessageChunk, { type: "tool-input-delta" }> &
 };
 
 /**
- * Repair a pinned `@ai-sdk/workflow` v1.0.22 serialization gap that drops the
+ * Repair a pinned `@ai-sdk/workflow` v1.0.32 serialization gap that drops the
  * dynamic marker while reconstructing JSON-Schema tools and UI chunks.
  */
 export function preserveDynamicClientToolIdentity(

@@ -13,7 +13,7 @@ import {
 } from "#application/telemetry/process-telemetry";
 
 /**
- * ai@7.0.22 callbacks that this adapter intentionally implements. The
+ * `ai@7.0.32` callbacks that this adapter intentionally implements. The
  * workflow bridge may omit callbacks; every handler is therefore independent.
  */
 export const AI_SDK_PINNED_TELEMETRY_ASSERTION_LIST = [

@@ -26,7 +26,7 @@ const PRIVATE_MARKERS = [
   "approval-input-private-sentinel",
 ] as const;
 
-describe("ai@7.0.22 telemetry contract", () => {
+describe("ai@7.0.32 telemetry contract", () => {
   let previous: typeof globalThis.AI_SDK_TELEMETRY_INTEGRATIONS;
 
   beforeEach(() => {

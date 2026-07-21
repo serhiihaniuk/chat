@@ -17,6 +17,7 @@ const errors = [];
 const rootPackage = readJson(root, "package.json");
 
 const requiredRoot = {
+  "@ai-sdk/react": "4.0.35",
   typescript: "6.0.3",
   "@types/node": "24.12.4",
   tsx: "4.22.3",
@@ -36,12 +37,13 @@ const requiredRoot = {
 
 const requiredByPackage = {
   "@side-chat/side-chat-service": {
-    ai: "7.0.22",
-    "@ai-sdk/azure": "4.0.11",
-    "@ai-sdk/deepseek": "3.0.7",
-    "@ai-sdk/openai": "4.0.11",
+    ai: "7.0.32",
+    "@ai-sdk/azure": "4.0.17",
+    "@ai-sdk/deepseek": "3.0.12",
+    "@ai-sdk/openai": "4.0.16",
+    "@ai-sdk/otel": "1.0.32",
     "@ai-sdk/provider": "4.0.3",
-    "@ai-sdk/workflow": "1.0.22",
+    "@ai-sdk/workflow": "1.0.32",
     workflow: "5.0.0-beta.30",
     "@workflow/serde": "5.0.0-beta.2",
     "@workflow/world-postgres": "5.0.0-beta.24",
@@ -57,8 +59,8 @@ const requiredByPackage = {
     "drizzle-kit": "0.31.10",
   },
   "@side-chat/side-chat-widget": {
-    ai: "7.0.22",
-    "@ai-sdk/workflow": "1.0.22",
+    ai: "7.0.32",
+    "@ai-sdk/workflow": "1.0.32",
     react: "19.2.6",
     "react-dom": "19.2.6",
     "@base-ui/react": "1.5.0",
