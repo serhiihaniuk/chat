@@ -12,7 +12,6 @@ for (const file of listSourceFiles(root)) {
   validateOldOptionalHelper(file, source);
   validateTruthyUndefined(file, source);
   validateConditionalEmptyObject(file, source);
-  validateRepositoryKindProbe(file, source);
 }
 
 failIfErrors(errors);
@@ -56,22 +55,6 @@ function validateConditionalEmptyObject(file, source) {
     errors.push(
       `${file}:${line.number}: conditional empty-object optional shape hides the contract; prefer explicit undefined-capable fields or a named boundary compaction helper.`,
     );
-  }
-}
-
-function validateRepositoryKindProbe(file, source) {
-  const patterns = [
-    /"kind"\s+in\s+repositories/u,
-    /repositories\.kind\s*===/u,
-    /repositories\[['"]kind['"]\]\s*===/u,
-  ];
-
-  for (const pattern of patterns) {
-    for (const line of matchingLines(source, pattern)) {
-      errors.push(
-        `${file}:${line.number}: repository adapter identity must use the typed adapterKind contract, not optional kind-property probing.`,
-      );
-    }
   }
 }
 

@@ -17,6 +17,10 @@ The package does not own product policy, Hono routes, Workflow execution, provid
 
 `createPostgresDrizzleSidechatRepositories` exposes the product repositories. `createPostgresWorkflowJournalMaintenance` exposes schema validation, one bounded sweep, and cleanup. Archive callbacks are idempotent by `runId` because a transaction can roll back after an external archive succeeds.
 
+Repository consumers depend on the structural method contract. The package does
+not publish an adapter discriminator or promise hypothetical custom adapters;
+composition already knows which concrete factory it selected.
+
 Production persistence has no memory fallback. The in-memory service adapter is an explicit local/test substitute rather than a second database implementation.
 
 ## Main flows

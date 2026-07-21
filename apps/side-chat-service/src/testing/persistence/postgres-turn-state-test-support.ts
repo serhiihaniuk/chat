@@ -1,5 +1,4 @@
 import {
-  REPOSITORY_ADAPTER_KINDS,
   type AssistantTurnRecord,
   type BeginAssistantTurnResult,
   type ConversationRecord,
@@ -91,7 +90,6 @@ const rejects = (name: string) => (): Promise<never> =>
 export const fakeRepositories = (
   overrides: Partial<ClosableRepositories>,
 ): ClosableRepositories => ({
-  adapterKind: REPOSITORY_ADAPTER_KINDS.POSTGRES_DRIZZLE,
   close: () => Promise.resolve(),
   createOrGetConversation: rejects("createOrGetConversation"),
   appendMessage: rejects("appendMessage"),

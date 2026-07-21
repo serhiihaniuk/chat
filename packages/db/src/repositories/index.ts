@@ -3,12 +3,7 @@ export {
   DbRepositoryError,
   type DbRepositoryErrorCode,
 } from "./errors.js";
-export {
-  isRepositoryAdapterKind,
-  REPOSITORY_ADAPTER_KINDS,
-  type RepositoryAdapterKind,
-  type SidechatRepositories,
-} from "./contract.js";
+export { type SidechatRepositories } from "./contract.js";
 export {
   createPostgresDrizzleSidechatRepositories,
   createPostgresTurnActivityNotificationSource,
