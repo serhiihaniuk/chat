@@ -58,90 +58,114 @@ type SideChatWorkflowTransport = Omit<ChatTransport<WorkflowUIMessage>, "reconne
 };
 
 /**
- * Bind Workflow's generic transport to Side Chat's HTTP envelope.
+ * Boundary mental model: preparation reads the latest widget and host state,
+ * delivery maps HTTP failures, and the AI SDK owns stream retries and decoding.
  *
- * The callbacks deliberately resolve `getClient()` and request configuration at
- * request time. Auth refresh, model selection, and credentials therefore never
- * become captured mount-time values.
+ * Every callback resolves `getClient()` at request time, so auth refresh, model
+ * selection, and credentials never become captured mount-time values.
  */
-export function createWorkflowChatTransport({
-  clientToolCapability,
-  getClient,
-  getClientTools,
-  getHostContext,
-  getReconnectRunId,
-  onReconnectConnected,
-  onReconnectStarted,
-  onRunFinished,
-  onRunStarted,
-}: CreateWorkflowChatTransportInput): SideChatWorkflowTransport {
-  const client = getClient();
-  const transportOptions: WorkflowChatTransportOptions<WorkflowUIMessage> = {
-    api: workflowChatUrl(getClient(), "/api/chat"),
-    fetch: (input, init) =>
-      fetchWorkflowResponse(getClient(), input, init, {
-        onReconnectConnected,
-        onReconnectStarted,
-      }),
-    onChatSendMessage: (response) => {
-      const runId = response.headers.get("x-workflow-run-id");
-      if (!runId) throw new Error("Chat response did not include a workflow run id.");
-      onRunStarted(runId);
-    },
-    onChatEnd: onRunFinished,
-    prepareSendMessagesRequest: async ({ messages }) => {
-      const client = getClient();
-      const request = await resolveWorkflowChatRequestConfig(client);
-      const requestId = crypto.randomUUID();
-      const clientTools = await getClientTools?.();
-      const hostContext = await getHostContext?.({ requestId });
-      const body: WorkflowChatRequestBody = {
-        conversationId: client.conversationId,
-        messages,
-        requestId,
-      };
-      if (client.modelPreference !== undefined) body.modelPreference = client.modelPreference;
-      if (client.reasoningEffort !== undefined) body.reasoningEffort = client.reasoningEffort;
-      if (client.enabledToolNames !== undefined) {
-        body.enabledToolNames = client.enabledToolNames;
-      }
-      if (clientTools && clientTools.length > 0) body.clientTools = clientTools;
-      if (hostContext !== undefined) body.hostContext = hostContext;
-      const prepared = applyRequestConfig<PreparedWorkflowSendRequest>(
-        { api: workflowChatUrl(client, "/api/chat"), body },
-        request,
-      );
-      if (clientTools && clientTools.length > 0) {
-        if (!clientToolCapability) {
-          throw new Error("Client tools require an originating-tab capability.");
-        }
-        const headers = new Headers(prepared.headers);
-        headers.set(SIDE_CHAT_CLIENT_TOOL_CAPABILITY.HEADER, clientToolCapability);
-        prepared.headers = headers;
-      }
-      return prepared;
-    },
-    prepareReconnectToStreamRequest: async ({ api }) => {
-      const client = getClient();
-      const request = await resolveWorkflowChatRequestConfig(client);
-      // A cold load has no SDK run id, so the SDK's fallback url targets the
-      // conversation id; a discovered run id rewrites it to that run's stream.
-      const runId = getReconnectRunId?.();
-      const url = runId
-        ? workflowChatUrl(client, `/api/chat/${encodeURIComponent(runId)}/stream`)
-        : toServiceUrl(client, api);
-      return applyRequestConfig({ api: url }, request);
-    },
-  };
-  if (client.maxConsecutiveErrors !== undefined) {
-    transportOptions.maxConsecutiveErrors = client.maxConsecutiveErrors;
-  }
-  const transport = new WorkflowChatTransport<WorkflowUIMessage>(transportOptions);
+export function createWorkflowChatTransport(
+  input: CreateWorkflowChatTransportInput,
+): SideChatWorkflowTransport {
+  const transport = new WorkflowChatTransport<WorkflowUIMessage>(
+    createWorkflowTransportOptions(input),
+  );
 
   return {
     reconnectToStream: (options) => transport.reconnectToStream(toReconnectOptions(options)),
     sendMessages: (options) => transport.sendMessages(toSendOptions(options)),
   };
+}
+
+function createWorkflowTransportOptions(
+  input: CreateWorkflowChatTransportInput,
+): WorkflowChatTransportOptions<WorkflowUIMessage> {
+  const client = input.getClient();
+  const transportOptions: WorkflowChatTransportOptions<WorkflowUIMessage> = {
+    api: workflowChatUrl(client, "/api/chat"),
+    fetch: (request, init) =>
+      fetchWorkflowResponse(input.getClient(), request, init, {
+        onReconnectConnected: input.onReconnectConnected,
+        onReconnectStarted: input.onReconnectStarted,
+      }),
+    onChatSendMessage: (response) => {
+      const runId = response.headers.get("x-workflow-run-id");
+      if (!runId) throw new Error("Chat response did not include a workflow run id.");
+      input.onRunStarted(runId);
+    },
+    onChatEnd: input.onRunFinished,
+    prepareSendMessagesRequest: ({ messages }) => prepareWorkflowSendRequest(input, messages),
+    prepareReconnectToStreamRequest: ({ api }) => prepareWorkflowReconnectRequest(input, api),
+  };
+  if (client.maxConsecutiveErrors !== undefined) {
+    transportOptions.maxConsecutiveErrors = client.maxConsecutiveErrors;
+  }
+  return transportOptions;
+}
+
+async function prepareWorkflowSendRequest(
+  input: CreateWorkflowChatTransportInput,
+  messages: WorkflowUIMessage[],
+): Promise<PreparedWorkflowSendRequest> {
+  const client = input.getClient();
+  const requestConfig = await resolveWorkflowChatRequestConfig(client);
+  const requestId = crypto.randomUUID();
+  const clientTools = await input.getClientTools?.();
+  const hostContext = await input.getHostContext?.({ requestId });
+  const body = createWorkflowChatRequestBody(client, messages, requestId, clientTools, hostContext);
+  const request = applyRequestConfig<PreparedWorkflowSendRequest>(
+    { api: workflowChatUrl(client, "/api/chat"), body },
+    requestConfig,
+  );
+  addClientToolCapability(request, clientTools, input.clientToolCapability);
+  return request;
+}
+
+function createWorkflowChatRequestBody(
+  client: WorkflowConversationClient,
+  messages: WorkflowUIMessage[],
+  requestId: string,
+  clientTools: readonly WorkflowClientToolDefinition[] | undefined,
+  hostContext: WorkflowHostContext | undefined,
+): WorkflowChatRequestBody {
+  const body: WorkflowChatRequestBody = {
+    conversationId: client.conversationId,
+    messages,
+    requestId,
+  };
+  if (client.modelPreference !== undefined) body.modelPreference = client.modelPreference;
+  if (client.reasoningEffort !== undefined) body.reasoningEffort = client.reasoningEffort;
+  if (client.enabledToolNames !== undefined) body.enabledToolNames = client.enabledToolNames;
+  if (clientTools && clientTools.length > 0) body.clientTools = clientTools;
+  if (hostContext !== undefined) body.hostContext = hostContext;
+  return body;
+}
+
+function addClientToolCapability(
+  request: PreparedWorkflowSendRequest,
+  clientTools: readonly WorkflowClientToolDefinition[] | undefined,
+  capability: string | undefined,
+): void {
+  if (!clientTools || clientTools.length === 0) return;
+  if (!capability) throw new Error("Client tools require an originating-tab capability.");
+  const headers = new Headers(request.headers);
+  headers.set(SIDE_CHAT_CLIENT_TOOL_CAPABILITY.HEADER, capability);
+  request.headers = headers;
+}
+
+async function prepareWorkflowReconnectRequest(
+  input: CreateWorkflowChatTransportInput,
+  api: string,
+): Promise<PreparedWorkflowRequest> {
+  const client = input.getClient();
+  const requestConfig = await resolveWorkflowChatRequestConfig(client);
+  // A cold load has no SDK run id, so discovery replaces the SDK's conversation
+  // fallback with the authoritative run stream while preserving service origin.
+  const runId = input.getReconnectRunId?.();
+  const url = runId
+    ? workflowChatUrl(client, `/api/chat/${encodeURIComponent(runId)}/stream`)
+    : toServiceUrl(client, api);
+  return applyRequestConfig({ api: url }, requestConfig);
 }
 
 async function fetchWorkflowResponse(
