@@ -1,11 +1,6 @@
 ---
 name: side-chat-code-quality-gate
 description: Review, write, refactor, or gate TypeScript, React, Node, documentation, tests, architecture, comments, and repository governance for human-level readability, simplicity, maintainability, correctness, security, and configured quality checks. Use for hard-to-understand code, oversized functions/files, unclear async or framework boundaries, AI-generated code review, code smells, or repository-wide audits. Do not use for testing-only design; use the testing skill when the main task is test strategy.
-compatibility: Codex CLI, Codex IDE, Codex app; instruction-first skill; no network required.
-metadata:
-  version: "2.1.0"
-  domain: "Repository code quality, readability, maintainability, and governance"
-  source: "Repository-local quality guidance with technology-aware examples"
 ---
 
 # Repository Code Quality Gate
