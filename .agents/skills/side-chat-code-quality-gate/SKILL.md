@@ -156,5 +156,5 @@ Load references relative to this skill directory only when needed:
 - `references/human-cognitive-load-budget.md` for complexity and simplification review.
 - `references/ai-sdk-readability.md` for stream, provider, and SDK boundaries.
 - `references/comment-readability-rubric.md` for context bridges and comment coverage.
-- `assets/comment-context-bridge-patterns.md` for boundary-comment examples.
+- `references/comment-context-bridge-patterns.md` for boundary-comment examples.
 - `references/eval-prompts.md` when validating this skill's behavior.
