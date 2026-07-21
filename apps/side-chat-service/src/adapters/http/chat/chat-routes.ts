@@ -4,6 +4,7 @@ import { cancelTurn } from "#application/turn/cancel-turn";
 import type { ClientToolDispatchStore } from "#application/ports/turn/tools/client-tool-dispatch-store";
 import type { ToolApprovalDecisionStore } from "#application/ports/turn/tools/tool-approval-store";
 import { runTurn, type RunTurnDependencies } from "#application/turn/execution/run-turn";
+import type { PrepareTurnInput } from "#application/turn/execution/prepare-turn";
 import {
   submitClientToolOutput,
   type ResumeClientTool,
@@ -22,7 +23,7 @@ import type { ActiveStreamRegistry } from "../stream/active-stream-registry.js";
 import type { AuthVariables } from "../auth-middleware.js";
 import { errorResponse, HTTP_ERROR } from "../error-response.js";
 import { CHAT_HTTP_ROUTES, HTTP_HEADERS } from "../http-contract.js";
-import { parseCancelRequest, parseChatRequest } from "./chat-request-schema.js";
+import { parseCancelRequest, parseChatRequest, type ChatRequest } from "./chat-request-schema.js";
 import { createChatStreamResponse, type OutboundTransformFactory } from "./chat-stream-response.js";
 import { readToolApprovalDecision } from "./approvals/read-tool-approval-decision.js";
 import { readCappedJson } from "./body/read-capped-json.js";
@@ -88,24 +89,15 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
     }
 
     try {
-      const running = await runTurn(dependencies, {
-        auth: context.get("authContext"),
-        requestId: request.requestId,
-        conversationId: request.conversationId,
-        messages: request.messages,
-        acceptedUserMessage: request.acceptedUserMessage,
-        ...(request.hostContext === undefined ? {} : { hostContext: request.hostContext }),
-        clientTools: request.clientTools,
-        ...(clientToolCapabilityDigest === undefined ? {} : { clientToolCapabilityDigest }),
-        enabledToolNames: request.enabledToolNames,
-        signal: context.req.raw.signal,
-        ...(request.requestedModelId === undefined
-          ? {}
-          : { requestedModelId: request.requestedModelId }),
-        ...(request.reasoningEffort === undefined
-          ? {}
-          : { requestedReasoningEffort: request.reasoningEffort }),
-      });
+      const running = await runTurn(
+        dependencies,
+        toPrepareTurnInput(
+          request,
+          context.get("authContext"),
+          clientToolCapabilityDigest,
+          context.req.raw.signal,
+        ),
+      );
       return createChatStreamResponse({
         stream: running.stream,
         runId: running.runId,
@@ -236,4 +228,26 @@ export function createChatRoutes(dependencies: ChatRouteDependencies): Hono<Auth
   });
 
   return app;
+}
+
+function toPrepareTurnInput(
+  request: ChatRequest,
+  auth: PrepareTurnInput["auth"],
+  clientToolCapabilityDigest: string | undefined,
+  signal: AbortSignal,
+): PrepareTurnInput {
+  return {
+    auth,
+    requestId: request.requestId,
+    conversationId: request.conversationId,
+    messages: request.messages,
+    acceptedUserMessage: request.acceptedUserMessage,
+    hostContext: request.hostContext,
+    clientTools: request.clientTools,
+    clientToolCapabilityDigest,
+    enabledToolNames: request.enabledToolNames,
+    signal,
+    requestedModelId: request.requestedModelId,
+    requestedReasoningEffort: request.reasoningEffort,
+  };
 }
