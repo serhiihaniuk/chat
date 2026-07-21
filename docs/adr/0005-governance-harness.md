@@ -15,10 +15,10 @@ Rules that protect the architecture are executable rather than conventional:
 
 - standard formatting, TypeScript-aware lint, strict type checking, tests, and
   project-reference builds run through repository scripts;
-- 15 custom gates enforce dependency pins, package ownership, service layers,
+- 16 custom gates enforce dependency pins, package ownership, service layers,
   widget FSD ranks, runtime boundaries, outbound calls, optional contracts,
-  code shape, source governance, documentation, generated artifacts, and gate
-  fixtures;
+  code shape, source governance, agent-skill integrity, documentation,
+  generated artifacts, and gate fixtures;
 - the meta-gate proves every `check-*.mjs` file is registered and every gate
   rejects a known-bad fixture;
 - cognitive complexity, nesting, file/function size, and TypeScript assertion
