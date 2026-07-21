@@ -66,7 +66,12 @@ function writeStrictTsconfig(root) {
 
 function writeQualitySkillFixture(
   root,
-  { extraFrontmatter = "", unreachableReference = false, omitSecurityFailure = false } = {},
+  {
+    extraFrontmatter = "",
+    legacyAgentMetadata = false,
+    unreachableReference = false,
+    omitSecurityFailure = false,
+  } = {},
 ) {
   const skillDirectory = ".agents/skills/side-chat-code-quality-gate";
   const frontmatter = [
@@ -80,6 +85,22 @@ function writeQualitySkillFixture(
     root,
     `${skillDirectory}/SKILL.md`,
     [...frontmatter, "", "# Quality gate", "", "- `references/eval-prompts.md`", ""].join("\n"),
+  );
+  writeFixtureFile(
+    root,
+    `${skillDirectory}/agents/openai.yaml`,
+    legacyAgentMetadata
+      ? "name: side-chat-code-quality-gate\nversion: 1.0.0\ntriggers:\n  - quality\n"
+      : [
+          "interface:",
+          '  display_name: "Side Chat Code Quality Gate"',
+          '  short_description: "Review code for safe human maintainability"',
+          '  default_prompt: "Use $side-chat-code-quality-gate to review this change."',
+          "",
+          "policy:",
+          "  allow_implicit_invocation: true",
+          "",
+        ].join("\n"),
   );
 
   const caseIds = [
@@ -256,6 +277,15 @@ expectFailure(
     writeQualitySkillFixture(root, { extraFrontmatter: "compatibility: legacy" });
   },
   "unsupported frontmatter key compatibility",
+);
+
+expectFailure(
+  "quality skill legacy agent metadata fixture",
+  "check-agent-skills.mjs",
+  (root) => {
+    writeQualitySkillFixture(root, { legacyAgentMetadata: true });
+  },
+  "legacy top-level key name",
 );
 
 expectFailure(

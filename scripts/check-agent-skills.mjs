@@ -7,6 +7,7 @@ const errors = [];
 const qualitySkillDirectory = ".agents/skills/side-chat-code-quality-gate";
 const skillPath = `${qualitySkillDirectory}/SKILL.md`;
 const evalPath = `${qualitySkillDirectory}/references/eval-prompts.md`;
+const agentMetadataPath = `${qualitySkillDirectory}/agents/openai.yaml`;
 const requiredEvalCases = new Set([
   "boundary-leak",
   "native-stream",
@@ -24,8 +25,62 @@ function validateQualitySkill() {
   if (source === null) return;
 
   validateFrontmatter(source);
+  validateAgentMetadata();
   validateReferences(source);
   validateEvaluationCases();
+}
+
+function validateAgentMetadata() {
+  const source = readRequiredFile(agentMetadataPath);
+  if (source === null) return;
+
+  validateNoLegacyAgentKeys(source);
+  validateAgentInterface(source);
+}
+
+function validateNoLegacyAgentKeys(source) {
+  for (const legacyKey of ["name", "triggers", "version"]) {
+    if (new RegExp(`^${legacyKey}:`, "mu").test(source)) {
+      errors.push(`${agentMetadataPath}: legacy top-level key ${legacyKey}.`);
+    }
+  }
+}
+
+function validateAgentInterface(source) {
+  const displayName = /^  display_name: "([^"]+)"$/mu.exec(source)?.[1] ?? "";
+  const shortDescription = /^  short_description: "([^"]+)"$/mu.exec(source)?.[1] ?? "";
+  const defaultPrompt = /^  default_prompt: "([^"]+)"$/mu.exec(source)?.[1] ?? "";
+  validateDisplayName(source, displayName);
+  validateShortDescription(shortDescription);
+  validateDefaultPrompt(defaultPrompt);
+  validateInvocationPolicy(source);
+}
+
+function validateDisplayName(source, displayName) {
+  if (!/^interface:\r?$/mu.test(source) || !displayName) {
+    errors.push(`${agentMetadataPath}: interface.display_name is required.`);
+  }
+}
+
+function validateShortDescription(shortDescription) {
+  if (shortDescription.length < 25 || shortDescription.length > 64) {
+    errors.push(`${agentMetadataPath}: short_description must contain 25 to 64 characters.`);
+  }
+}
+
+function validateDefaultPrompt(defaultPrompt) {
+  if (!defaultPrompt.includes("$side-chat-code-quality-gate")) {
+    errors.push(`${agentMetadataPath}: default_prompt must name $side-chat-code-quality-gate.`);
+  }
+}
+
+function validateInvocationPolicy(source) {
+  if (
+    !/^policy:\r?$/mu.test(source) ||
+    !/^  allow_implicit_invocation: (?:true|false)\r?$/mu.test(source)
+  ) {
+    errors.push(`${agentMetadataPath}: policy.allow_implicit_invocation is required.`);
+  }
 }
 
 function validateFrontmatter(source) {

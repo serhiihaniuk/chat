@@ -1,17 +1,7 @@
-# Optional agent metadata for the repository code quality gate skill.
-# The canonical behavior lives in ../SKILL.md.
-name: side-chat-code-quality-gate
-version: 1.3.0
-triggers:
-  - repository code quality
-  - code smells
-  - cognitive complexity
-  - human cognitive load
-  - clever hard to understand code
-  - comments assume too much context
-  - AI SDK stream readability
-  - AI SDK ToolLoopAgent
-  - Oxlint Oxfmt TypeScript custom lints
-  - package boundaries
-  - widget layers
-  - runtime boundaries
+interface:
+  display_name: "Side Chat Code Quality Gate"
+  short_description: "Review code for safe human maintainability"
+  default_prompt: "Use $side-chat-code-quality-gate to review this code change for readability, correctness, security boundaries, repository fit, and verification gaps."
+
+policy:
+  allow_implicit_invocation: true
