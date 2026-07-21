@@ -22,7 +22,7 @@ Not source of truth for: turn order ([assistant-turn.md](../architecture/assista
 | `hostContext`       | Enablement and serialized/string/depth/entry limits for untrusted page context.                                                                                     |
 | `auth`              | Development/production profile, bearer reference, and workspace mapping.                                                                                            |
 | `timeouts`          | Admission queue, provider execution, and client-tool wait deadlines.                                                                                                |
-| `capacity`          | Active-turn count, queue size/deadline, and shutdown drain budget.                                                                                                  |
+| `capacity`          | Active-turn admission, activity-stream process/subject limits, queue size/deadline, and shutdown drain budget.                                                      |
 | `agent`             | System instructions and maximum model/tool steps.                                                                                                                   |
 | `persistence`       | Product PostgreSQL URL; absence is permitted only by the development/test configuration.                                                                            |
 | `keepalive`         | Idle interval for HTTP SSE heartbeat comments.                                                                                                                      |
@@ -60,7 +60,9 @@ Secret references are resolved only during boot and are excluded from readable s
 
 ## Capacity and database pools
 
-`capacity.maxActiveTurns` is a per-service-process admission bound. It must be sized with the Workflow worker concurrency and both database pools; the relationship is documented in [capacity-and-deployment.md](capacity-and-deployment.md). Overload is rejected before durable turn mutation.
+`capacity.maxActiveTurns` is a per-service-process turn-admission bound. It must be sized with the Workflow worker concurrency and both database pools; the relationship is documented in [capacity-and-deployment.md](capacity-and-deployment.md). Overload is rejected before durable turn mutation.
+
+`capacity.maxActivityStreams` bounds all authenticated activity SSE connections in one service process. `capacity.maxActivityStreamsPerSubject` separately bounds connections for one authenticated workspace and subject. The subject limit must not exceed the process limit. These socket/fan-out controls do not reserve generation capacity or durable Workflow workers.
 
 Product persistence and Workflow persistence are separate configured connections and schemas. `workflow.maxPoolSize` must support the configured Workflow worker concurrency. Database setup and ownership live in [database.md](database.md).
 

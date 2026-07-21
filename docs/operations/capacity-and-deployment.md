@@ -6,23 +6,26 @@ Not source of truth for: individual config declarations ([configuration.md](conf
 
 ## Capacity model
 
-Side Chat combines two distinct controls:
+Side Chat combines three distinct controls:
 
 - The service owns a per-process ingress gate. It admits a bounded number of turns, waits in a bounded FIFO queue, and rejects overload before durable turn creation.
+- The HTTP adapter bounds authenticated activity SSE connections both per process and per workspace/subject.
 - The Postgres Workflow world owns durable job queueing, retries, redelivery, suspension, and resume. Its concurrency covers workflow and step jobs; it is not a provider-only limit.
 
 Do not add a second durable lease or retry system around Workflow. A process-local admission reservation remains held until its durable turn reaches a terminal outcome. Workflow may release its own worker slot while that turn is suspended.
 
 The default settings are:
 
-| Setting                      |  Default | Meaning                                                       |
-| ---------------------------- | -------: | ------------------------------------------------------------- |
-| `capacity.maxActiveTurns`    |     `16` | Maximum admitted, non-terminal turns in one service process.  |
-| `capacity.queueSize`         |     `32` | Maximum requests waiting for local admission.                 |
-| `capacity.queueTimeoutMs`    |  `5_000` | Maximum local admission wait.                                 |
-| `capacity.drainBudgetMs`     | `20_000` | Maximum graceful wait for accepted turns before cleanup.      |
-| `workflow.workerConcurrency` |     `50` | Maximum concurrent jobs run by one Postgres Workflow worker.  |
-| `workflow.maxPoolSize`       | required | Maximum Postgres connections available to the Workflow world. |
+| Setting                                 |  Default | Meaning                                                        |
+| --------------------------------------- | -------: | -------------------------------------------------------------- |
+| `capacity.maxActiveTurns`               |     `16` | Maximum admitted, non-terminal turns in one service process.   |
+| `capacity.maxActivityStreams`           |  `1_024` | Maximum authenticated activity SSE connections in one process. |
+| `capacity.maxActivityStreamsPerSubject` |      `8` | Maximum activity SSE connections for one workspace/subject.    |
+| `capacity.queueSize`                    |     `32` | Maximum requests waiting for local turn admission.             |
+| `capacity.queueTimeoutMs`               |  `5_000` | Maximum local turn-admission wait.                             |
+| `capacity.drainBudgetMs`                | `20_000` | Maximum graceful wait for accepted turns before cleanup.       |
+| `workflow.workerConcurrency`            |     `50` | Maximum concurrent jobs run by one Postgres Workflow worker.   |
+| `workflow.maxPoolSize`                  | required | Maximum Postgres connections available to the Workflow world.  |
 
 Queue-full and queue-timeout outcomes map to HTTP `503` with `Retry-After: 5`. Admission occurs before the durable turn write, so rejected requests leave no turn residue.
 
@@ -48,6 +51,7 @@ Admission is intentionally local to each service process. With `R` replicas, the
 ```text
 global admitted turns <= R * capacity.maxActiveTurns
 global queued requests <= R * capacity.queueSize
+global activity streams <= R * capacity.maxActivityStreams
 ```
 
 Load balancing can make the instantaneous distribution uneven, so these are fleet ceilings rather than fair per-user quotas. Exact provider-wide or cross-replica partitions require a separately approved distributed design or an upstream named Workflow queue.
@@ -56,7 +60,9 @@ Budget Postgres connections per replica from both the product database pool and 
 
 ## SSE and durable state
 
-Open widgets and active turns hold HTTP/SSE connections, but connection count does not define generation capacity. Size socket and proxy limits from concurrent open panels and active streams. Size provider and database budgets from admitted turns, Workflow concurrency, and measured step behavior.
+Open widgets and active turns hold HTTP/SSE connections, but connection count does not define generation capacity. Activity SSE admission therefore has a separate process ceiling and a workspace/subject ceiling. A subject-limit rejection is HTTP `429`; a process-limit rejection is HTTP `503`. Both return `Retry-After: 5`. Capacity is released when the response completes, errors, is cancelled by the client, or is closed during service shutdown.
+
+Size socket and proxy limits from `capacity.maxActivityStreams` plus active chat streams. Size provider and database budgets from admitted turns, Workflow concurrency, and measured step behavior. These activity limits are process-local rather than a distributed fairness guarantee.
 
 Workflow journal data and product conversation data are durable Postgres state. Follow [database.md](database.md) for schema ownership, maintenance, and retention. Do not infer retention policy from admission settings.
 

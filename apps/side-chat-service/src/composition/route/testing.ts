@@ -3,6 +3,7 @@ import { createChatRoutes } from "#adapters/http/chat/chat-routes";
 import { createCapabilityRoutes } from "#adapters/http/capabilities/capability-routes";
 import { createQueryRoutes } from "#adapters/http/conversations/query-routes";
 import { createActivityRoutes } from "#adapters/http/conversations/activity-routes";
+import { BoundedActivityStreamAdmission } from "#adapters/capacity/bounded-activity-stream-admission";
 import { ActiveStreamRegistry } from "#adapters/http/stream/active-stream-registry";
 import { structuredPartCatalogsForServerTools } from "#application/conversations/read-conversation-history";
 import { createHttpApp, type Readiness } from "#adapters/http/health/health-app";
@@ -132,6 +133,10 @@ async function startTestingServiceWithPersistence<
 ) {
   if (overrides.telemetrySink !== undefined) registerServiceTelemetry(overrides.telemetrySink);
   const activityDispatcher = createTurnActivityDispatcher(persistence.activityNotificationSource);
+  const activityAdmission = new BoundedActivityStreamAdmission({
+    maxActiveStreams: settings.capacity.maxActivityStreams,
+    maxActiveStreamsPerSubject: settings.capacity.maxActivityStreamsPerSubject,
+  });
   const activeStreams = new ActiveStreamRegistry();
   const scope = await startServiceScope(settings, [persistence.registerClose, ...starters]);
   const readiness = overrides.readiness ?? { check: () => scope.isReady() };
@@ -187,6 +192,7 @@ async function startTestingServiceWithPersistence<
       queries: conversationQueries,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       telemetry: telemetrySink,
+      admission: activityAdmission,
       activeStreams,
     }),
   );

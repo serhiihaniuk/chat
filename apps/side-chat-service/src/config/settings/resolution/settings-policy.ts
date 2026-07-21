@@ -22,10 +22,21 @@ export function validateSettingsPolicy(
     "provider timeout",
     issues,
   );
+  validateActivityStreamCapacity(settings, issues);
   validateWorkflowCapacity(settings, issues);
   validateModelCatalog(settings, issues);
   validateServerTools(settings.serverTools, catalogs.registeredServerToolNames, issues);
   validateMaintenanceDatabase(settings, issues);
+}
+
+function validateActivityStreamCapacity(settings: Settings, issues: SettingsIssue[]): void {
+  if (settings.capacity.maxActivityStreamsPerSubject <= settings.capacity.maxActivityStreams) {
+    return;
+  }
+  issues.push({
+    path: "capacity.maxActivityStreamsPerSubject",
+    message: "must not exceed capacity.maxActivityStreams",
+  });
 }
 
 function validateWorkflowCapacity(settings: Settings, issues: SettingsIssue[]): void {

@@ -68,6 +68,8 @@ const config: SideChatConfig = defineSideChatConfig({
   },
   capacity: {
     maxActiveTurns: 16,
+    maxActivityStreams: 1_024,
+    maxActivityStreamsPerSubject: 8,
     queueSize: 32,
     queueTimeoutMs: 5_000,
     drainBudgetMs: readEnv.number(SERVICE_ENV_KEYS.SIDECHAT_DRAIN_BUDGET_MS, {

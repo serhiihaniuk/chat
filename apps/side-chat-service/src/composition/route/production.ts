@@ -3,6 +3,7 @@ import {
   BoundedTurnAdmission,
   TURN_ADMISSION_RELEASE_MODES,
 } from "#adapters/capacity/bounded-turn-admission";
+import { BoundedActivityStreamAdmission } from "#adapters/capacity/bounded-activity-stream-admission";
 import {
   createPostgresWorkflowJournalMaintenance,
   type ArchiveWorkflowJournal,
@@ -55,6 +56,10 @@ export async function startProductionService(
   const authorizer = createServiceAuthorizer(settings.auth);
   const persistence = createProductionPersistence(settings);
   const activityDispatcher = createTurnActivityDispatcher(persistence.activityNotificationSource);
+  const activityAdmission = new BoundedActivityStreamAdmission({
+    maxActiveStreams: settings.capacity.maxActivityStreams,
+    maxActiveStreamsPerSubject: settings.capacity.maxActivityStreamsPerSubject,
+  });
   const activeStreams = new ActiveStreamRegistry();
   const maintenanceStarters = createMaintenanceStarters(settings, options.archiveWorkflowJournal);
   // The persistence close is registered first so its pool is disposed even if a
@@ -133,6 +138,7 @@ export async function startProductionService(
       queries: persistence.store,
       keepaliveIntervalMs: settings.keepalive.intervalMs,
       telemetry: { record: recordServiceTelemetry },
+      admission: activityAdmission,
       activeStreams,
     }),
   );

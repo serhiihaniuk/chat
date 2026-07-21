@@ -25,6 +25,8 @@ export type Settings = Readonly<{
   }>;
   capacity: Readonly<{
     maxActiveTurns: number;
+    maxActivityStreams: number;
+    maxActivityStreamsPerSubject: number;
     queueSize: number;
     queueTimeoutMs: number;
     drainBudgetMs: number;

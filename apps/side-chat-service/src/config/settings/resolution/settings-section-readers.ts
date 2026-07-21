@@ -47,6 +47,16 @@ function readCapacity(candidate: unknown, issues: SettingsIssue[]): Settings["ca
       "capacity.maxActiveTurns",
       issues,
     ),
+    maxActivityStreams: readRequiredPositiveInteger(
+      value["maxActivityStreams"],
+      "capacity.maxActivityStreams",
+      issues,
+    ),
+    maxActivityStreamsPerSubject: readRequiredPositiveInteger(
+      value["maxActivityStreamsPerSubject"],
+      "capacity.maxActivityStreamsPerSubject",
+      issues,
+    ),
     queueSize: readRequiredNonNegativeInteger(value["queueSize"], "capacity.queueSize", issues),
     queueTimeoutMs: readRequiredPositiveInteger(
       value["queueTimeoutMs"],

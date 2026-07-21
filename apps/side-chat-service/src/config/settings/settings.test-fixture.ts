@@ -55,6 +55,8 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
     },
     capacity: {
       maxActiveTurns: 16,
+      maxActivityStreams: 1_024,
+      maxActivityStreamsPerSubject: 8,
       queueSize: 32,
       queueTimeoutMs: 5_000,
       drainBudgetMs: 20_000,

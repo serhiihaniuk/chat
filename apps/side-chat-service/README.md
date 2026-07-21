@@ -40,7 +40,7 @@ The service exposes authenticated conversation, model, capability, configuration
 
 ## Configuration
 
-The app-root `sidechat*.config.ts` declarations select provider connections, model catalogs and reasoning policy, title behavior, server tools, host-context limits, admission, timeouts, auth references, and telemetry. `SIDECHAT_CONFIG` chooses the configured declaration. Secret values resolve only through the environment adapter and never enter Workflow input or browser catalogs.
+The app-root `sidechat*.config.ts` declarations select provider connections, model catalogs and reasoning policy, title behavior, server tools, host-context limits, turn admission, authenticated activity-stream limits, timeouts, auth references, and telemetry. `SIDECHAT_CONFIG` chooses the configured declaration. Secret values resolve only through the environment adapter and never enter Workflow input or browser catalogs.
 
 Production Workflow composition carries only serializable, non-secret provider/model identity across the durable boundary and reconstructs SDK delegates in the current Workflow realm. The production build pins the PostgreSQL Workflow world; `WORKFLOW_POSTGRES_URL` supplies its runtime connection.
 

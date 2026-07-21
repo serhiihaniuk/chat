@@ -132,6 +132,8 @@ export interface SideChatConfig {
   };
   readonly capacity: {
     readonly maxActiveTurns: ConfigValue<number>;
+    readonly maxActivityStreams: ConfigValue<number>;
+    readonly maxActivityStreamsPerSubject: ConfigValue<number>;
     readonly queueSize: ConfigValue<number>;
     readonly queueTimeoutMs: ConfigValue<number>;
     readonly drainBudgetMs: ConfigValue<number>;

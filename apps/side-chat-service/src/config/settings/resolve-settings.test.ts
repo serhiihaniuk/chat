@@ -13,6 +13,8 @@ describe("service settings", () => {
     if (!result.ok) return;
     expect(result.settings.capacity).toEqual({
       maxActiveTurns: 16,
+      maxActivityStreams: 1_024,
+      maxActivityStreamsPerSubject: 8,
       queueSize: 32,
       queueTimeoutMs: 5_000,
       drainBudgetMs: 20_000,
@@ -20,6 +22,21 @@ describe("service settings", () => {
     expect(result.settings.workflow).toMatchObject({
       workerConcurrency: 50,
       maxPoolSize: 52,
+    });
+  });
+
+  it("keeps the per-subject activity stream limit within the process limit", () => {
+    const result = resolveTestSettings(
+      createDefaultConfig({
+        capacity: { maxActivityStreams: 4, maxActivityStreamsPerSubject: 5 },
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toContainEqual({
+      path: "capacity.maxActivityStreamsPerSubject",
+      message: "must not exceed capacity.maxActivityStreams",
     });
   });
 

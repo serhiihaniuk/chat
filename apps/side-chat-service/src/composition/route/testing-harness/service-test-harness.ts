@@ -37,11 +37,13 @@ export async function createServiceTestHarness(
     readonly serverTools?: readonly ServerToolDefinition[];
     readonly models?: SideChatConfig["models"];
     readonly hostContext?: Partial<SideChatConfig["hostContext"]>;
+    readonly capacity?: Partial<SideChatConfig["capacity"]>;
   } = {},
 ) {
-  const { hostContext, models, ...serviceOverrides } = overrides;
+  const { capacity, hostContext, models, ...serviceOverrides } = overrides;
   const settingsResult = validateSettings(
     createDefaultConfig({
+      ...(capacity === undefined ? {} : { capacity }),
       ...(hostContext === undefined ? {} : { hostContext }),
       ...(models === undefined ? {} : { models }),
     }),
