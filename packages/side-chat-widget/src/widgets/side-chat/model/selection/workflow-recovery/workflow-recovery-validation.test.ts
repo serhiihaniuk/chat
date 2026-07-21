@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { resolveWorkflowRecoveryValidation } from "./workflow-recovery-validation.js";
 
-const CURSOR = { conversationId: "conversation-1", runId: "run-1" };
+const SCOPE_KEY = "test-scope";
+const CURSOR = { conversationId: "conversation-1", runId: "run-1", scopeKey: SCOPE_KEY };
 const ACTIVE_TURN = { turnId: "turn-1", runId: "run-1" };
 
 describe("workflow recovery cursor validation", () => {
@@ -10,6 +11,7 @@ describe("workflow recovery cursor validation", () => {
     expect(
       resolveWorkflowRecoveryValidation({
         activeConversationId: "conversation-1",
+        activeScopeKey: SCOPE_KEY,
         activeTurn: ACTIVE_TURN,
         cursor: CURSOR,
         discoveryFailed: false,
@@ -23,6 +25,7 @@ describe("workflow recovery cursor validation", () => {
     expect(
       resolveWorkflowRecoveryValidation({
         activeConversationId: "conversation-1",
+        activeScopeKey: SCOPE_KEY,
         activeTurn: null,
         cursor: CURSOR,
         discoveryFailed: false,
@@ -38,6 +41,7 @@ describe("workflow recovery cursor validation", () => {
     expect(
       resolveWorkflowRecoveryValidation({
         activeConversationId: "conversation-1",
+        activeScopeKey: SCOPE_KEY,
         activeTurn,
         cursor: CURSOR,
         discoveryFailed: false,
@@ -51,6 +55,7 @@ describe("workflow recovery cursor validation", () => {
     expect(
       resolveWorkflowRecoveryValidation({
         activeConversationId: "conversation-1",
+        activeScopeKey: SCOPE_KEY,
         activeTurn: undefined,
         cursor: CURSOR,
         discoveryFailed: true,

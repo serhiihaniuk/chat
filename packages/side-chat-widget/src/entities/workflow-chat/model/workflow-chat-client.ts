@@ -30,6 +30,8 @@ export type WorkflowChatRequestConfig = Readonly<{
 export type WorkflowChatClient = Readonly<{
   /** Service origin or proxy base without an endpoint-specific path. */
   baseUrl: string;
+  /** Stable non-secret identity for the authenticated workspace/subject browser scope. */
+  scopeKey: string;
   /** Optional fetch implementation for browser adapters and deterministic tests. */
   fetch?: typeof fetch | undefined;
   /** Resolve current auth configuration at request time rather than mount time. */

@@ -7,7 +7,10 @@ Not source of truth for: service workflow or persistence details.
 ## Public surface
 
 `SideChatWidget` has one native Workflow-backed API. Consumers pass
-`workflowChat` with a service `baseUrl` and optional request-time auth resolver.
+`workflowChat` with a service `baseUrl`, a required opaque non-secret `scopeKey`,
+and an optional request-time auth resolver. `scopeKey` identifies the current
+authenticated workspace/subject for browser caches and live sessions; hosts must
+change it when that scope changes and must never put credentials in it.
 An optional `hostBridge` supplies page context and native client tools.
 
 The widget owns:
@@ -20,7 +23,7 @@ The widget owns:
 - panel, theme, appearance, settings, and host-controlled open state.
 
 The service snapshot is authoritative after reload. A tab may persist only the
-selected conversation and active run cursor; messages, tool state, and drafts do
+selected conversation and active run cursor, each bound to `scopeKey`; messages, tool state, and drafts do
 not become browser authority. Native stream readers are disposable inputs to the
 session reducer.
 

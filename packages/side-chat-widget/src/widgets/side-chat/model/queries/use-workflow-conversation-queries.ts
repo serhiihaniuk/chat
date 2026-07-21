@@ -6,7 +6,7 @@ import {
   type WorkflowConversationState,
   readWorkflowConversationState,
   readWorkflowConversations,
-  WORKFLOW_CHAT_QUERY_SCOPE,
+  workflowChatQueryScopeKey,
   type WorkflowChatClient,
   type WorkflowConversationClient,
   type TurnActivityEvent,
@@ -39,14 +39,13 @@ export function useWorkflowConversationQueries(
     [workflowChat, activeConversationId],
   );
   const catalog = useQuery({
-    queryKey: [WORKFLOW_CHAT_QUERY_SCOPE, WORKFLOW_QUERY.CONVERSATIONS, workflowChat.baseUrl],
+    queryKey: [...workflowChatQueryScopeKey(workflowChat), WORKFLOW_QUERY.CONVERSATIONS],
     queryFn: ({ signal }) => readWorkflowConversations(workflowChat, signal),
   });
   const state = useQuery<ObservedConversationState>({
     queryKey: [
-      WORKFLOW_CHAT_QUERY_SCOPE,
+      ...workflowChatQueryScopeKey(workflowChat),
       WORKFLOW_QUERY.STATE,
-      workflowChat.baseUrl,
       activeConversationId,
     ],
     enabled: !isLocalDraft,
@@ -57,9 +56,9 @@ export function useWorkflowConversationQueries(
   });
   const refreshConversationCatalog = useCallback((): void => {
     void queryClient.invalidateQueries({
-      queryKey: [WORKFLOW_CHAT_QUERY_SCOPE, WORKFLOW_QUERY.CONVERSATIONS, workflowChat.baseUrl],
+      queryKey: [...workflowChatQueryScopeKey(workflowChat), WORKFLOW_QUERY.CONVERSATIONS],
     });
-  }, [queryClient, workflowChat.baseUrl]);
+  }, [queryClient, workflowChat]);
 
   const refreshConversationTitle = useCallback(
     (conversationId: string): Promise<boolean> =>
@@ -70,24 +69,23 @@ export function useWorkflowConversationQueries(
   const applyActivityEvent = useCallback(
     (event: TurnActivityEvent): void => {
       queryClient.setQueryData<WorkflowConversationCatalog>(
-        [WORKFLOW_CHAT_QUERY_SCOPE, WORKFLOW_QUERY.CONVERSATIONS, workflowChat.baseUrl],
+        [...workflowChatQueryScopeKey(workflowChat), WORKFLOW_QUERY.CONVERSATIONS],
         (current) => updateRunningConversationIds(current, event),
       );
     },
-    [queryClient, workflowChat.baseUrl],
+    [queryClient, workflowChat],
   );
   const refreshConversation = useCallback(
     (conversationId: string): void => {
       void queryClient.invalidateQueries({
         queryKey: [
-          WORKFLOW_CHAT_QUERY_SCOPE,
+          ...workflowChatQueryScopeKey(workflowChat),
           WORKFLOW_QUERY.STATE,
-          workflowChat.baseUrl,
           conversationId,
         ],
       });
     },
-    [queryClient, workflowChat.baseUrl],
+    [queryClient, workflowChat],
   );
 
   return {
@@ -101,15 +99,15 @@ export function useWorkflowConversationQueries(
   };
 }
 
-const conversationCatalogQueryKey = (baseUrl: string) =>
-  [WORKFLOW_CHAT_QUERY_SCOPE, WORKFLOW_QUERY.CONVERSATIONS, baseUrl] as const;
+const conversationCatalogQueryKey = (client: WorkflowChatClient) =>
+  [...workflowChatQueryScopeKey(client), WORKFLOW_QUERY.CONVERSATIONS] as const;
 
 function refreshConversationTitleCatalog(
   queryClient: QueryClient,
   workflowChat: WorkflowChatClient,
   conversationId: string,
 ): Promise<boolean> {
-  const queryKey = conversationCatalogQueryKey(workflowChat.baseUrl);
+  const queryKey = conversationCatalogQueryKey(workflowChat);
   const current = queryClient.getQueryData<WorkflowConversationCatalog>(queryKey);
   return refreshWorkflowConversationTitle({
     conversationId,
@@ -123,7 +121,7 @@ function readFreshConversationCatalog(
   workflowChat: WorkflowChatClient,
 ): Promise<WorkflowConversationCatalog> {
   return queryClient.fetchQuery({
-    queryKey: conversationCatalogQueryKey(workflowChat.baseUrl),
+    queryKey: conversationCatalogQueryKey(workflowChat),
     queryFn: ({ signal }) => readWorkflowConversations(workflowChat, signal),
     staleTime: 0,
   });

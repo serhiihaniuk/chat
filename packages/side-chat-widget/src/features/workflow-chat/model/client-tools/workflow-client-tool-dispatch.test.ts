@@ -158,6 +158,7 @@ function createBridge({
 function createClient(fetch: typeof globalThis.fetch): WorkflowChatClient {
   return {
     baseUrl: "https://service.example",
+    scopeKey: "test-scope",
     fetch,
   };
 }

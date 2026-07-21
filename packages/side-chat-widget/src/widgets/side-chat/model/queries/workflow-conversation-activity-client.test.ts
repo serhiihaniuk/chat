@@ -20,6 +20,7 @@ describe("subscribeWorkflowActivity", () => {
     });
     const client: WorkflowChatClient = {
       baseUrl: "https://service.example",
+      scopeKey: "test-scope",
       getRequestConfig: () => ({ headers: { authorization: "Bearer test-token" } }),
       fetch: vi.fn<typeof fetch>((input, init) => {
         requestUrl = String(input);

@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import {
   readWorkflowTools,
-  WORKFLOW_CHAT_QUERY_SCOPE,
+  workflowChatQueryScopeKey,
   type WorkflowChatClient,
   type WorkflowTool,
 } from "#entities/workflow-chat";
@@ -40,7 +40,7 @@ const WORKFLOW_TOOLS_QUERY = {
 
 export const useWorkflowToolSelection = (client: WorkflowChatClient): WidgetToolSelection => {
   const toolCatalog = useQuery({
-    queryKey: [WORKFLOW_CHAT_QUERY_SCOPE, WORKFLOW_TOOLS_QUERY.RESOURCE, client.baseUrl],
+    queryKey: [...workflowChatQueryScopeKey(client), WORKFLOW_TOOLS_QUERY.RESOURCE],
     queryFn: ({ signal }) => readWorkflowTools(client, signal),
   });
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});

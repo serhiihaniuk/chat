@@ -93,6 +93,7 @@ export const clickButton = async (name: string): Promise<void> => {
 /** Minimal native-service double for widget chrome tests that never send a turn. */
 export const fakeWorkflowChat = (): WorkflowChatClient => ({
   baseUrl: "https://service.example",
+  scopeKey: "test-scope",
   fetch: vi.fn<typeof fetch>((input) => {
     let url: string;
     if (input instanceof Request) url = input.url;

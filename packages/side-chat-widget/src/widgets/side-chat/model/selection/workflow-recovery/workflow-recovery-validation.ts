@@ -12,6 +12,7 @@ export type WorkflowRecoveryValidation = Readonly<{
 /** Require the coherent service snapshot to confirm a tab cursor before reattaching its run. */
 export function resolveWorkflowRecoveryValidation({
   activeConversationId,
+  activeScopeKey,
   activeTurn,
   cursor,
   discoveryFailed,
@@ -19,6 +20,7 @@ export function resolveWorkflowRecoveryValidation({
   needsValidation,
 }: Readonly<{
   activeConversationId: string;
+  activeScopeKey: string;
   activeTurn: WorkflowActiveTurn | null | undefined;
   cursor: WorkflowActiveTurnCursor | undefined;
   discoveryFailed: boolean;
@@ -26,7 +28,12 @@ export function resolveWorkflowRecoveryValidation({
   needsValidation: boolean;
 }>): WorkflowRecoveryValidation {
   const cursorCapability = capabilityForActiveTurn(cursor, activeTurn);
-  if (!needsValidation || cursor === undefined || cursor.conversationId !== activeConversationId) {
+  if (
+    !needsValidation ||
+    cursor === undefined ||
+    cursor.scopeKey !== activeScopeKey ||
+    cursor.conversationId !== activeConversationId
+  ) {
     return resolved(activeTurn ?? undefined, cursorCapability);
   }
   if (discoveryFailed) return resolved(undefined, undefined);

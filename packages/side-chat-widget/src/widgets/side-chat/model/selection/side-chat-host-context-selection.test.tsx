@@ -91,6 +91,7 @@ function renderSelection(
 function capabilityClient(enabled: boolean): WorkflowChatClient {
   return {
     baseUrl: "https://service.example",
+    scopeKey: "test-scope",
     fetch: () => Promise.resolve(Response.json({ hostContext: { enabled } })),
   };
 }

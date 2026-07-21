@@ -7,6 +7,8 @@ import {
 } from "./workflow-active-turn-cursor.js";
 
 describe("tab-scoped workflow active-turn cursor", () => {
+  const scopeKey = "workspace-a:subject-a";
+
   it("round-trips active run identity and originating-tab authority under the explicit key", () => {
     const store = createStorage();
     writeWorkflowActiveTurnCursor(
@@ -15,14 +17,18 @@ describe("tab-scoped workflow active-turn cursor", () => {
         clientToolCapability: "a".repeat(64),
         conversationId: "conversation-1",
         runId: "run-1",
+        scopeKey,
       },
       store,
     );
 
-    expect(readWorkflowActiveTurnCursor("workspace-a:widget-a:active-turn", store)).toEqual({
+    expect(
+      readWorkflowActiveTurnCursor("workspace-a:widget-a:active-turn", scopeKey, store),
+    ).toEqual({
       clientToolCapability: "a".repeat(64),
       conversationId: "conversation-1",
       runId: "run-1",
+      scopeKey,
     });
     expect(store.getItem("workspace-b:widget-a:active-turn")).toBeNull();
   });
@@ -32,15 +38,15 @@ describe("tab-scoped workflow active-turn cursor", () => {
     const key = "workspace-a:widget-a:active-turn";
     writeWorkflowActiveTurnCursor(
       key,
-      { conversationId: "conversation-2", runId: "run-new" },
+      { conversationId: "conversation-2", runId: "run-new", scopeKey },
       store,
     );
 
-    clearWorkflowActiveTurnCursor(key, "run-old", store);
-    expect(readWorkflowActiveTurnCursor(key, store)?.runId).toBe("run-new");
+    clearWorkflowActiveTurnCursor(key, scopeKey, "run-old", store);
+    expect(readWorkflowActiveTurnCursor(key, scopeKey, store)?.runId).toBe("run-new");
 
-    clearWorkflowActiveTurnCursor(key, "run-new", store);
-    expect(readWorkflowActiveTurnCursor(key, store)).toBeUndefined();
+    clearWorkflowActiveTurnCursor(key, scopeKey, "run-new", store);
+    expect(readWorkflowActiveTurnCursor(key, scopeKey, store)).toBeUndefined();
   });
 
   it("removes malformed state instead of treating it as a conversation selection", () => {
@@ -48,7 +54,7 @@ describe("tab-scoped workflow active-turn cursor", () => {
     const key = "workspace-a:widget-a:active-turn";
     store.setItem(key, JSON.stringify({ conversationId: "conversation-1" }));
 
-    expect(readWorkflowActiveTurnCursor(key, store)).toBeUndefined();
+    expect(readWorkflowActiveTurnCursor(key, scopeKey, store)).toBeUndefined();
     expect(store.getItem(key)).toBeNull();
   });
 
@@ -61,10 +67,11 @@ describe("tab-scoped workflow active-turn cursor", () => {
         clientToolCapability: "predictable",
         conversationId: "conversation-1",
         runId: "run-1",
+        scopeKey,
       }),
     );
 
-    expect(readWorkflowActiveTurnCursor(key, store)).toBeUndefined();
+    expect(readWorkflowActiveTurnCursor(key, scopeKey, store)).toBeUndefined();
     expect(store.getItem(key)).toBeNull();
   });
 
@@ -72,11 +79,24 @@ describe("tab-scoped workflow active-turn cursor", () => {
     const store = createStorage();
     writeWorkflowActiveTurnCursor(
       undefined,
-      { conversationId: "conversation-1", runId: "run-1" },
+      { conversationId: "conversation-1", runId: "run-1", scopeKey },
       store,
     );
 
     expect(store.length).toBe(0);
+  });
+
+  it("rejects and removes a cursor from another authenticated scope", () => {
+    const store = createStorage();
+    const key = "shared-widget:active-turn";
+    writeWorkflowActiveTurnCursor(
+      key,
+      { conversationId: "conversation-1", runId: "run-1", scopeKey },
+      store,
+    );
+
+    expect(readWorkflowActiveTurnCursor(key, "workspace-b:subject-b", store)).toBeUndefined();
+    expect(store.getItem(key)).toBeNull();
   });
 });
 

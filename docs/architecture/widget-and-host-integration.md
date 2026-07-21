@@ -17,7 +17,9 @@ The widget owns:
 - pending, streaming, settling, terminal, approval, and tool presentation;
 - theme, density, panel, and activity rendering preferences.
 
-The host application owns authentication material, service URL/configuration, page context, client-tool implementations, and where the widget is mounted.
+The host application owns authentication material, service URL/configuration, page context, client-tool implementations, and where the widget is mounted. It must also provide a stable, opaque, non-secret `scopeKey` for the authenticated workspace/subject represented by `workflowChat`. The key is browser-local identity only: it is never sent as authorization and must not contain a token or other credential.
+
+Every query, selected-conversation record, active-turn cursor, and live chat session is keyed by service base URL plus `scopeKey`. When that identity changes, the widget disposes the old live sessions, removes the old scope's query cache, and reconstructs selection and recovery state for the new scope. Request-time headers may rotate without changing `scopeKey`; changing the authenticated workspace or subject must change it.
 
 ## Host bridge
 
@@ -67,7 +69,7 @@ The widget persists a small active-turn cursor, not the stream content. On mount
 4. enters `settling` after stream terminal;
 5. refreshes until the durable terminal assistant projection appears, then clears the cursor.
 
-Stale, cross-conversation, malformed, or terminal cursors are discarded. The conversation snapshot is authoritative; local storage never creates execution or ownership authority.
+Stale, cross-scope, cross-conversation, malformed, or terminal cursors are discarded. The conversation snapshot is authoritative; local storage never creates execution or ownership authority.
 
 The separate activity SSE feed refreshes conversation-list indicators and snapshots. It does not replace the chat stream or the authoritative conversation query.
 

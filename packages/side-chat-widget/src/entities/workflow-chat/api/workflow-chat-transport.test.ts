@@ -243,6 +243,7 @@ describe("createWorkflowChatTransport", () => {
     });
     const client: WorkflowConversationClient = {
       baseUrl: "https://service.example",
+      scopeKey: "test-scope",
       conversationId: "conversation-1",
       fetch: request,
       maxConsecutiveErrors: 3,
@@ -325,6 +326,7 @@ async function reconnectUrls(
   });
   const client: WorkflowConversationClient = {
     baseUrl: "https://service.example",
+    scopeKey: "test-scope",
     conversationId: "conversation-1",
     fetch: request,
   };
@@ -349,6 +351,7 @@ function createTransport(
     baseUrl: "https://service.example",
     conversationId: "conversation-1",
     ...overrides,
+    scopeKey: overrides.scopeKey ?? "test-scope",
   };
   return createWorkflowChatTransport({
     clientToolCapability: "a".repeat(64),

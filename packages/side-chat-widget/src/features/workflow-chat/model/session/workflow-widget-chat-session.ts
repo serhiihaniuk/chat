@@ -29,28 +29,33 @@ export function createWorkflowWidgetChatSessionRegistry(): WorkflowWidgetChatSes
   const sessions = new Map<string, WorkflowWidgetChatSession>();
 
   function getOrCreate(context: WorkflowWidgetChatSessionContext): WorkflowWidgetChatSession {
-    const existing = sessions.get(context.client.conversationId);
+    const key = sessionKey(context.client);
+    const existing = sessions.get(key);
     if (existing) return existing;
     const created = createWorkflowWidgetChatSession(context);
-    sessions.set(context.client.conversationId, created);
+    sessions.set(key, created);
     return created;
   }
 
-  function pruneIdleExcept(conversationId: string): void {
-    for (const [candidateId, session] of sessions) {
-      if (candidateId === conversationId || !session.canPrune()) continue;
+  function pruneIdleExcept(client: WorkflowWidgetChatSessionContext["client"]): void {
+    const activeKey = sessionKey(client);
+    for (const [candidateKey, session] of sessions) {
+      if (candidateKey === activeKey || !session.canPrune()) continue;
       session.dispose();
-      sessions.delete(candidateId);
+      sessions.delete(candidateKey);
     }
   }
 
-  async function reconcileInactiveConversation(conversationId: string): Promise<void> {
-    const session = sessions.get(conversationId);
+  async function reconcileInactiveConversation(
+    client: WorkflowWidgetChatSessionContext["client"],
+  ): Promise<void> {
+    const key = sessionKey(client);
+    const session = sessions.get(key);
     if (!session) return;
     await session.reconnect();
     if (!session.canPrune()) return;
     session.dispose();
-    sessions.delete(conversationId);
+    sessions.delete(key);
   }
 
   function disposeAll(): void {
@@ -61,8 +66,16 @@ export function createWorkflowWidgetChatSessionRegistry(): WorkflowWidgetChatSes
   return {
     disposeAll,
     getOrCreate,
-    has: (conversationId) => sessions.has(conversationId),
+    has: (client) => sessions.has(sessionKey(client)),
     pruneIdleExcept,
     reconcileInactiveConversation,
   };
+}
+
+function sessionKey(client: WorkflowWidgetChatSessionContext["client"]): string {
+  return JSON.stringify([
+    client.baseUrl.replace(/\/$/u, ""),
+    client.scopeKey,
+    client.conversationId,
+  ]);
 }

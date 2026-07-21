@@ -33,7 +33,11 @@ export type {
   WorkflowTool,
   WorkflowToolCatalog,
 } from "./model/catalog/workflow-chat-catalog.js";
-export { WORKFLOW_CHAT_QUERY_SCOPE } from "./model/workflow-chat-query.js";
+export {
+  WORKFLOW_CHAT_QUERY_SCOPE,
+  workflowChatQueryScopeKey,
+  workflowChatScopeIdentity,
+} from "./model/workflow-chat-query.js";
 export {
   decodeWorkflowActivitySseFrame,
   isRunningActivity,

@@ -68,6 +68,7 @@ function createClient(
 ): WorkflowChatClient {
   return {
     baseUrl: "https://service.example",
+    scopeKey: "test-scope",
     fetch: vi.fn<typeof fetch>((input, init) => Promise.resolve(response(input, init))),
   };
 }

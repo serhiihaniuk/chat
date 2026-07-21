@@ -48,7 +48,7 @@ export type WorkflowWidgetChatSession = Readonly<{
 export type WorkflowWidgetChatSessionRegistry = Readonly<{
   disposeAll: () => void;
   getOrCreate: (context: WorkflowWidgetChatSessionContext) => WorkflowWidgetChatSession;
-  has: (conversationId: string) => boolean;
-  pruneIdleExcept: (conversationId: string) => void;
-  reconcileInactiveConversation: (conversationId: string) => Promise<void>;
+  has: (client: WorkflowConversationClient) => boolean;
+  pruneIdleExcept: (client: WorkflowConversationClient) => void;
+  reconcileInactiveConversation: (client: WorkflowConversationClient) => Promise<void>;
 }>;

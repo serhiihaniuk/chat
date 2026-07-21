@@ -4,6 +4,7 @@ import type { WidgetHarnessConfig } from "#config/modes";
 
 export const createWorkflowServiceClient = (config: WidgetHarnessConfig): WorkflowChatClient => ({
   baseUrl: resolveLocalApiBaseUrl(config.apiBaseUrl),
+  scopeKey: config.workspaceId,
   getRequestConfig: () => ({
     headers: { authorization: `Bearer ${config.authToken}` },
   }),

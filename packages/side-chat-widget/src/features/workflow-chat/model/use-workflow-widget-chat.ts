@@ -129,7 +129,7 @@ export function useWorkflowWidgetChat({
       stateObservationId,
     });
     session.observeSnapshot(initialMessages, activeTurn, stateObservationId);
-    registry.pruneIdleExcept(client.conversationId);
+    registry.pruneIdleExcept(client);
   }, [
     activeTurn,
     client,

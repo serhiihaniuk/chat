@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   readWorkflowCapabilities,
-  WORKFLOW_CHAT_QUERY_SCOPE,
+  workflowChatQueryScopeKey,
   type WorkflowChatClient,
 } from "#entities/workflow-chat";
 
@@ -26,7 +26,7 @@ export function useWorkflowHostContextSelection(
   hostBridge: WidgetHostBridge | undefined,
 ): WorkflowHostContextSelection {
   const capabilities = useQuery({
-    queryKey: [WORKFLOW_CHAT_QUERY_SCOPE, WORKFLOW_CAPABILITIES_QUERY_RESOURCE, client.baseUrl],
+    queryKey: [...workflowChatQueryScopeKey(client), WORKFLOW_CAPABILITIES_QUERY_RESOURCE],
     queryFn: ({ signal }) => readWorkflowCapabilities(client, signal),
   });
   const available =

@@ -5,13 +5,14 @@ type SelectionStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
 /** Read the tab-scoped durable conversation selected by this widget instance. */
 export function readWorkflowConversationSelection(
   storageKey: string | undefined,
+  scopeKey: string,
   store: SelectionStorage | undefined = resolveSessionStorage(),
 ): string | undefined {
   if (!storageKey || !store) return undefined;
   try {
     const raw = store.getItem(storageKey);
     if (!raw) return undefined;
-    const conversationId = parseConversationId(raw);
+    const conversationId = parseConversationId(raw, scopeKey);
     if (!conversationId) store.removeItem(storageKey);
     return conversationId;
   } catch {
@@ -22,12 +23,13 @@ export function readWorkflowConversationSelection(
 /** Persist view selection only; conversation content and lifecycle remain server-owned. */
 export function writeWorkflowConversationSelection(
   storageKey: string | undefined,
+  scopeKey: string,
   conversationId: string,
   store: SelectionStorage | undefined = resolveSessionStorage(),
 ): void {
   if (!storageKey || !store) return;
   try {
-    store.setItem(storageKey, JSON.stringify({ conversationId }));
+    store.setItem(storageKey, JSON.stringify({ conversationId, scopeKey }));
   } catch {
     // Sandboxed or quota-limited hosts may deny storage; chat remains usable.
   }
@@ -54,8 +56,10 @@ function resolveSessionStorage(): Storage | undefined {
   }
 }
 
-function parseConversationId(raw: string): string | undefined {
-  const conversationId = parseJsonRecord(raw)?.["conversationId"];
+function parseConversationId(raw: string, expectedScopeKey: string): string | undefined {
+  const value = parseJsonRecord(raw);
+  const conversationId = value?.["conversationId"];
+  if (value?.["scopeKey"] !== expectedScopeKey) return undefined;
   if (typeof conversationId !== "string" || conversationId.trim().length === 0) return undefined;
   return conversationId;
 }

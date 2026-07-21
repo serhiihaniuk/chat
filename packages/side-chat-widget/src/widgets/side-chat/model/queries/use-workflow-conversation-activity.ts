@@ -45,7 +45,10 @@ export function useWorkflowConversationActivity({
         refreshConversation(activeConversationId);
       }
       if (!isRunningActivity(event) && event.conversationId !== activeConversationId) {
-        void sessionRegistry.reconcileInactiveConversation(event.conversationId);
+        void sessionRegistry.reconcileInactiveConversation({
+          ...workflowChat,
+          conversationId: event.conversationId,
+        });
       }
     },
     [
@@ -55,6 +58,7 @@ export function useWorkflowConversationActivity({
       refreshConversation,
       refreshConversationCatalog,
       sessionRegistry,
+      workflowChat,
     ],
   );
   useWorkflowActivityStream({

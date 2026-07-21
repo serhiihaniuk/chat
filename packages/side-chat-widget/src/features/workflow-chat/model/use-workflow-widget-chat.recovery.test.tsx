@@ -287,8 +287,9 @@ describe("useWorkflowWidgetChat recovery", () => {
       throw new Error(`Unexpected request: ${url}`);
     });
     const registry = createWorkflowWidgetChatSessionRegistry();
+    const client = createClient(request);
     const session = registry.getOrCreate({
-      client: createClient(request),
+      client,
       includeHostContext: false,
       initialMessages: [SEEDED_MESSAGE],
       lifecycle: {},
@@ -299,11 +300,36 @@ describe("useWorkflowWidgetChat recovery", () => {
     controlled.finish();
     await waitFor(() => session.getSnapshot().activeEpoch === undefined);
 
-    expect(registry.has("conversation-1")).toBe(true);
-    await registry.reconcileInactiveConversation("conversation-1");
+    expect(registry.has(client)).toBe(true);
+    await registry.reconcileInactiveConversation(client);
 
-    expect(registry.has("conversation-1")).toBe(false);
+    expect(registry.has(client)).toBe(false);
     expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps colliding conversation ids isolated by authenticated scope", () => {
+    const request = vi.fn<typeof fetch>();
+    const registry = createWorkflowWidgetChatSessionRegistry();
+    const scopeAClient = createClient(request);
+    const scopeBClient = { ...scopeAClient, scopeKey: "scope-b" };
+    const scopeASession = registry.getOrCreate({
+      client: scopeAClient,
+      includeHostContext: false,
+      initialMessages: [],
+      lifecycle: {},
+    });
+    const scopeBSession = registry.getOrCreate({
+      client: scopeBClient,
+      includeHostContext: false,
+      initialMessages: [],
+      lifecycle: {},
+    });
+
+    expect(scopeBSession).not.toBe(scopeASession);
+    expect(registry.has(scopeAClient)).toBe(true);
+    expect(registry.has(scopeBClient)).toBe(true);
+
+    registry.disposeAll();
   });
 });
 
@@ -318,6 +344,7 @@ function renderChat(
     baseUrl: "https://service.example",
     conversationId: "conversation-1",
     ...overrides,
+    scopeKey: overrides.scopeKey ?? "test-scope",
   };
   const Probe = () => {
     current.current = useWorkflowWidgetChat({
@@ -335,6 +362,7 @@ function renderChat(
 function createClient(request: typeof fetch): WorkflowConversationClient {
   return {
     baseUrl: "https://service.example",
+    scopeKey: "test-scope",
     conversationId: "conversation-1",
     fetch: request,
   };

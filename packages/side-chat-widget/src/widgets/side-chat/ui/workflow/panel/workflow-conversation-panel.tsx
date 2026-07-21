@@ -79,6 +79,7 @@ export function WorkflowConversationPanel({
     selectConversation,
     startNewConversation,
   } = useWorkflowConversationSelection(
+    workflowChat.scopeKey,
     initialConversationId,
     workflowActiveTurnStorageKey,
     workflowConversationSelectionStorageKey,
@@ -109,6 +110,7 @@ export function WorkflowConversationPanel({
   );
   const recovery = resolveWorkflowRecoveryValidation({
     activeConversationId,
+    activeScopeKey: workflowChat.scopeKey,
     activeTurn: state.data?.snapshot.activeTurn ?? null,
     cursor: recoveryCursor,
     discoveryFailed: state.isError,
@@ -161,7 +163,7 @@ export function WorkflowConversationPanel({
     },
     [clearTerminalRun],
   );
-  const { refresh } = useWorkflowPanelRefresh(queryClient);
+  const { refresh } = useWorkflowPanelRefresh(queryClient, workflowChat);
   const refreshPanel = useCallback((): void => {
     refresh();
   }, [refresh]);
@@ -172,7 +174,7 @@ export function WorkflowConversationPanel({
   const runningConversationIds = catalog.data?.runningConversationIds ?? NO_RUNNING_CONVERSATIONS;
   const historyContent = selectWorkflowHistoryContent({
     error: state.error,
-    hasMountedSession: sessionRegistry.has(activeConversationId),
+    hasMountedSession: sessionRegistry.has(conversationClient),
     hasSnapshot: state.data !== undefined,
     isLocalDraft,
     isPending: state.isPending,

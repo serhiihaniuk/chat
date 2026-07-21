@@ -332,6 +332,7 @@ describe("readWorkflowCapabilities", () => {
       });
       const client = {
         baseUrl: "https://service.example",
+        scopeKey: "test-scope",
         fetch: request,
         getRequestConfig: () => ({ headers: { authorization: "Bearer current" } }),
       };
@@ -440,6 +441,7 @@ function createClient(
 ): WorkflowConversationClient {
   return {
     baseUrl: "https://service.example",
+    scopeKey: "test-scope",
     conversationId: "conversation-1",
     fetch: vi.fn<typeof fetch>((input, init) => Promise.resolve(response(input, init))),
   };

@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import {
   readWorkflowModels,
-  WORKFLOW_CHAT_QUERY_SCOPE,
+  workflowChatQueryScopeKey,
   type WorkflowChatClient,
 } from "#entities/workflow-chat";
 
@@ -43,7 +43,7 @@ export function useWorkflowModelSelection(client: WorkflowChatClient): WorkflowM
     SideChatReasoningEffort | undefined
   >(undefined);
   const catalog = useQuery({
-    queryKey: [WORKFLOW_CHAT_QUERY_SCOPE, WORKFLOW_MODELS_QUERY.RESOURCE, client.baseUrl],
+    queryKey: [...workflowChatQueryScopeKey(client), WORKFLOW_MODELS_QUERY.RESOURCE],
     queryFn: ({ signal }) => readWorkflowModels(client, signal),
   });
   const selectedModelKey = chosenModelId ?? catalog.data?.defaultModelId;

@@ -412,6 +412,7 @@ function renderChat(
     baseUrl: "https://service.example",
     conversationId: "conversation-1",
     ...overrides,
+    scopeKey: overrides.scopeKey ?? "test-scope",
   };
   const Probe = () => {
     current.current = useWorkflowWidgetChat({

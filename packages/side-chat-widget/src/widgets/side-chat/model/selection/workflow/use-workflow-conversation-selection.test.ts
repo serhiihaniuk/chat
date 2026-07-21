@@ -13,6 +13,8 @@ import {
   WORKFLOW_CONVERSATION_SELECTION_KIND,
 } from "./use-workflow-conversation-selection.js";
 
+const SCOPE_KEY = "test-scope";
+
 describe("workflow conversation selection state", () => {
   it("starts with a client-only draft when no initial conversation or recovery exists", () => {
     expect(
@@ -43,6 +45,7 @@ describe("workflow conversation selection state", () => {
         {
           conversationId: "conversation-running",
           runId: "run-running",
+          scopeKey: SCOPE_KEY,
         },
         "conversation-stored",
       ),
@@ -101,14 +104,18 @@ describe("workflow conversation selection recovery cursor", () => {
     });
     sessionStorage.setItem(
       storageKey,
-      JSON.stringify({ conversationId: "conversation-running", runId: "run-running" }),
+      JSON.stringify({
+        conversationId: "conversation-running",
+        runId: "run-running",
+        scopeKey: SCOPE_KEY,
+      }),
     );
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
     const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
     const Probe = () => {
-      current.value = useWorkflowConversationSelection(undefined, storageKey, undefined);
+      current.value = useWorkflowConversationSelection(SCOPE_KEY, undefined, storageKey, undefined);
       return null;
     };
 
@@ -146,7 +153,12 @@ describe("workflow conversation selection recovery cursor", () => {
     const root = createRoot(container);
     const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
     const Probe = () => {
-      current.value = useWorkflowConversationSelection("conversation-1", storageKey, undefined);
+      current.value = useWorkflowConversationSelection(
+        SCOPE_KEY,
+        "conversation-1",
+        storageKey,
+        undefined,
+      );
       return null;
     };
 
@@ -158,6 +170,7 @@ describe("workflow conversation selection recovery cursor", () => {
     expect(JSON.parse(sessionStorage.getItem(storageKey) ?? "null")).toEqual({
       conversationId: "conversation-1",
       runId: "run-1",
+      scopeKey: SCOPE_KEY,
     });
 
     act(() => current.value?.selectConversation("conversation-2"));
@@ -178,14 +191,14 @@ describe("workflow conversation selection recovery cursor", () => {
       configurable: true,
       value: currentWindow.sessionStorage,
     });
-    const cursor = { conversationId: "conversation-1", runId: "run-stale" };
+    const cursor = { conversationId: "conversation-1", runId: "run-stale", scopeKey: SCOPE_KEY };
     sessionStorage.setItem(storageKey, JSON.stringify(cursor));
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
     const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
     const Probe = () => {
-      current.value = useWorkflowConversationSelection(undefined, storageKey, undefined);
+      current.value = useWorkflowConversationSelection(SCOPE_KEY, undefined, storageKey, undefined);
       return null;
     };
 
@@ -215,14 +228,19 @@ describe("workflow conversation selection recovery cursor", () => {
     });
     sessionStorage.setItem(
       selectionStorageKey,
-      JSON.stringify({ conversationId: "conversation-restored" }),
+      JSON.stringify({ conversationId: "conversation-restored", scopeKey: SCOPE_KEY }),
     );
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
     const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
     const Probe = () => {
-      current.value = useWorkflowConversationSelection(undefined, undefined, selectionStorageKey);
+      current.value = useWorkflowConversationSelection(
+        SCOPE_KEY,
+        undefined,
+        undefined,
+        selectionStorageKey,
+      );
       return null;
     };
 
@@ -232,6 +250,7 @@ describe("workflow conversation selection recovery cursor", () => {
     act(() => current.value?.selectConversation("conversation-next"));
     expect(JSON.parse(sessionStorage.getItem(selectionStorageKey) ?? "null")).toEqual({
       conversationId: "conversation-next",
+      scopeKey: SCOPE_KEY,
     });
 
     act(() => current.value?.startNewConversation());
