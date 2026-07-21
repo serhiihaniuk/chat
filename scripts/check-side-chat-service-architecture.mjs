@@ -48,11 +48,6 @@ const adapterWorkflowBoundaryImports = new Set([
   `${sourceRoot}adapters/http/compatibility-app.ts::#workflows/testing/chat-turn`,
   `${sourceRoot}adapters/http/compatibility-app.ts::#workflows/testing/probes/wrapper-approval-gate`,
 ]);
-// This seed value is shared by local production composition. Other files in a
-// testing-named folder remain testing-only and cannot enter the production graph.
-const allowedProductionTestingDependencies = new Set([
-  `${sourceRoot}composition/route/testing-harness/local-chat-fixture.ts`,
-]);
 const errors = [];
 const sourceFiles = listSourceFiles(root).filter(
   (file) => file.startsWith(sourceRoot) || allowedCatalogInputs.has(file),
@@ -168,7 +163,6 @@ function checkProductionGraph() {
 }
 
 function isTestingOnlyProductionDependency(file) {
-  if (allowedProductionTestingDependencies.has(file)) return false;
   if (
     file === `${sourceRoot}composition/route/testing.ts` ||
     file === `${sourceRoot}composition/route/testing-entry.ts` ||

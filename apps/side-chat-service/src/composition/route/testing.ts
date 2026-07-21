@@ -34,7 +34,7 @@ import {
   publishedModelCatalog,
 } from "../providers/configured-model-catalog.js";
 import { createServiceAuthorizer } from "#auth/create-service-authorizer";
-import { localChatConversation } from "./testing-harness/local-chat-fixture.js";
+import { localChatConversation } from "./local-development/local-chat-seed.js";
 import {
   createConfiguredTestingPersistence,
   createInMemoryTestingPersistence,

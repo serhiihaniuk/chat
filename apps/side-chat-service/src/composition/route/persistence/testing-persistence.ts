@@ -16,7 +16,7 @@ import type { Settings } from "#config/settings/resolve-settings";
 import { createPostgresTurnActivityNotificationSource } from "@side-chat/db";
 
 import type { StartServicePart } from "../../lifecycle/resource-scope.js";
-import { localChatConversation } from "../testing-harness/local-chat-fixture.js";
+import { localChatConversation } from "../local-development/local-chat-seed.js";
 
 export type TestingPersistence<TStore extends InMemoryTurnState | PostgresTurnState> = Readonly<{
   store: TStore;

@@ -53,7 +53,7 @@ Only valid integer ports from 1 through 65535 are accepted; invalid values fall 
 
 ## Local identity and provider
 
-The launcher selects `SIDECHAT_CONFIG=fake`. The widget URL uses the fake config's local bearer and workspace (`local-test-token`, `local-workspace`) and disables client tools in the default harness link. The scripted model and in-memory product store require no external credentials.
+The launcher selects `SIDECHAT_CONFIG=fake`. The widget URL uses the fake config's local bearer and workspace (`local-test-token`, `local-workspace`) and disables client tools in the default harness link. The scripted model and in-memory product store require no external credentials. Local-development composition seeds `conversation-1` for that static identity; the seed is not a test-harness fixture or a production database migration.
 
 The local Workflow world owns its own development data directory/configuration. Production durability and database behavior require the PostgreSQL workflows described in [database.md](database.md) and the lifecycle tests in [verification.md](verification.md).
 
