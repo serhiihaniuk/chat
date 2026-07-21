@@ -1,16 +1,23 @@
 import {
   collectDependencies,
+  dependencyName,
   failIfErrors,
+  importSpecifiers,
   listFiles,
   listWorkspacePackageJsons,
   readJson,
   resolveRoot,
 } from "./lib/governance.mjs";
 import { readFileSync } from "node:fs";
+import { builtinModules } from "node:module";
 import { dirname, join } from "node:path";
 
 const root = resolveRoot();
 const errors = [];
+const nodeBuiltins = new Set([
+  ...builtinModules,
+  ...builtinModules.map((moduleName) => `node:${moduleName}`),
+]);
 const ignoredDependencies = new Set([
   "@base-ui/react",
   "@tailwindcss/vite",
@@ -47,24 +54,38 @@ const sourceFiles = listFiles(root).filter(
     /\.(?:ts|tsx|js|jsx|mjs|cjs)$/.test(file) &&
     !/(?:^|\/)(?:dist|build|coverage|node_modules)\//.test(file),
 );
+const workspacePackageJsonPaths = listWorkspacePackageJsons(root);
+const workspacePackageNames = new Set(
+  workspacePackageJsonPaths.map((packageJsonPath) => readJson(root, packageJsonPath).name),
+);
 const sourceTextByWorkspace = new Map();
+const dependencyImportFilesByWorkspace = new Map();
 
-for (const packageJsonPath of listWorkspacePackageJsons(root)) {
+for (const packageJsonPath of workspacePackageJsonPaths) {
   const workspaceDir = dirname(packageJsonPath);
+  const workspaceSourceFiles = sourceFiles.filter((file) => file.startsWith(`${workspaceDir}/`));
   sourceTextByWorkspace.set(
     workspaceDir,
-    sourceFiles
-      .filter((file) => file.startsWith(`${workspaceDir}/`))
-      .map((file) => readFileSync(join(root, file), "utf8"))
-      .join("\n"),
+    workspaceSourceFiles.map((file) => readFileSync(join(root, file), "utf8")).join("\n"),
+  );
+  dependencyImportFilesByWorkspace.set(
+    workspaceDir,
+    collectDependencyImportFiles(workspaceSourceFiles),
   );
 }
 
-for (const packageJsonPath of listWorkspacePackageJsons(root)) {
+for (const packageJsonPath of workspacePackageJsonPaths) {
   const packageJson = readJson(root, packageJsonPath);
   const workspaceDir = dirname(packageJsonPath);
   const sourceText = sourceTextByWorkspace.get(workspaceDir) ?? "";
   const dependencies = collectDependencies(packageJson);
+  const dependencyImportFiles = dependencyImportFilesByWorkspace.get(workspaceDir) ?? new Map();
+
+  for (const [dependency, importFiles] of dependencyImportFiles) {
+    if (dependency === packageJson.name || Object.hasOwn(dependencies, dependency)) continue;
+    if (!workspacePackageNames.has(dependency) && importFiles.every(isCentralTestFile)) continue;
+    errors.push(`${packageJsonPath}: imported dependency ${dependency} is not declared`);
+  }
 
   for (const dependency of Object.keys(dependencies)) {
     if (ignoredDependencies.has(dependency)) continue;
@@ -78,3 +99,28 @@ for (const packageJsonPath of listWorkspacePackageJsons(root)) {
 }
 
 failIfErrors(errors);
+
+function collectDependencyImportFiles(files) {
+  const imports = new Map();
+
+  for (const file of files) {
+    const source = readFileSync(join(root, file), "utf8");
+    for (const specifier of importSpecifiers(source)) {
+      const dependency = dependencyName(specifier);
+      if (dependency === null || nodeBuiltins.has(dependency)) continue;
+
+      const importFiles = imports.get(dependency) ?? [];
+      importFiles.push(file);
+      imports.set(dependency, importFiles);
+    }
+  }
+
+  return imports;
+}
+
+function isCentralTestFile(file) {
+  return (
+    /(?:^|\/)(?:e2e|testing)(?:\/|$)/.test(file) ||
+    /(?:\.test|\.spec|\.integration\.test|[.-]test-env|\.test-support)\.[cm]?[jt]sx?$/.test(file)
+  );
+}

@@ -100,6 +100,7 @@ export function importSpecifiers(source) {
   const specs = [];
   const patterns = [
     /import\s+(?:type\s+)?[^'"]*?from\s+['"]([^'"]+)['"]/g,
+    /import\s*['"]([^'"]+)['"]/g,
     /export\s+[^'"]*?from\s+['"]([^'"]+)['"]/g,
     /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
   ];
@@ -114,7 +115,9 @@ export function importSpecifiers(source) {
 }
 
 export function dependencyName(specifier) {
-  if (specifier.startsWith(".") || specifier.startsWith("/")) return null;
+  if (specifier.startsWith(".") || specifier.startsWith("/") || specifier.startsWith("#")) {
+    return null;
+  }
   const parts = specifier.split("/");
   return specifier.startsWith("@") ? `${parts[0]}/${parts[1]}` : parts[0];
 }

@@ -780,6 +780,18 @@ expectFailure("unused dependency fixture", "check-unused-dependencies.mjs", (roo
   writeFixtureFile(root, "packages/orphan/src/index.ts", "export const value = 1;\n");
 });
 
+expectFailure(
+  "undeclared dependency fixture",
+  "check-unused-dependencies.mjs",
+  (root) => {
+    writeJson(join(root, "packages/orphan/package.json"), {
+      name: "@side-chat/orphan",
+    });
+    writeFixtureFile(root, "packages/orphan/src/index.ts", 'import "left-pad";\n');
+  },
+  "imported dependency left-pad is not declared",
+);
+
 // Meta-coverage: every governance check must be wired into the orchestrator, or it
 // silently never runs. This catches a new check-*.mjs that someone forgot to add.
 validateOrchestratorCoverage();
