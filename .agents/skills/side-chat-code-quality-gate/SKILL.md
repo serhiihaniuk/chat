@@ -96,6 +96,14 @@ For closed runtime value sets, follow the repository's established runtime repre
 
 Keep public contracts narrow. Validate untrusted input at the owning boundary. Do not leak internal errors, database rows, provider options, private content, or framework objects across a public boundary.
 
+## Security and data-handling gate
+
+Treat authentication, authorization, tenant and workspace ownership, client and server tools, stream validation, and database access as trust boundaries. Verify that each decision is made from authenticated server-owned identity rather than host context, request metadata, model output, or another untrusted representation.
+
+Keep credentials, prompts, retrieved content, tool payloads, private conversation data, and raw provider errors out of logs, diagnostics, public protocol events, tests, and review output. Check both success and failure paths for accidental disclosure.
+
+Preserve ownership checks, idempotency, cancellation, timeouts, size limits, rate limits, and resource bounds when changing a boundary or lifecycle. Report a security claim only when the relevant enforcement and failure behavior were inspected; otherwise state the unverified surface explicitly.
+
 **High-frequency regression — magic values and copied helpers. Check this explicitly on every change; it slips through most often.**
 
 - Extract repeated or domain literals — status values, error codes, result codes, reason strings, tuned numbers — into a named `const` at the owning module. Do not inline the same string or number in more than one place, and do not re-type a union inline when the owning module already exports it.
@@ -129,7 +137,7 @@ When reviewing without editing, report actionable findings only:
 <Files not inspected, unavailable tools, or unresolved intent.>
 ```
 
-Useful categories include `correctness-risk`, `type-safety-risk`, `complexity-hotspot`, `readability-context-gap`, `cleverness-debt`, `comment-quality`, `coupling-boundary`, `ui-state-behavior`, `async-resource`, `testability-gap`, and `repo-gate-mismatch`.
+Useful categories include `correctness-risk`, `security-boundary`, `data-exposure`, `type-safety-risk`, `complexity-hotspot`, `readability-context-gap`, `cleverness-debt`, `comment-quality`, `coupling-boundary`, `ui-state-behavior`, `async-resource`, `testability-gap`, and `repo-gate-mismatch`.
 
 ## Edit mode output
 
