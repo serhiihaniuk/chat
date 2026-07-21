@@ -64,22 +64,30 @@ function writeStrictTsconfig(root) {
   });
 }
 
-expectFailure("hard runtime pin fixture", "check-version-pins.mjs", (root) => {
-  writeJson(join(root, "package.json"), {
-    name: "fixture",
-    private: true,
-    type: "module",
-    engines: { node: "24.16.0", npm: "11.15.0" },
-    packageManager: "npm@11.15.0",
-    devDependencies: { typescript: "^6.0.3" },
-  });
-  writeFixtureFile(root, ".nvmrc", "24.16.0\n");
-  writeJson(join(root, "package-lock.json"), {
-    name: "fixture",
-    lockfileVersion: 3,
-    packages: {},
-  });
-});
+expectFailure(
+  "hard runtime pin fixture",
+  "check-version-pins.mjs",
+  (root) => {
+    writeJson(join(root, "package.json"), {
+      name: "fixture",
+      private: true,
+      type: "module",
+      engines: { node: "24.16.0", npm: "11.15.0" },
+      packageManager: "npm@11.15.0",
+      devDependencies: {
+        "@typescript/native": "npm:typescript@^7.0.2",
+        typescript: "npm:@typescript/typescript6@6.0.2",
+      },
+    });
+    writeFixtureFile(root, ".nvmrc", "24.16.0\n");
+    writeJson(join(root, "package-lock.json"), {
+      name: "fixture",
+      lockfileVersion: 3,
+      packages: {},
+    });
+  },
+  "dependency @typescript/native must use an exact version",
+);
 
 expectFailure("forbidden dependency fixture", "check-dependency-policy.mjs", (root) => {
   writeJson(join(root, "package.json"), { name: "fixture", private: true });

@@ -22,6 +22,8 @@ const ignoredDirectories = new Set([
   "dist",
   "node_modules",
 ]);
+const exactVersionPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const exactNpmAliasPattern = /^npm:(?:@[^/]+\/)?[^@]+@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 function isIgnoredDirectory(name) {
   return ignoredDirectories.has(name) || name.startsWith("node_modules.");
@@ -127,7 +129,7 @@ export function collectDependencies(packageJson) {
 }
 
 export function isExactVersion(version) {
-  return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version);
+  return exactVersionPattern.test(version) || exactNpmAliasPattern.test(version);
 }
 
 export function packageManagerVersion(packageManager, name) {

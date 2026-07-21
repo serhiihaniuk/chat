@@ -18,7 +18,8 @@ const rootPackage = readJson(root, "package.json");
 
 const requiredRoot = {
   "@ai-sdk/react": "4.0.35",
-  typescript: "6.0.3",
+  "@typescript/native": "npm:typescript@7.0.2",
+  typescript: "npm:@typescript/typescript6@6.0.2",
   "@types/node": "24.12.4",
   tsx: "4.22.3",
   vitest: "4.1.7",

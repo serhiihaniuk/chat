@@ -3,7 +3,6 @@
     "target": "ES2024",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "ignoreDeprecations": "6.0",
     "paths": {
       "@side-chat/db": ["./packages/db/src/index.ts"],
       "@side-chat/host-bridge": ["./packages/host-bridge/src/index.ts"],

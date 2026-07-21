@@ -114,6 +114,12 @@ To work without Docker, run the in-memory stack with `node scripts/run-local-fak
 
 ## Supported runtimes
 
+The `tsc` executable comes from the native TypeScript 7 package installed as
+`@typescript/native`. The `typescript` dependency is intentionally aliased to
+`@typescript/typescript6` because TypeScript 7.0 does not expose a compiler API.
+Repository governance scripts and compatible third-party tooling continue to
+import that API while builds and typechecks run on TypeScript 7.
+
 | Tool | Range               | Pinned fixture               |
 | ---- | ------------------- | ---------------------------- |
 | Node | `>=24.15.0 <25.0.0` | `24.16.0` (`.nvmrc`)         |
