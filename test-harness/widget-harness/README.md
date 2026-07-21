@@ -9,7 +9,7 @@ Not source of truth for: production host app behavior.
 
 - Vite app for widget development.
 - Vite host proxy for local iframe embedding scenarios.
-- Mock-stream, legacy local-service, and v7 workflow-service harness modes.
+- One service-backed widget scenario with configurable local identity and host behavior.
 - Fake host bridge behavior for browser scenarios.
 - Playwright-visible harness pages.
 
@@ -34,12 +34,11 @@ host proxy -> /side-chat-frame iframe UI + /side-chat-api service API
 iframe parent registration -> correlated child context provider -> opted-in workflow request
 ```
 
-Use `?mode=workflow-service&authToken=local-test-token` to exercise the native
-`useChat` transport against the v7 service. This mode starts in New chat and does
-not read or mutate a conversation id in the URL. The harness supplies one
+Use `?authToken=local-test-token` to exercise the native `useChat` transport
+against the service. The harness starts in New chat and does not read or mutate a
+conversation id in the URL. It supplies one
 workspace-scoped, tab-local active-turn recovery key so a refresh can reattach
-only while that accepted turn remains active. This mode is separate from
-`local-service`, which remains the legacy protocol regression path.
+only while that accepted turn remains active.
 
 ## Boundary Rules
 

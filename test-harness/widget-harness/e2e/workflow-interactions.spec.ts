@@ -7,20 +7,20 @@ const evidenceDirectory = resolve(
   import.meta.dirname,
   "../../../plan/v7/evidence/task-15-widget-interactions",
 );
-const workflowWidgetUrl = "/side-chat-frame/?mode=service&workspaceId=task-15";
+const workflowWidgetUrl = "/side-chat-frame/?workspaceId=task-15";
 const recoveryEvidenceDirectory = resolve(
   import.meta.dirname,
   "../../../plan/v7/evidence/task-16-widget-recovery",
 );
 const recoveryWorkspaceId = "task-16";
-const recoveryWidgetUrl = `/side-chat-frame/?mode=service&workspaceId=${recoveryWorkspaceId}`;
+const recoveryWidgetUrl = `/side-chat-frame/?workspaceId=${recoveryWorkspaceId}`;
 const recoveryStorageKey = `side-chat-widget:${recoveryWorkspaceId}:workflow-active-turn`;
 const parityEvidenceDirectory = resolve(
   import.meta.dirname,
   "../../../plan/v7/evidence/task-16a-widget-parity",
 );
 const parityWorkspaceId = "task-16a";
-const parityWidgetUrl = `/side-chat-frame/?mode=service&workspaceId=${parityWorkspaceId}`;
+const parityWidgetUrl = `/side-chat-frame/?workspaceId=${parityWorkspaceId}`;
 const parityRecoveryStorageKey = `side-chat-widget:${parityWorkspaceId}:workflow-active-turn`;
 const modelCatalog = {
   models: [
@@ -623,7 +623,7 @@ test("discards a stale recovery cursor without routing to or selecting another c
   });
 
   await page.goto(
-    `/side-chat-frame/?mode=service&workspaceId=${parityWorkspaceId}&conversationId=conversation-routed`,
+    `/side-chat-frame/?workspaceId=${parityWorkspaceId}&conversationId=conversation-routed`,
   );
 
   await expect(page.getByText("How can I help with this page?")).toBeVisible();

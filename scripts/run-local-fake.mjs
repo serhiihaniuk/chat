@@ -6,8 +6,8 @@ const servicePort = readPort("SIDECHAT_LOCAL_SERVICE_PORT", 3000);
 const widgetPort = readPort("SIDECHAT_LOCAL_WIDGET_PORT", 5175);
 const serviceBaseUrl = `http://127.0.0.1:${servicePort}`;
 const widgetUrl =
-  `http://127.0.0.1:${widgetPort}/?mode=service` +
-  "&authToken=local-test-token&workspaceId=local-workspace&clientTools=false";
+  `http://127.0.0.1:${widgetPort}/?authToken=local-test-token` +
+  "&workspaceId=local-workspace&clientTools=false";
 
 await runNpm(["run", "build:testing", "--workspace", "@side-chat/side-chat-service"]);
 

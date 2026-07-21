@@ -20,7 +20,7 @@ test("collects opted-in page context through the public iframe adapter", async (
   });
 
   await page.goto(
-    `${hostBaseUrl}/workbench-embed.html?mode=service&open=true` +
+    `${hostBaseUrl}/workbench-embed.html?open=true` +
       `&authToken=${encodeURIComponent(authToken)}` +
       `&workspaceId=${encodeURIComponent(workspaceId)}` +
       `&apiBaseUrl=${encodeURIComponent("/side-chat-api")}` +

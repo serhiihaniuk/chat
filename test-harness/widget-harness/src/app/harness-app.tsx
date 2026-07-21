@@ -23,7 +23,7 @@ import {
   parseWidgetHarnessConfig,
   WIDGET_HARNESS_OPEN_CONTROLS,
   type WidgetHarnessConfig,
-} from "#config/modes";
+} from "#config/widget-harness-config";
 
 const SET_OPEN_MESSAGE_TYPE = "sidechat.widget.setOpen";
 const OPEN_CHANGE_MESSAGE_TYPE = "sidechat.widget.openChange";

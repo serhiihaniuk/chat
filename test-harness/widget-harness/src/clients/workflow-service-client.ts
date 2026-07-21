@@ -1,6 +1,6 @@
 import type { WorkflowChatClient } from "@side-chat/side-chat-widget";
 
-import type { WidgetHarnessConfig } from "#config/modes";
+import type { WidgetHarnessConfig } from "#config/widget-harness-config";
 
 export const createWorkflowServiceClient = (config: WidgetHarnessConfig): WorkflowChatClient => ({
   baseUrl: resolveLocalApiBaseUrl(config.apiBaseUrl),

@@ -1,4 +1,3 @@
-export type WidgetHarnessMode = "service";
 export const WIDGET_HARNESS_OPEN_CONTROLS = {
   HOST: "host",
   WIDGET: "widget",
@@ -8,7 +7,6 @@ export type WidgetHarnessOpenControl =
 export type WidgetHarnessScenario = "default" | "failed-host-tool";
 
 export type WidgetHarnessConfig = {
-  readonly mode: WidgetHarnessMode;
   readonly apiBaseUrl: string;
   readonly authToken: string;
   readonly defaultOpen: boolean;
@@ -24,9 +22,7 @@ const DEFAULT_WORKSPACE_ID = "workspace_local";
 
 export const parseWidgetHarnessConfig = (search: string): WidgetHarnessConfig => {
   const params = new URLSearchParams(search);
-  const mode = parseMode(params.get("mode"));
   return {
-    mode,
     apiBaseUrl: params.get("apiBaseUrl") ?? DEFAULT_API_BASE_URL,
     authToken: params.get("authToken") ?? DEFAULT_AUTH_TOKEN,
     clientToolsEnabled: params.get("clientTools") !== "false",
@@ -36,10 +32,6 @@ export const parseWidgetHarnessConfig = (search: string): WidgetHarnessConfig =>
     workspaceId: params.get("workspaceId") ?? DEFAULT_WORKSPACE_ID,
   };
 };
-
-export const modeLabel = (_mode: WidgetHarnessMode): string => "Service";
-
-const parseMode = (_mode: string | null): WidgetHarnessMode => "service";
 
 const parseDefaultOpen = (open: string | null, defaultOpen: string | null): boolean =>
   (open ?? defaultOpen) !== "false";

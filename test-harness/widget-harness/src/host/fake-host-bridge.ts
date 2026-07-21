@@ -8,7 +8,7 @@ import {
 } from "@side-chat/host-bridge";
 import type { JsonObject } from "@side-chat/shared";
 
-import type { WidgetHarnessConfig } from "#config/modes";
+import type { WidgetHarnessConfig } from "#config/widget-harness-config";
 import type { DemoHostSurface } from "#host/demo-host-surface";
 
 export type HarnessHostToolRecord = {
@@ -111,7 +111,6 @@ export const createHarnessHostContext = (config: WidgetHarnessConfig): HostConte
   origin: "http://localhost:5173",
   title: `${config.workspaceId} widget harness`,
   metadata: {
-    mode: config.mode,
     workspaceId: config.workspaceId,
   },
 });

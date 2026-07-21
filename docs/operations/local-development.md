@@ -17,7 +17,7 @@ The launcher first builds the service's testing Workflow bundle, then starts:
 | Process           | Default URL                              | Purpose                                                                         |
 | ----------------- | ---------------------------------------- | ------------------------------------------------------------------------------- |
 | Side Chat service | `http://127.0.0.1:3000`                  | Hono/Nitro API with the credential-free `fake` config and local Workflow world. |
-| Widget harness    | `http://127.0.0.1:5175/?mode=service...` | Vite page connected to the service.                                             |
+| Widget harness    | `http://127.0.0.1:5175/?workspaceId=...` | Vite page connected to the service.                                             |
 
 The launcher waits for both HTTP surfaces and prints the complete widget URL. `Ctrl+C` terminates both child processes. It does not install dependencies, prompt for provider credentials, mutate config, or start PostgreSQL.
 

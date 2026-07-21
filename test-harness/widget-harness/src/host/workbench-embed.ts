@@ -44,7 +44,6 @@ let activeRecordId: string | undefined;
 
 const framePath = params.get("framePath") ?? "/side-chat-frame/";
 const frameUrl = new URL(framePath, window.location.origin);
-frameUrl.searchParams.set("mode", "service");
 frameUrl.searchParams.set("workspaceId", params.get("workspaceId") ?? "workspace_e2e");
 frameUrl.searchParams.set("authToken", params.get("authToken") ?? "local-compose-token");
 frameUrl.searchParams.set("apiBaseUrl", params.get("apiBaseUrl") ?? "/side-chat-api");
@@ -74,7 +73,6 @@ const unregisterContextProvider = registerIframeHostContextProvider({
       url: `${window.location.origin}${window.location.pathname}`,
       title: document.title,
       metadata: {
-        mode: "service",
         requestId: request.requestId,
         workspaceId: frameUrl.searchParams.get("workspaceId") ?? "workspace_e2e",
       },

@@ -49,7 +49,7 @@ Use the same principle with nginx, Caddy, Express, or another host: the browser 
 <iframe
   id="side-chat-frame"
   title="Workspace Assistant"
-  src="/side-chat-frame/?mode=service&apiBaseUrl=/side-chat-api&workspaceId=local-workspace&authToken=local-test-token&openControl=host&open=false"
+  src="/side-chat-frame/?apiBaseUrl=/side-chat-api&workspaceId=local-workspace&authToken=local-test-token&openControl=host&open=false"
   allow="clipboard-write"
   referrerpolicy="strict-origin-when-cross-origin"
   hidden
@@ -60,7 +60,6 @@ Harness parameters:
 
 | Parameter           | Meaning                                                                  |
 | ------------------- | ------------------------------------------------------------------------ |
-| `mode=service`      | Use the real service transport. This is the only current mode.           |
 | `apiBaseUrl`        | Same-origin API proxy prefix.                                            |
 | `workspaceId`       | Workspace used by the local identity.                                    |
 | `authToken`         | Local development bearer. Never put a production bearer in a URL.        |
