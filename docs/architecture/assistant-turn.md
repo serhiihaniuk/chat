@@ -11,7 +11,7 @@ Not source of truth for: package ownership ([system-map.md](system-map.md)) or p
 - A new turn acquires per-process admission before writing the user message or turn row.
 - Workflow DevKit owns durable execution and the replayable journal. PostgreSQL owns the durable product snapshot.
 - An exact `requestId` replay reuses the existing turn and Workflow run. It does not reserve capacity or start another run.
-- Every admitted turn reaches one durable terminal state: `completed`, `failed`, `cancelled`, or `timed_out`.
+- Every admitted turn reaches one durable terminal state: `completed`, `blocked`, `failed`, or `cancelled`. Provider timeout is a `failed` turn with the safe error code `provider_timeout`; `timed_out` is the turn telemetry outcome label, not a turn status.
 - Raw client-tool capability secrets remain in the originating browser tab. Only their digest enters durable execution.
 - Provider errors, prompts, private context, tool payloads, and capability secrets never become public error detail.
 
@@ -56,14 +56,15 @@ The widget stores only a validated active-turn cursor and reconciles it against 
 
 ## Terminal projection
 
-The provider final result owns status, finish reason, and usage. The closed Workflow journal owns visible assistant text and reasoning because it is the exact content subscribers saw. Finalization uses the provider aggregate only as a fallback when the journal has no visible deltas.
+The durable Workflow outcome race owns terminal status and the safe error code, including cancellation and provider timeout. Provider output contributes finish reason and usage when available. The closed Workflow journal owns visible assistant text and reasoning because it is the exact content subscribers saw. Finalization uses the provider aggregate only as a fallback when the journal has no visible deltas.
 
 | Outcome                     | Durable result                                                                                                      |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Normal completion           | Assistant projection, usage, finish reason, and `completed` turn state commit together.                             |
+| Content-filtered completion | Visible safe projection, usage, finish reason, and `blocked` turn state commit together.                            |
 | Provider or service failure | Safe terminal metadata and `failed` state commit; private cause remains server-side.                                |
 | User cancellation           | Durable cancel intent aborts provider work or a suspended hook; final state is `cancelled`.                         |
-| Timeout                     | The durable timeout path aborts execution and finalizes `timed_out`.                                                |
+| Provider timeout            | The durable timeout path aborts execution and commits `failed` with safe error code `provider_timeout`.             |
 | Process crash               | Workflow recovers execution; admission-time reconciliation repairs stale product projection before new work begins. |
 
 The post-commit notification contains identity and lifecycle information only. The widget keeps the live session in `settling` until the refreshed conversation snapshot contains the committed terminal projection, preventing a completed answer from disappearing between stream close and history refresh.
@@ -80,8 +81,8 @@ Workflow journal maintenance is a boot-and-interval service lifecycle. It valida
 
 ## Primary implementation anchors
 
-- `apps/side-chat-service/src/http/` — authenticated route adapters and public error mapping.
-- `apps/side-chat-service/src/application/` — policy, admission, product persistence orchestration, and terminal reconciliation.
+- `apps/side-chat-service/src/adapters/http/` — authenticated routes, stream transport, and public error mapping.
+- `apps/side-chat-service/src/application/turn/` — policy, admission orchestration, execution, and terminal reconciliation.
 - `apps/side-chat-service/src/workflows/` — durable chat execution, claim, timeout, tools, approvals, and abort waits.
 - `packages/db/src/` — product repositories, notifications, and Workflow journal maintenance adapters.
 - `packages/side-chat-widget/src/features/workflow-chat/` — live session, replay, terminal projection, and recovery behavior.

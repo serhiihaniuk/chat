@@ -78,13 +78,13 @@ Activity events contain only the identity and state required for conversation-li
 | Native chunk production                   | AI SDK execution inside `apps/side-chat-service` |
 | Durable run journal                       | Workflow DevKit storage in the `workflow` schema |
 | Public chunk profile and scrub vocabulary | `packages/stream-profile`                        |
-| HTTP stream/replay translation            | `apps/side-chat-service/src/http/`               |
+| HTTP stream/replay translation            | `apps/side-chat-service/src/adapters/http/`      |
 | Browser transport and projection          | `packages/side-chat-widget`                      |
 | Activity state and notifications          | `packages/db` plus the service activity route    |
 
 ## Verification anchors
 
 - `packages/stream-profile/src/stream-profile.test.ts`
-- `apps/side-chat-service/src/http/` stream and route tests
+- `apps/side-chat-service/src/adapters/http/` stream and route tests
 - `packages/side-chat-widget/src/entities/workflow-chat/api/workflow-chat-transport.test.ts`
 - `packages/side-chat-widget/src/features/workflow-chat/model/use-workflow-widget-chat.recovery.test.tsx`
