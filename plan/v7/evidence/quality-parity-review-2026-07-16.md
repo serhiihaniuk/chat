@@ -1,8 +1,10 @@
 # Quality Parity Review: side-chat-service vs the Effect Wing
 
-Read this when: judging whether the v7 rewrite holds the quality and readability bar the Effect wing set, or picking up the follow-up actions.
-Source of truth for: the 2026-07-16 parity verdict, its evidence, and the consolidated action list.
+Read this when: reconstructing the quality review performed on 2026-07-16.
+Source of truth for: the historical 2026-07-16 parity verdict and the evidence recorded at that time.
 Not source of truth for: the normative architecture (plan/v7/ARCHITECTURE.md), program status (plan/v7/STATUS.md), or governance rules (ADR 0013).
+
+> **Historical evidence:** Paths, counts, findings, and proposed actions below describe the repository as reviewed on 2026-07-16. Subsequent pre-alpha rewrites have repaired, replaced, or deleted parts of that design. Do not use this file as a current backlog or architecture guide; revalidate any historical finding against the current code, canonical docs, and executable gates.
 
 ## Scope and method
 
@@ -34,15 +36,15 @@ Nothing requires re-architecture. Every finding has a small, mechanical fix.
 
 ## Numbers
 
-| Metric | Legacy wing | New wing |
-|---|---|---|
-| Source lines (service) | 10,693 (+10,228 core/runtime/protocol pkgs) | 13,518 (+483 stream-profile) |
-| Comment density | 18.6% service / 15.4% packages | 5.7% |
-| Test files | 81 | 142 |
-| Test colocation | 100% | ~100% |
-| `vi.mock` calls | 0 | 9 (4 files, all `src/workflows/`) |
-| Unconditional skips | 0 | 0 |
-| Vague test names | 0 | 0 |
+| Metric                 | Legacy wing                                 | New wing                          |
+| ---------------------- | ------------------------------------------- | --------------------------------- |
+| Source lines (service) | 10,693 (+10,228 core/runtime/protocol pkgs) | 13,518 (+483 stream-profile)      |
+| Comment density        | 18.6% service / 15.4% packages              | 5.7%                              |
+| Test files             | 81                                          | 142                               |
+| Test colocation        | 100%                                        | ~100%                             |
+| `vi.mock` calls        | 0                                           | 9 (4 files, all `src/workflows/`) |
+| Unconditional skips    | 0                                           | 0                                 |
+| Vague test names       | 0                                           | 0                                 |
 
 On comment density: the 3× drop is **not** a documentation regression. The readability audit
 found role-explaining headers on nearly every file and zero bad comments; the delta reflects
@@ -153,7 +155,7 @@ exactly in the unguarded corners ADR 0013 warned about.
 
 - `docs/architecture/host-commands.md` — teaches the mechanism the new wing deleted.
 - `docs/architecture/extension-seams.md` — all eight seams point at legacy composition only.
-- `docs/architecture/runtime-port.md` — presents `AiRuntimePort` as *the* engine seam; ADR 0014
+- `docs/architecture/runtime-port.md` — presents `AiRuntimePort` as _the_ engine seam; ADR 0014
   deletes it at cutover.
 - `docs/architecture/effect.md` — omits that `apps/side-chat-service` is Effect-free by ADR 0014.
 - `docs/domain/vocabulary.md` + `apps/docs/app/data/glossary.ts` — legacy-only dictionaries;
@@ -169,7 +171,8 @@ tools, and approvals (today ADR-only plus scattered sections).
 
 ## Consolidated actions, ranked
 
-**Tier 1 — close the enforcement gaps (small edits, permanent payoff):**
+### Tier 1 — close the enforcement gaps
+
 1. Convert the application-layer rule to an allowlist (`ai`, `@side-chat/stream-profile`,
    `#application`, `#domain`, relative) with a sanctioned-exception list for
    `model-provider.ts`'s `LanguageModelV4`; add fixtures.
@@ -178,16 +181,19 @@ tools, and approvals (today ADR-only plus scattered sections).
 3. Treat `testing-harness/` folders as testing-only in the production-graph walk; catch
    relative-path adapter→adapter imports.
 
-**Tier 2 — test-seam repair:**
+### Tier 2 — test-seam repair
+
 4. Replace sibling-module `vi.mock` in the 4 workflow test files with injected dependencies.
 5. Broaden the compiled compatibility suite (server-tool approval round-trip) so the backstop
    matches the weight it carries.
 
-**Tier 3 — code polish batch (one small PR):**
+### Tier 3 — code polish batch
+
 6. The 10 readability fixes (§2), led by `widget-transport-recovery.ts` constants, `isRecord`
    consolidation, `content-filter` unification, and the typed tool-conflict error.
 
-**Tier 4 — docs (fold into Steps 20/21, which already own this):**
+### Tier 4 — docs
+
 7. Two-wing banners or rewrites for `host-commands.md`, `extension-seams.md`,
    `runtime-port.md`, `effect.md` — noting Step 20's legacy deletion resolves parts of these
    by removing their subject; what survives cutover needs rewriting, not banners.
