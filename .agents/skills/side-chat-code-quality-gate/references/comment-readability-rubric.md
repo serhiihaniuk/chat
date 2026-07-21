@@ -19,11 +19,11 @@ Do not comment syntax, repeat a clear name, or defend complexity that should be 
 
 ## Public API and JSDoc standard
 
-Treat exported functions, types, and options as compact reference documentation:
+For an exported API whose caller-visible contract is not evident from its name and types, use comments as compact reference documentation:
 
 1. Open with one direct purpose sentence.
 2. State an important non-goal and name the alternative when useful.
-3. Document every caller-facing option with `@param` or the local equivalent.
+3. Document non-obvious caller constraints with `@param` or the local equivalent; do not repeat self-explanatory names or type properties.
 4. Add defaults, units, ranges, conflicts, and conditional support claims.
 5. Describe observable timing and operational behavior when callers depend on it.
 6. Use inline code for symbols, option names, literals, and alternatives.

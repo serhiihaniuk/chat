@@ -61,11 +61,11 @@ Every kept comment should answer at least one question:
 - What invariant, privacy rule, ordering rule, or failure rule must future edits preserve?
 - What information is intentionally hidden, normalized, or not guaranteed?
 
-Public API and JSDoc comments should read like compact reference documentation:
+When a public API has caller-visible behavior that its name and types do not make clear, use JSDoc as compact reference documentation:
 
 - Start with the API's purpose in one direct sentence.
 - State an important non-goal and name the alternative API when that prevents misuse.
-- Document every caller-facing option with `@param` or an equivalent local form.
+- Document non-obvious caller-facing constraints with `@param` or an equivalent local form. Do not restate self-explanatory names or type properties.
 - Include defaults, units, valid ranges, mutually exclusive options, and provider or model limitations when they affect behavior.
 - Describe conditional guarantees honestly, using phrases such as "if supported" when the implementation cannot promise universal support.
 - Explain lifecycle timing, retries, cancellation, timeouts, observable behavior, and ordering when callers need to rely on them.
@@ -100,7 +100,7 @@ Preserve ownership checks, idempotency, cancellation, timeouts, size limits, rat
 
 **High-frequency regression — magic values and copied helpers. Check this explicitly on every change; it slips through most often.**
 
-- Extract repeated or domain literals — status values, error codes, result codes, reason strings, tuned numbers — into a named `const` at the owning module. Do not inline the same string or number in more than one place, and do not re-type a union inline when the owning module already exports it.
+- Extract repeated semantic or domain literals — status values, error codes, result codes, reason strings, and tuned numbers — into a named `const` at the owning module when the occurrences represent the same concept. Keep incidental local values inline, and do not merge unrelated concepts merely because they share a spelling or number. Do not re-type a union inline when the owning module already exports it.
 - Reuse an existing shared helper or type instead of re-declaring it. A guard, projector, or record-narrowing utility copied into a second file is a defect: import it (for example from `@side-chat/shared`) and delete the copy. When a value set already exists, reuse it — do not stand up a parallel enum-like shape that can drift.
 - Never hardcode another package's contract values. If a client must react to a service error code or status, key off the boundary signal it already owns (HTTP status) or import a shared constant. A duplicated string silently breaks when the owner renames it.
 
