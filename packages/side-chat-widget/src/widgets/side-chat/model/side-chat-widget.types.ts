@@ -3,10 +3,10 @@ import type { ReactNode } from "react";
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
 
 import type { RenderActivityItem, SideChatActivityItem } from "#entities/activity";
-import type { SideChatWidgetPanelSize } from "#entities/panel";
-import type { WidgetThemeId } from "#entities/theme";
 import type { WorkflowChatClient } from "#entities/workflow-chat";
+import type { SideChatWidgetPanelSize } from "#features/panel";
 import type { SideChatWidgetLabels } from "#shared/lib/widget-labels";
+import type { WidgetThemeId } from "#shared/lib/widget-themes";
 
 export type { RenderActivityItem, SideChatActivityItem, SideChatWidgetLabels, WidgetThemeId };
 

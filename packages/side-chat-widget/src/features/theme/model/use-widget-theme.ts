@@ -1,4 +1,8 @@
-import { DEFAULT_WIDGET_THEME_ID, isWidgetThemeId, type WidgetThemeId } from "#entities/theme";
+import {
+  DEFAULT_WIDGET_THEME_ID,
+  isWidgetThemeId,
+  type WidgetThemeId,
+} from "#shared/lib/widget-themes";
 import { useCallback, useState } from "react";
 
 const DEFAULT_STORAGE_KEY = "side-chat-widget:theme";

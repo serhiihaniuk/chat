@@ -7,7 +7,7 @@ import {
   type SetStateAction,
 } from "react";
 
-import type { SideChatWidgetPanelSize } from "#entities/panel";
+import type { SideChatWidgetPanelSize } from "../model/panel-size.js";
 
 export type Anchor = "fixed" | "absolute";
 export type ResizablePanelSize = SideChatWidgetPanelSize;

@@ -3,7 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { SideChatWidgetPanelSize } from "#entities/panel";
+import type { SideChatWidgetPanelSize } from "./panel-size.js";
 import { useWidgetPanelSize, type WidgetPanelSizeController } from "./use-widget-panel-size.js";
 
 let windowRef: Window;

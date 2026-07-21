@@ -1,4 +1,4 @@
-import { isWidgetThemeId, WIDGET_THEME_IDS, type WidgetThemeId } from "#entities/theme";
+import { isWidgetThemeId, WIDGET_THEME_IDS, type WidgetThemeId } from "#shared/lib/widget-themes";
 import { useWidgetLabels } from "#shared/lib/widget-labels";
 import { Button } from "#shared/ui/button";
 import { SettingsPanel } from "#shared/ui/settings";

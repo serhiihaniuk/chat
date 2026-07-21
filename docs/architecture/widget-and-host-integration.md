@@ -82,6 +82,7 @@ The separate activity SSE feed refreshes conversation-list indicators and snapsh
 ## Package boundaries
 
 - Widget business logic stays in the Feature-Sliced layers under `packages/side-chat-widget/src`.
+- Widget slices must own behavior or state; pass-through slices that only rename a shared catalog or a feature-owned value are not architectural boundaries.
 - `packages/side-chat-widget/src/shared/ai/**` is quarantined copied UI code, not a location for Side Chat domain logic.
 - Browser packages remain free of Node-only modules, database clients, Workflow internals, and provider SDK DTOs.
 - Cross-package imports use public package exports.

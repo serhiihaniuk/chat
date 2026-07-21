@@ -2,8 +2,8 @@
 // dark mode. Graphite is the default and carries no root attribute (its tokens live
 // on :root); Sapphire, Sage, and Ocean are token blocks scoped to the widget root
 // via `data-sidechat-theme` (see styles.css). This lives in `shared` (the lowest
-// layer) so every consumer — `entities/theme`, the `shared/ui` settings picker and
-// widget root — reads one list; `entities/theme` re-exports it for product code.
+// layer) so every consumer — the `shared/ui` settings picker, theme feature, and
+// widget root — reads one list directly without a pass-through slice.
 //
 // Adding a theme: see the "Adding a theme" recipe in this package's README. The
 // `widget-themes.test.ts` completeness test fails if a new id is missing either the

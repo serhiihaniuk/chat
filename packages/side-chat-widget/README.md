@@ -48,6 +48,7 @@ It receives no provider, database, approval, or service-internal DTO.
 - Do not import server frameworks, database libraries, provider SDKs, or service internals.
 - Keep AI SDK stream mechanics inside workflow-chat entity/feature slices.
 - Keep rendering separate from transport, execution, and approval authority.
+- Give each Feature-Sliced slice behavior or state that it owns. Import shared catalogs directly from `shared`, and keep feature-specific value types with their feature instead of creating proxy entity slices.
 - Treat `src/shared/ai/**` as quarantined copied visual primitives.
 - Keep documentation scenarios and sample data out of `src/shared/**`.
 - Enumerate every supported package subpath; do not add wildcard exports.

@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { parseJsonRecord } from "@side-chat/shared";
 
-import type { SideChatWidgetPanelSize } from "#entities/panel";
+import type { SideChatWidgetPanelSize } from "./panel-size.js";
 
 const DEFAULT_STORAGE_KEY = "side-chat-widget:panel-size";
 
