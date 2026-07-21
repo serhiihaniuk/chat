@@ -2,11 +2,17 @@ import type {
   ClientToolDispatchIdentity,
   ClientToolDispatchSnapshot,
   ClientToolOutputEnvelope,
+  ClientToolWorkflowStore,
 } from "#application/ports/turn/tools/client-tool-dispatch-store";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import { recordProcessTelemetry } from "#application/telemetry/process-telemetry";
 import { recordTelemetrySafely } from "#application/telemetry/record-telemetry-safely";
-import { createClientToolWorkflowStore } from "#composition/workflow/client-tool-store";
+import {
+  createWorkflowStepStore,
+  withWorkflowStepStore,
+  type ClosableWorkflowStepStore,
+  type WorkflowStepStoreFactory,
+} from "#composition/workflow/workflow-step-store";
 
 export type ClientToolResultEnvelope = ClientToolOutputEnvelope;
 
@@ -30,12 +36,12 @@ export type ClientToolDispatchStepCommand =
     }>;
 
 export type ClientToolDispatchStepDependencies = Readonly<{
-  createStore: typeof createClientToolWorkflowStore;
+  createStore: WorkflowStepStoreFactory<ClientToolWorkflowStore & ClosableWorkflowStepStore>;
   telemetry: Pick<TelemetrySink, "record">;
 }>;
 
 const DEFAULT_DEPENDENCIES: ClientToolDispatchStepDependencies = {
-  createStore: createClientToolWorkflowStore,
+  createStore: createWorkflowStepStore,
   telemetry: { record: recordProcessTelemetry },
 };
 
@@ -46,22 +52,25 @@ export async function runClientToolDispatchStep(
 ): Promise<ClientToolDispatchSnapshot | undefined> {
   "use step";
 
-  const store = dependencies.createStore(command.databaseUrl);
-  let snapshot: ClientToolDispatchSnapshot | undefined;
-  try {
-    if (command.operation === "create") snapshot = await store.create(command.dispatch);
-    else if (command.operation === "read") snapshot = await store.read(command.dispatch);
-    if (command.operation === "timeout") {
-      snapshot = await store.claimTimeout(command.dispatch, command.output);
-    }
-    if (command.operation === "abort") {
-      snapshot = await store.claimAbort(command.dispatch, command.output);
-    }
-  } finally {
-    await store.close();
-  }
+  const snapshot = await withWorkflowStepStore(
+    command.databaseUrl,
+    dependencies.createStore,
+    (store) => executeClientToolDispatch(command, store),
+  );
   recordDispatchTelemetry(command, snapshot, dependencies.telemetry);
   return snapshot;
+}
+
+async function executeClientToolDispatch(
+  command: ClientToolDispatchStepCommand,
+  store: ClientToolWorkflowStore,
+): Promise<ClientToolDispatchSnapshot | undefined> {
+  if (command.operation === "create") return store.create(command.dispatch);
+  if (command.operation === "read") return store.read(command.dispatch);
+  if (command.operation === "timeout") {
+    return store.claimTimeout(command.dispatch, command.output);
+  }
+  return store.claimAbort(command.dispatch, command.output);
 }
 
 function recordDispatchTelemetry(

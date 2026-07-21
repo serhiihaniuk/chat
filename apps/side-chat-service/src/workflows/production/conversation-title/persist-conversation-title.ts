@@ -1,6 +1,9 @@
-import { createPostgresTurnState } from "#adapters/persistence/postgres-turn-state";
 import type { ConversationTitleStore } from "#application/ports/turn/title/conversation-title-store";
 import { initializeProductionWorkflowServices } from "#composition/workflow/production";
+import {
+  createWorkflowStepStore,
+  withWorkflowStepStore,
+} from "#composition/workflow/workflow-step-store";
 
 type TitleWriteInput = Readonly<{
   auth: Parameters<ConversationTitleStore["prepareConversationTitle"]>[0];
@@ -17,11 +20,7 @@ export async function persistConversationTitle(input: TitleWriteInput): Promise<
     throw new Error("Durable title persistence requires configured PostgreSQL storage");
   }
 
-  // A resumed step may run in another process, so it owns and closes its pool.
-  const store = createPostgresTurnState(databaseUrl);
-  try {
-    await store.prepareConversationTitle(input.auth, input.conversationId, input.title);
-  } finally {
-    await store.close();
-  }
+  await withWorkflowStepStore(databaseUrl, createWorkflowStepStore, (store) =>
+    store.prepareConversationTitle(input.auth, input.conversationId, input.title),
+  );
 }

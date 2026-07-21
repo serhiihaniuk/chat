@@ -1,4 +1,7 @@
-import { createPostgresTurnState } from "#adapters/persistence/postgres-turn-state";
+import {
+  createWorkflowStepStore,
+  withWorkflowStepStore,
+} from "#composition/workflow/workflow-step-store";
 import type { TurnRef } from "#domain/turn/turn";
 
 import type { ChatTurnFinalization } from "../outcome/chat-turn-outcome.js";
@@ -19,11 +22,7 @@ type ChatTurnFinalizeInput = Readonly<{
 export async function runChatTurnFinalizeStep(input: ChatTurnFinalizeInput): Promise<void> {
   "use step";
 
-  // A resumed step may run in another process, so it owns and closes its pool.
-  const store = createPostgresTurnState(input.databaseUrl);
-  try {
-    await store.finalize(input.identity, input.finalization);
-  } finally {
-    await store.close();
-  }
+  await withWorkflowStepStore(input.databaseUrl, createWorkflowStepStore, (store) =>
+    store.finalize(input.identity, input.finalization),
+  );
 }

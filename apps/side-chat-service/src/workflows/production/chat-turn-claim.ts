@@ -1,5 +1,8 @@
 import type { TurnClaimDisposition } from "#application/ports/turn/turn-store";
-import { createTurnExecutionClaimStore } from "#composition/workflow/turn-execution-store";
+import {
+  createWorkflowStepStore,
+  withWorkflowStepStore,
+} from "#composition/workflow/workflow-step-store";
 import type { TurnRef } from "#domain/turn/turn";
 
 type ChatTurnClaimInput = Readonly<{
@@ -14,10 +17,7 @@ export async function runChatTurnClaimStep(
 ): Promise<TurnClaimDisposition> {
   "use step";
 
-  const store = createTurnExecutionClaimStore(input.databaseUrl);
-  try {
-    return await store.claimRun(input.identity, input.runId);
-  } finally {
-    await store.close();
-  }
+  return withWorkflowStepStore(input.databaseUrl, createWorkflowStepStore, (store) =>
+    store.claimRun(input.identity, input.runId),
+  );
 }

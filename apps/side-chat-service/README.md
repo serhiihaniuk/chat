@@ -28,7 +28,7 @@ framework package. This application is the deployable reference composition.
 - `src/adapters/providers` — OpenAI/Azure AI SDK adapters behind the app-owned model port.
 - `src/adapters/telemetry` — bounded console/OTLP implementations.
 - `src/config` — declarative provider/model/tool configuration, environment references, validation, and resolved settings.
-- `src/composition` — production/testing route and Workflow wiring, explicitly named local-development seeds, and owned resource lifecycle.
+- `src/composition` — production/testing route and Workflow wiring, explicitly named local-development seeds, and owned resource lifecycle. Workflow composition creates and closes each durable step's process-local product store.
 - `src/workflows` — durable chat, claim, timeout, abort, server-tool, client-tool, approval, and testing workflows.
 - `src/testing` — deterministic doubles reachable only from testing composition.
 

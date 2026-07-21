@@ -29,15 +29,15 @@ const serviceTopLevelDirectories = new Set([
   "testing",
   "workflows",
 ]);
-// Each exception is one pool-owning Node `use step` seam. Keeping exact
-// file/specifier pairs prevents this from becoming a general adapter escape.
+// Each exception is one Node `use step` seam using the composition-owned store
+// lifetime. Exact file/specifier pairs prevent a general composition escape.
 const workflowStepBoundaryImports = new Set([
-  `${sourceRoot}workflows/production/client-tool-dispatch.ts::#composition/workflow/client-tool-store`,
-  `${sourceRoot}workflows/production/chat-turn-claim.ts::#composition/workflow/turn-execution-store`,
-  `${sourceRoot}workflows/production/approvals/tool-approval.ts::#composition/workflow/tool-approval-store`,
-  `${sourceRoot}workflows/production/conversation-title/persist-conversation-title.ts::#adapters/persistence/postgres-turn-state`,
-  `${sourceRoot}workflows/production/conversation-title/record-conversation-title-run.ts::#adapters/persistence/postgres-turn-state`,
-  `${sourceRoot}workflows/production/chat-turn-finalize.ts::#adapters/persistence/postgres-turn-state`,
+  `${sourceRoot}workflows/production/client-tool-dispatch.ts::#composition/workflow/workflow-step-store`,
+  `${sourceRoot}workflows/production/chat-turn-claim.ts::#composition/workflow/workflow-step-store`,
+  `${sourceRoot}workflows/production/approvals/tool-approval.ts::#composition/workflow/workflow-step-store`,
+  `${sourceRoot}workflows/production/conversation-title/persist-conversation-title.ts::#composition/workflow/workflow-step-store`,
+  `${sourceRoot}workflows/production/conversation-title/record-conversation-title-run.ts::#composition/workflow/workflow-step-store`,
+  `${sourceRoot}workflows/production/chat-turn-finalize.ts::#composition/workflow/workflow-step-store`,
 ]);
 const allowedWorkflowDependencies = new Set([
   "ai",

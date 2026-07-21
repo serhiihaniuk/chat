@@ -3,12 +3,18 @@ import {
   type ToolApprovalInput,
   type ToolApprovalIdentity,
   type ToolApprovalSnapshot,
+  type ToolApprovalWorkflowStore,
 } from "#application/ports/turn/tools/tool-approval-store";
 import type { TelemetrySink } from "#application/ports/telemetry-sink";
 import { recordProcessTelemetry } from "#application/telemetry/process-telemetry";
 import { recordTelemetrySafely } from "#application/telemetry/record-telemetry-safely";
 import { createServerToolInputDigest } from "#application/turn/tools/server-tools/server-tool-input-digest";
-import { createToolApprovalWorkflowStore } from "#composition/workflow/tool-approval-store";
+import {
+  createWorkflowStepStore,
+  withWorkflowStepStore,
+  type ClosableWorkflowStepStore,
+  type WorkflowStepStoreFactory,
+} from "#composition/workflow/workflow-step-store";
 
 export type ToolApprovalStepCommand =
   | Readonly<{
@@ -31,12 +37,12 @@ export type ToolApprovalStepCommand =
     }>;
 
 export type ToolApprovalStepDependencies = Readonly<{
-  createStore: typeof createToolApprovalWorkflowStore;
+  createStore: WorkflowStepStoreFactory<ToolApprovalWorkflowStore & ClosableWorkflowStepStore>;
   telemetry: Pick<TelemetrySink, "record">;
 }>;
 
 const DEFAULT_DEPENDENCIES: ToolApprovalStepDependencies = {
-  createStore: createToolApprovalWorkflowStore,
+  createStore: createWorkflowStepStore,
   telemetry: { record: recordProcessTelemetry },
 };
 
@@ -47,26 +53,28 @@ export async function runToolApprovalStep(
 ): Promise<ToolApprovalSnapshot | undefined> {
   "use step";
 
-  const store = dependencies.createStore(command.databaseUrl);
-  let snapshot: ToolApprovalSnapshot | undefined;
-  try {
-    if (command.operation === "expire") {
-      snapshot = await store.expireApproval(command.identity);
-    } else {
-      const inputDigest = await createServerToolInputDigest(command.input);
-      const identity = { ...command.identity, inputDigest };
-      if (command.operation === "read") snapshot = await store.readApproval(identity);
-      else {
-        const requestedAt = new Date().toISOString();
-        const expiresAt = new Date(Date.parse(requestedAt) + command.timeoutMs).toISOString();
-        snapshot = await store.createApproval({ ...identity, requestedAt, expiresAt });
-      }
-    }
-  } finally {
-    await store.close();
-  }
+  const snapshot = await withWorkflowStepStore(
+    command.databaseUrl,
+    dependencies.createStore,
+    (store) => executeToolApproval(command, store),
+  );
   recordApprovalTelemetry(command, snapshot, dependencies.telemetry);
   return snapshot;
+}
+
+async function executeToolApproval(
+  command: ToolApprovalStepCommand,
+  store: ToolApprovalWorkflowStore,
+): Promise<ToolApprovalSnapshot | undefined> {
+  if (command.operation === "expire") return store.expireApproval(command.identity);
+
+  const inputDigest = await createServerToolInputDigest(command.input);
+  const identity = { ...command.identity, inputDigest };
+  if (command.operation === "read") return store.readApproval(identity);
+
+  const requestedAt = new Date().toISOString();
+  const expiresAt = new Date(Date.parse(requestedAt) + command.timeoutMs).toISOString();
+  return store.createApproval({ ...identity, requestedAt, expiresAt });
 }
 
 function recordApprovalTelemetry(

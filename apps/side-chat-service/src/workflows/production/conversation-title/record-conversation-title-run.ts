@@ -1,5 +1,8 @@
-import { createPostgresTurnState } from "#adapters/persistence/postgres-turn-state";
 import { initializeProductionWorkflowServices } from "#composition/workflow/production";
+import {
+  createWorkflowStepStore,
+  withWorkflowStepStore,
+} from "#composition/workflow/workflow-step-store";
 import type { AuthContext } from "@side-chat/side-chat-server";
 
 type TitleRunLinkage = Readonly<{
@@ -19,11 +22,7 @@ export async function recordConversationTitleRun(input: TitleRunLinkage): Promis
   const databaseUrl = initializeProductionWorkflowServices().databaseUrl;
   if (databaseUrl === undefined) return;
 
-  // A resumed step may run in another process, so it owns and closes its pool.
-  const store = createPostgresTurnState(databaseUrl);
-  try {
-    await store.recordConversationTitleRun(input.auth, input.conversationId, input.runId);
-  } finally {
-    await store.close();
-  }
+  await withWorkflowStepStore(databaseUrl, createWorkflowStepStore, (store) =>
+    store.recordConversationTitleRun(input.auth, input.conversationId, input.runId),
+  );
 }
