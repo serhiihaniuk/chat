@@ -1,7 +1,9 @@
 import { isRecord } from "@side-chat/shared";
 import {
   TURN_ACTIVITY_EVENT_TYPE,
+  TURN_ACTIVITY_STATUS,
   TURN_ACTIVITY_SYNC_EVENT_TYPE,
+  isTurnActivityStatus,
   type TurnActivityEvent,
   type TurnActivityStreamEvent,
   type TurnActivitySyncEvent,
@@ -9,13 +11,15 @@ import {
 
 export {
   TURN_ACTIVITY_EVENT_TYPE,
+  TURN_ACTIVITY_STATUS,
   TURN_ACTIVITY_SYNC_EVENT_TYPE,
   type TurnActivityEvent,
   type TurnActivityStreamEvent,
   type TurnActivitySyncEvent,
 };
 
-export const isRunningActivity = (event: TurnActivityEvent): boolean => event.status === "running";
+export const isRunningActivity = (event: TurnActivityEvent): boolean =>
+  event.status === TURN_ACTIVITY_STATUS.RUNNING;
 
 /** Decode one complete advisory SSE frame at the widget trust boundary. */
 export function decodeWorkflowActivitySseFrame(frame: string): readonly TurnActivityStreamEvent[] {
@@ -78,7 +82,7 @@ function parseTurnActivityEvent(value: Record<string, unknown>): TurnActivityEve
     value["type"] !== TURN_ACTIVITY_EVENT_TYPE ||
     typeof value["conversationId"] !== "string" ||
     typeof value["assistantTurnId"] !== "string" ||
-    typeof value["status"] !== "string"
+    !isTurnActivityStatus(value["status"])
   ) {
     throw new TypeError("Malformed activity transition event");
   }

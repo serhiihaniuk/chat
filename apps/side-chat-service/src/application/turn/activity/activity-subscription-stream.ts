@@ -1,6 +1,5 @@
 import {
   TURN_ACTIVITY_KIND,
-  TURN_ACTIVITY_STATUS,
   type TurnActivity,
   type TurnActivitySnapshot,
   type TurnActivityTransition,
@@ -96,7 +95,7 @@ async function resolveActivityEvent(
       kind: TURN_ACTIVITY_KIND.TRANSITION,
       conversationId: notification.conversationId,
       assistantTurnId: notification.assistantTurnId,
-      status: isRunning ? TURN_ACTIVITY_STATUS.RUNNING : TURN_ACTIVITY_STATUS.TERMINAL,
+      running: isRunning,
     };
   } catch {
     // A notification is only an invalidation hint. If durable state cannot be

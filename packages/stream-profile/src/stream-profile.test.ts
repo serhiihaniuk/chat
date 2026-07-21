@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { SIDE_CHAT_MESSAGE_TERMINAL_STATUSES, sideChatMessageMetadataSchema } from "./index.js";
+import {
+  SIDE_CHAT_MESSAGE_TERMINAL_STATUSES,
+  TURN_ACTIVITY_STATUS,
+  isTurnActivityStatus,
+  sideChatMessageMetadataSchema,
+} from "./index.js";
 import {
   SIDE_CHAT_ERROR_CODES,
   SIDE_CHAT_ERROR_VOCABULARY,
@@ -47,6 +52,15 @@ describe("Side Chat error vocabulary", () => {
     for (const code of codes) {
       expect(SIDE_CHAT_ERROR_VOCABULARY[code].retryable).toBe(retryable[code]);
     }
+  });
+});
+
+describe("turn activity status vocabulary", () => {
+  it("recognizes only the closed running and terminal wire values", () => {
+    expect(isTurnActivityStatus(TURN_ACTIVITY_STATUS.RUNNING)).toBe(true);
+    expect(isTurnActivityStatus(TURN_ACTIVITY_STATUS.TERMINAL)).toBe(true);
+    expect(isTurnActivityStatus("completed")).toBe(false);
+    expect(isTurnActivityStatus(undefined)).toBe(false);
   });
 });
 

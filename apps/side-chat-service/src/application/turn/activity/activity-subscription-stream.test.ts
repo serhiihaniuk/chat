@@ -45,7 +45,7 @@ describe("createActivitySubscriptionStream", () => {
       },
     });
     await expect(reader.read()).resolves.toMatchObject({
-      value: { kind: "transition", conversationId: "conversation-live", status: "terminal" },
+      value: { kind: "transition", conversationId: "conversation-live", running: false },
     });
     await reader.cancel();
     await dispatcher.shutdown();
@@ -87,7 +87,7 @@ describe("createActivitySubscriptionStream", () => {
         kind: "transition",
         conversationId: "conversation-1",
         assistantTurnId: "turn-1",
-        status: "terminal",
+        running: false,
       },
     });
     await reader.cancel();

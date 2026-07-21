@@ -65,6 +65,10 @@ Cross-conversation activity is intentionally not part of the chat UI-message str
 - `sidechat.turn-activity-sync` is the initial active-turn snapshot;
 - `sidechat.turn-activity` is a later lifecycle transition.
 
+Transition status is the closed stream-profile value set `running | terminal`.
+The service emits only those values, and the widget rejects unknown status text
+instead of interpreting it as a terminal transition.
+
 Activity events contain only the identity and state required for conversation-list indicators. They do not contain assistant content, reasoning, prompts, tool payloads, or terminal error detail. PostgreSQL `LISTEN`/`NOTIFY` is a wake-up signal; the authoritative state remains in the product tables and is re-read after notification or reconnect.
 
 ## Ownership

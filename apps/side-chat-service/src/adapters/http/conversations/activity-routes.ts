@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import {
   TURN_ACTIVITY_EVENT_TYPE,
+  TURN_ACTIVITY_STATUS,
   TURN_ACTIVITY_SYNC_EVENT_TYPE,
   type TurnActivityStreamEvent,
 } from "@side-chat/stream-profile";
@@ -63,13 +64,15 @@ function encodeActivityEvents(events: ReadableStream<TurnActivity>): ReadableStr
   return events.pipeThrough(
     new TransformStream({
       transform: (event, controller) => {
-        controller.enqueue(encoder.encode(encodeTurnActivitySseEvent(toWireEvent(event))));
+        controller.enqueue(
+          encoder.encode(encodeTurnActivitySseEvent(toTurnActivityWireEvent(event))),
+        );
       },
     }),
   );
 }
 
-function toWireEvent(event: TurnActivity): TurnActivityStreamEvent {
+export function toTurnActivityWireEvent(event: TurnActivity): TurnActivityStreamEvent {
   if (event.kind === TURN_ACTIVITY_KIND.SNAPSHOT) {
     return {
       type: TURN_ACTIVITY_SYNC_EVENT_TYPE,
@@ -80,7 +83,7 @@ function toWireEvent(event: TurnActivity): TurnActivityStreamEvent {
     type: TURN_ACTIVITY_EVENT_TYPE,
     conversationId: event.conversationId,
     assistantTurnId: event.assistantTurnId,
-    status: event.status,
+    status: event.running ? TURN_ACTIVITY_STATUS.RUNNING : TURN_ACTIVITY_STATUS.TERMINAL,
   };
 }
 

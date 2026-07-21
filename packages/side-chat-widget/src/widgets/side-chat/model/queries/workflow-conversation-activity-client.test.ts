@@ -45,4 +45,27 @@ describe("subscribeWorkflowActivity", () => {
       },
     ]);
   });
+
+  it("discards an unknown transition status at the browser boundary", async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            'event: sidechat.turn-activity\ndata: {"type":"sidechat.turn-activity","conversationId":"conversation-1","assistantTurnId":"turn-1","status":"completed"}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    const client: WorkflowChatClient = {
+      baseUrl: "https://service.example",
+      scopeKey: "test-scope",
+      fetch: () => Promise.resolve(new Response(body, { status: 200 })),
+    };
+    const subscription = await subscribeWorkflowActivity(client);
+    const events = [];
+    for await (const event of subscription.events) events.push(event);
+
+    expect(events).toEqual([]);
+  });
 });

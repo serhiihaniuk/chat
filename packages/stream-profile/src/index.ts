@@ -32,8 +32,11 @@ export {
 } from "./reasoning/reasoning-efforts.js";
 export {
   TURN_ACTIVITY_EVENT_TYPE,
+  TURN_ACTIVITY_STATUS,
   TURN_ACTIVITY_SYNC_EVENT_TYPE,
+  isTurnActivityStatus,
   type TurnActivityEvent,
+  type TurnActivityStatus,
   type TurnActivityStreamEvent,
   type TurnActivitySyncEvent,
 } from "./activity/turn-activity.js";
