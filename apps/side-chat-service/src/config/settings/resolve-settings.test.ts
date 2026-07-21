@@ -48,6 +48,17 @@ describe("service settings", () => {
     expect(result.settings.capacity.queueSize).toBe(0);
   });
 
+  it("rejects the scripted provider from the production auth profile", () => {
+    const result = resolveTestSettings(createDefaultConfig({ auth: { profile: "production" } }));
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toContainEqual({
+      path: "models.provider",
+      message: "must use a production provider with the production auth profile",
+    });
+  });
+
   it("reserves explicit Workflow worker headroom above active turns", () => {
     const result = resolveTestSettings(
       createDefaultConfig({

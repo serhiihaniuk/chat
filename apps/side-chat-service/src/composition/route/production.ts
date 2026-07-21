@@ -26,7 +26,6 @@ import { assertAiSdkDefaultProviderIsUnset } from "../lifecycle/ai-sdk-global-gu
 import { startServiceScope, type StartServicePart } from "../lifecycle/resource-scope.js";
 import { createWorkflowReadiness } from "../lifecycle/readiness/workflow-readiness.js";
 import { createServiceAuthorizer } from "#auth/create-service-authorizer";
-import { createProductionModelProvider } from "../providers/production-model-provider.js";
 import {
   configuredModelCatalog,
   publishedModelCatalog,
@@ -50,7 +49,6 @@ export async function startProductionService(
   }> = {},
 ) {
   assertAiSdkDefaultProviderIsUnset();
-  const modelProvider = createProductionModelProvider(settings);
   const modelCatalog = configuredModelCatalog(settings);
   const serverTools = selectRegisteredServerTools(settings.serverTools);
   const authorizer = createServiceAuthorizer(settings.auth);
@@ -144,7 +142,6 @@ export async function startProductionService(
   );
   return {
     app,
-    modelProvider,
     admission,
     scope,
     closeStreams: async () => {

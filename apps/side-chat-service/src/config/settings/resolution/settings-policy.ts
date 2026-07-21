@@ -1,4 +1,6 @@
 import { OPENAI_PROVIDER } from "../../providers/openai-provider-config.js";
+import { SCRIPTED_PROVIDER } from "../../providers/scripted-provider-config.js";
+import { AUTH_PROFILES } from "../../declaration/side-chat-config.js";
 import type { SettingsIssue } from "../setting-readers.js";
 import type { Settings } from "./settings-contract.js";
 
@@ -23,10 +25,24 @@ export function validateSettingsPolicy(
     issues,
   );
   validateActivityStreamCapacity(settings, issues);
+  validateDeploymentProvider(settings, issues);
   validateWorkflowCapacity(settings, issues);
   validateModelCatalog(settings, issues);
   validateServerTools(settings.serverTools, catalogs.registeredServerToolNames, issues);
   validateMaintenanceDatabase(settings, issues);
+}
+
+function validateDeploymentProvider(settings: Settings, issues: SettingsIssue[]): void {
+  if (
+    settings.auth.profile !== AUTH_PROFILES.PRODUCTION ||
+    settings.models.provider !== SCRIPTED_PROVIDER.KIND
+  ) {
+    return;
+  }
+  issues.push({
+    path: "models.provider",
+    message: "must use a production provider with the production auth profile",
+  });
 }
 
 function validateActivityStreamCapacity(settings: Settings, issues: SettingsIssue[]): void {

@@ -68,7 +68,7 @@ Product persistence and Workflow persistence are separate configured connections
 
 ## Loading and validation
 
-Boot resolves the selected declaration against the process environment, validates types and cross-field relationships, freezes the resulting settings, builds safe public catalogs, and only then composes routes and Workflow execution. A missing required secret, invalid number, unknown tool, invalid model/default relationship, or unsupported provider is fatal; the service never silently switches behavior.
+Boot resolves the selected declaration against the process environment, validates types and cross-field relationships, freezes the resulting settings, builds safe public catalogs, and only then composes routes and Workflow execution. A production auth profile cannot select the scripted provider. A missing required secret, invalid number, unknown tool, invalid model/default relationship, or unsupported provider is fatal; the service never silently switches behavior.
 
 ## Rules
 

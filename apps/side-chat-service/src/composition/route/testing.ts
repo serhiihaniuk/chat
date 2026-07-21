@@ -10,7 +10,6 @@ import { createHttpApp, type Readiness } from "#adapters/http/health/health-app"
 import { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
 import type { PostgresTurnState } from "#adapters/persistence/postgres-turn-state";
 import { registerServiceTelemetry } from "#adapters/telemetry/ai-sdk-telemetry";
-import type { ModelProvider } from "#application/ports/model-provider";
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
 import { createTurnActivityDispatcher } from "#application/turn/activity/turn-activity-dispatcher";
 import type { RequestAuthorizer, ServerToolDefinition } from "@side-chat/side-chat-server";
@@ -26,7 +25,6 @@ import { configuredTurnModelCatalog } from "#application/turn/turn-model-policy"
 import { selectRegisteredServerTools } from "#sidechat";
 import { createObservedScrubTransform } from "#application/telemetry/observed-scrub-transform";
 import type { Settings } from "#config/settings/resolve-settings";
-import { scriptedModelProvider } from "#testing/scripted-language-model";
 import { DeterministicTurnAdmission } from "#testing/turn/deterministic-turn-admission";
 import { DeterministicTurnExecution } from "#testing/turn/deterministic-turn-execution";
 
@@ -59,7 +57,6 @@ export async function startTestingService(
   starters: readonly StartServicePart[] = [],
   overrides: Readonly<{
     authorizer?: RequestAuthorizer;
-    modelProvider?: ModelProvider;
     readiness?: Readiness;
     telemetrySink?: TelemetrySink;
     conversationQueries?: ConversationQueryStore;
@@ -87,7 +84,6 @@ export async function startTestingServiceWithConfiguredPersistence(
   starters: readonly StartServicePart[] = [],
   overrides: Readonly<{
     authorizer?: RequestAuthorizer;
-    modelProvider?: ModelProvider;
     readiness?: Readiness;
     telemetrySink?: TelemetrySink;
     conversationQueries?: ConversationQueryStore;
@@ -116,7 +112,6 @@ async function startTestingServiceWithPersistence<
   starters: readonly StartServicePart[],
   overrides: Readonly<{
     authorizer?: RequestAuthorizer;
-    modelProvider?: ModelProvider;
     readiness?: Readiness;
     telemetrySink?: TelemetrySink;
     conversationQueries?: ConversationQueryStore;
@@ -199,7 +194,6 @@ async function startTestingServiceWithPersistence<
   app.route("/", createCompatibilityApp());
   return {
     app,
-    modelProvider: overrides.modelProvider ?? scriptedModelProvider,
     turnExecution,
     turnState,
     admission,

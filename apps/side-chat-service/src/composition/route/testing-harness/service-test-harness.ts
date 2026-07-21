@@ -1,7 +1,6 @@
 import type { Readiness } from "#adapters/http/health/health-app";
 import type { InMemoryTurnState } from "#adapters/persistence/in-memory-turn-state";
 import type { ConversationQueryStore } from "#application/ports/conversation-query-store";
-import type { ModelProvider } from "#application/ports/model-provider";
 import type { RequestAuthorizer, ServerToolDefinition } from "@side-chat/side-chat-server";
 import type { TurnAdmission } from "#application/ports/turn/turn-admission";
 import type { TurnExecution } from "#application/ports/turn/turn-execution";
@@ -23,7 +22,6 @@ const TEST_TOKEN = "local-test-token";
 export async function createServiceTestHarness(
   overrides: {
     readonly authorizer?: RequestAuthorizer;
-    readonly modelProvider?: ModelProvider;
     readonly readiness?: Readiness;
     readonly turnAdmission?: TurnAdmission;
     readonly turnExecution?: TurnExecution;
