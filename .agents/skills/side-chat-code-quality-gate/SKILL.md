@@ -39,8 +39,10 @@ Do not recommend a formatter, linter, test runner, or assertion library that the
 6. Comments are part of the quality gate. Add them when a changed contract, boundary, privacy rule, lifecycle point, failure rule, or invariant would otherwise require hidden context.
 7. Do not over-comment. Delete comments that narrate syntax, repeat a name, defend avoidable complexity, or describe a design that no longer exists.
 8. Preserve behavior and public contracts unless the user explicitly requests a behavior change.
-9. Use a final-state rewrite for unshipped internal shapes. Do not preserve aliases or wrappers solely for history.
+9. Prefer a final-state rewrite for unshipped internal shapes only when it stays inside the user's requested scope. Do not preserve aliases or wrappers solely for history.
 10. Separate confirmed findings from uncertain design questions.
+
+Before a material rewrite, package-boundary change, or subsystem deletion, present the current constraint, target architecture, affected boundaries, deletion and cutover shape, security and data risks, documentation owner, and verification strategy. Do not take that broader branch without the user's direction. Once approved or explicitly requested, update the canonical architecture decision or source-of-truth document before implementation, then re-audit affected documentation after the code changes.
 
 ## Human cognitive-load gate
 
