@@ -40,7 +40,7 @@ Every command below is a root `package.json` script (`package.json:11-31`).
 | -------------------------- | -------------------------------------------------------------- |
 | `npm run format:check`     | Oxfmt would not rewrite any tracked file.                      |
 | `npm run lint:oxlint`      | Oxlint and TypeScript-aware rules pass; warnings fail.         |
-| `npm run lint:custom`      | The 15 custom governance gates pass (see below).               |
+| `npm run lint:custom`      | The 16 custom governance gates pass (see below).               |
 | `npm run lint`             | Both lint layers pass: Oxlint, then custom gates.              |
 | `npm run typecheck`        | Strict TypeScript compiles with no emit.                       |
 | `npm run build`            | The project-reference build (`tsc -b`) succeeds.               |
@@ -76,8 +76,8 @@ npx playwright test workflow-iframe.spec.ts --config test-harness/widget-harness
 
 ## Custom governance gates
 
-`npm run lint:custom` runs `scripts/run-custom-lints.mjs`, which executes 15 gates
-in the fixed order below (`run-custom-lints.mjs:7-22`). The first non-zero exit
+`npm run lint:custom` runs `scripts/run-custom-lints.mjs`, which executes 16 gates
+in the fixed order below (`run-custom-lints.mjs:7-23`). The first non-zero exit
 aborts the run and prints a per-gate repair prompt (`run-custom-lints.mjs:24-37`).
 Run them in this order:
 
@@ -95,11 +95,12 @@ Run them in this order:
 | 10  | `check-undefined-optional-contracts.mjs`   | Optional-contract anti-patterns stay out: removed `optionalField(`, `\|\| undefined` coercion, empty-object optional shapes, untyped repository `kind` probing.                                                                                                                                           |
 | 11  | `check-code-shape.mjs`                     | AST budgets hold: cognitive complexity, nesting, blocks per file, files per directory.                                                                                                                                                                                                                    |
 | 12  | `check-source-governance.mjs`              | Strict TS config, colocated tests, file-size limits, no tracked build output, and no TypeScript assertions, non-null/definite-assignment assertions, explicit `any`, or unchecked TypeScript suppressions in repository-authored code (`as const` remains allowed; ignored Fumadocs output is generated). |
-| 13  | `check-human-readability.mjs`              | Canonical docs exist, each durable `.md` has the required header, and paragraphs stay within the word and character limits.                                                                                                                                                                               |
-| 14  | `check-generated-artifacts.mjs`            | Any file named `*.generated.*` has a registered generator and declares it; hand-maintained schema/OpenAPI files must not claim generated status.                                                                                                                                                          |
-| 15  | `check-governance-fixtures.mjs`            | Each gate fails its known-bad fixture, and every on-disk gate is wired into the runner.                                                                                                                                                                                                                   |
+| 13  | `check-agent-skills.mjs`                   | The canonical quality skill has valid routing metadata, reachable references, and complete clean-context evaluation cases.                                                                                                                                                                                |
+| 14  | `check-human-readability.mjs`              | Canonical docs exist, each durable `.md` has the required header, and paragraphs stay within the word and character limits.                                                                                                                                                                               |
+| 15  | `check-generated-artifacts.mjs`            | Any file named `*.generated.*` has a registered generator and declares it; hand-maintained schema/OpenAPI files must not claim generated status.                                                                                                                                                          |
+| 16  | `check-governance-fixtures.mjs`            | Each gate fails its known-bad fixture, and every on-disk gate is wired into the runner.                                                                                                                                                                                                                   |
 
-Gate 15 is the meta-gate: it proves no gate silently stops running, so add a new
+Gate 16 is the meta-gate: it proves no gate silently stops running, so add a new
 `check-*.mjs` to `run-custom-lints.mjs` or this gate fails.
 
 ## Docker vs. no-Docker

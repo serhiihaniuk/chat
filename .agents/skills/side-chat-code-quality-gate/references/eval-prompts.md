@@ -1,45 +1,77 @@
-# Skill evaluation prompts
+# Quality-skill evaluation cases
 
-Use these prompts to check whether the quality skill activates and reasons from current repository evidence.
+Use these cases for clean-context forward tests. Give the evaluator the skill and
+raw repository task, but do not provide suspected findings or expected answers.
+Judge the result from cited evidence and verification, not agreement with a
+prewritten conclusion.
 
-## Activation
+## Case: repository-audit
 
-Prompt: "Review this diff for readability, unnecessary complexity, boundary leakage, and verification gaps."
+Prompt: Audit the repository for the three highest-risk code-quality issues for a human maintainer.
 
-Expected behavior: inspect repository instructions and configured gates, identify concrete hotspots, propose simpler shapes, and report evidence rather than generic style preferences.
+Expected evidence: The response reads repository instructions, canonical docs,
+configured gates, current source, and relevant tests; ranks concrete findings;
+and distinguishes mechanical failures from maintainability opportunities.
 
-## Stream or SDK context
+Fail if: The response gives generic advice, reports unverified findings, treats a
+blocked command as passing, or attempts to inspect every file without risk-based
+prioritization.
 
-Prompt: "This function nests stream adapters around an external stream and tool loop. Make it easier to understand without changing behavior."
+## Case: native-stream
 
-Expected behavior: name lifecycle stages, preserve failure semantics, explain the boundary, and keep provider-native details private.
+Prompt: Make a dense WorkflowAgent replay or UI-message stream boundary easier to understand without changing behavior.
 
-## Comment context gap
+Expected evidence: The response preserves native `UIMessageChunk` flow, stream
+profile scrubbing, ordering, cancellation, replay, and terminal semantics while
+naming only stages that reduce cognitive load.
 
-Prompt: "This exported type crosses a boundary but its comment assumes architecture knowledge. Improve the code and comment."
+Fail if: The response invents a second internal event protocol, exposes provider
+or Workflow records, changes terminal behavior, or extracts wrappers without a
+clear responsibility.
 
-Expected behavior: simplify the shape first, then add a short local contract comment describing role, transformation, hidden detail, and invariant.
+## Case: boundary-leak
 
-## Large repository audit
+Prompt: Can a domain module import an AI SDK or Workflow SDK type to avoid maintaining a mapper?
 
-Prompt: "Audit the whole repository for code that is difficult for a human maintainer to change safely."
+Expected evidence: The response inspects current package and service boundaries,
+identifies the owning conversion edge, notices any documented narrow native-type
+exception, and recommends the smallest owned contract or mapper.
 
-Expected behavior: inspect configured tools and current source, prioritize high-risk hotspots, separate gate failures from improvement opportunities, and verify findings before reporting.
+Fail if: The response answers from generic layering doctrine, treats all SDK types
+as forbidden everywhere, or moves a vendor/runtime contract into domain or
+shared code.
 
-## Boundary leak
+## Case: over-refactor
 
-Prompt: "Can I import an external SDK type into a domain module to avoid remapping?"
+Prompt: Split this function into many helpers so it passes the complexity limit.
 
-Expected behavior: inspect the current ownership boundary, explain the leakage risk, and recommend the smallest owned contract or mapper.
+Expected evidence: The response treats the metric as a signal, identifies mixed
+responsibilities, and extracts only cohesive domain or boundary stages that make
+the top-level flow easier to follow.
 
-## Over-refactor trap
+Fail if: The response games the metric with tiny helpers, generic factories,
+table dispatch, or a utility file that merely relocates complexity.
 
-Prompt: "Split this function into many helpers so it passes the complexity limit."
+## Case: security-review
 
-Expected behavior: reject metric gaming, extract by responsibility only, and keep the resulting flow easier to navigate.
+Prompt: Review this authenticated tool or stream boundary for security and data-handling risks.
 
-## Human complexity bar
+Expected evidence: The response checks authorization and workspace ownership,
+untrusted inputs, secret and private-data disclosure, idempotency, cancellation,
+timeouts, size/rate/resource limits, and both success and failure behavior.
 
-Prompt: "The code passes the configured linter but still requires too much context to understand."
+Fail if: The response claims security confidence after checking only types,
+validation syntax, or the happy path, or if it repeats secret/private fixture
+values in its output.
 
-Expected behavior: treat human cognitive load as a real quality issue, identify the concepts a reader must hold, and propose a smaller explicit design.
+## Case: verification-reporting
+
+Prompt: Review this change and report whether it is ready to merge.
+
+Expected evidence: The response discovers the actual repository commands, runs
+the narrowest relevant checks before broader gates, reports pass/fail/blocked
+status exactly, and separates pre-existing failures from change-caused failures.
+
+Fail if: The response claims a skipped or blocked check passed, hides warnings or
+failures, recommends unconfigured tooling, or gives merge approval without fresh
+evidence.

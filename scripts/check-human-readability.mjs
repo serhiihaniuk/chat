@@ -47,7 +47,6 @@ validateRequiredDocs();
 validateStaleTruthDocs();
 validateMarkdownDocs();
 validateSourceReadability();
-validateQualitySkill();
 
 printWarnings();
 failIfErrors(errors);
@@ -338,20 +337,6 @@ function hasSourceTargetGrounding(comment) {
   return /\b(source|target|receives|emits|returns|becomes|preserve|invariant|hidden|hides|normalizes|from|to)\b/iu.test(
     comment,
   );
-}
-
-function validateQualitySkill() {
-  const skill = ".agents/skills/side-chat-code-quality-gate/SKILL.md";
-  if (!existsSync(join(root, skill))) {
-    errors.push(`${skill}: canonical code-quality skill is missing.`);
-    return;
-  }
-
-  const source = readFileSync(join(root, skill), "utf8");
-  for (const phrase of ["docs quality", "Documentation quality gate", "final-state rewrite"]) {
-    if (source.includes(phrase)) continue;
-    errors.push(`${skill}: missing readability instruction phrase "${phrase}".`);
-  }
 }
 
 function isIgnoredPath(file) {

@@ -64,6 +64,56 @@ function writeStrictTsconfig(root) {
   });
 }
 
+function writeQualitySkillFixture(
+  root,
+  { extraFrontmatter = "", unreachableReference = false, omitSecurityFailure = false } = {},
+) {
+  const skillDirectory = ".agents/skills/side-chat-code-quality-gate";
+  const frontmatter = [
+    "---",
+    "name: side-chat-code-quality-gate",
+    "description: Review production code quality with repository evidence.",
+    extraFrontmatter,
+    "---",
+  ].filter(Boolean);
+  writeFixtureFile(
+    root,
+    `${skillDirectory}/SKILL.md`,
+    [...frontmatter, "", "# Quality gate", "", "- `references/eval-prompts.md`", ""].join("\n"),
+  );
+
+  const caseIds = [
+    "boundary-leak",
+    "native-stream",
+    "over-refactor",
+    "repository-audit",
+    "security-review",
+    "verification-reporting",
+  ];
+  const cases = caseIds.flatMap((identifier) => {
+    const lines = [
+      `## Case: ${identifier}`,
+      "",
+      "Prompt: Inspect the fixture.",
+      "",
+      "Expected evidence: Report current repository evidence.",
+      "",
+    ];
+    if (!omitSecurityFailure || identifier !== "security-review") {
+      lines.push("Fail if: The response is generic.", "");
+    }
+    return lines;
+  });
+  writeFixtureFile(
+    root,
+    `${skillDirectory}/references/eval-prompts.md`,
+    ["# Evaluation cases", "", ...cases].join("\n"),
+  );
+  if (unreachableReference) {
+    writeFixtureFile(root, `${skillDirectory}/references/orphan.md`, "# Orphan\n");
+  }
+}
+
 expectFailure(
   "hard runtime pin fixture",
   "check-version-pins.mjs",
@@ -194,6 +244,37 @@ expectFailure("human readability dense doc fixture", "check-human-readability.mj
     ].join("\n"),
   );
 });
+
+expectSuccess("quality skill structure fixture", "check-agent-skills.mjs", (root) => {
+  writeQualitySkillFixture(root);
+});
+
+expectFailure(
+  "quality skill frontmatter fixture",
+  "check-agent-skills.mjs",
+  (root) => {
+    writeQualitySkillFixture(root, { extraFrontmatter: "compatibility: legacy" });
+  },
+  "unsupported frontmatter key compatibility",
+);
+
+expectFailure(
+  "quality skill unreachable reference fixture",
+  "check-agent-skills.mjs",
+  (root) => {
+    writeQualitySkillFixture(root, { unreachableReference: true });
+  },
+  "reference is unreachable",
+);
+
+expectFailure(
+  "quality skill incomplete evaluation fixture",
+  "check-agent-skills.mjs",
+  (root) => {
+    writeQualitySkillFixture(root, { omitSecurityFailure: true });
+  },
+  "case security-review is missing Fail if:",
+);
 
 expectFailure(
   "high-load source orientation fixture",
