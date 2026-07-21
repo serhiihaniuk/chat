@@ -101,10 +101,7 @@ export function Composer({
       />
       <div className="flex items-center gap-1.5 px-2 pb-2">
         {toolsMenu}
-        <ContextMeter
-          usedTokens={contextUsedTokens}
-          windowTokens={contextWindowTokens}
-        />
+        <ContextMeter usedTokens={contextUsedTokens} windowTokens={contextWindowTokens} />
         <div className="ml-auto flex min-w-0 items-center gap-1.5">
           {modelSelector}
           <button
@@ -114,11 +111,7 @@ export function Composer({
             onClick={send}
             type="button"
           >
-            {isBusy ? (
-              <Square className="size-3.5 fill-current" />
-            ) : (
-              <ArrowUp className="size-4" />
-            )}
+            {isBusy ? <Square className="size-3.5 fill-current" /> : <ArrowUp className="size-4" />}
           </button>
         </div>
       </div>
@@ -166,11 +159,8 @@ const useRefocusOnIdle = (
 const isBusyStatus = (status: ComposerStatus): boolean =>
   status === "submitted" || status === "streaming";
 
-const canSubmitText = (
-  text: string,
-  disabled: boolean,
-  isBusy: boolean,
-): boolean => text.trim().length > 0 && !disabled && !isBusy;
+const canSubmitText = (text: string, disabled: boolean, isBusy: boolean): boolean =>
+  text.trim().length > 0 && !disabled && !isBusy;
 
 const submitComposerText = ({
   canSend,
@@ -183,8 +173,7 @@ const submitComposerText = ({
   readonly canSend: boolean;
   readonly isBusy: boolean;
   readonly onStop: (() => void) | undefined;
-  readonly onSubmit:
-    ((messageText: string) => Promise<void> | void) | undefined;
+  readonly onSubmit: ((messageText: string) => Promise<void> | void) | undefined;
   readonly setText: (value: string) => void;
   readonly text: string;
 }): void => {

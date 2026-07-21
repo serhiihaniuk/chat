@@ -57,10 +57,7 @@ export function ToolsMenu({
         <Menu.Positioner side="top" align="start" sideOffset={8}>
           <Menu.Popup data-slot="dropdown-menu-content" className="w-menu">
             {hasHostContext ? (
-              <HostContextGroup
-                enabled={includeHostContext}
-                onToggle={onToggleHostContext}
-              />
+              <HostContextGroup enabled={includeHostContext} onToggle={onToggleHostContext} />
             ) : null}
             {hasHostContext && tools.length > 0 ? (
               <Menu.Separator className="my-1.5 h-px bg-border" />
@@ -90,11 +87,7 @@ function ToolCatalogContent({
     return <ToolsGroup tools={tools} onToggleTool={onToggleTool} />;
   }
   if (hasHostContext) return null;
-  return (
-    <div className="px-2.5 py-2 text-sm text-muted-foreground">
-      No tools available
-    </div>
-  );
+  return <div className="px-2.5 py-2 text-sm text-muted-foreground">No tools available</div>;
 }
 
 function HostContextGroup({
@@ -143,9 +136,7 @@ function ToolsGroup({
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate">{tool.label}</span>
             {tool.description ? (
-              <span className="truncate text-2xs text-muted-foreground">
-                {tool.description}
-              </span>
+              <span className="truncate text-2xs text-muted-foreground">{tool.description}</span>
             ) : null}
           </span>
           <MenuToggleIndicator checked={tool.enabled} />
@@ -163,11 +154,7 @@ function ToolsGroup({
  * without changing the parent item, so these spans reuse only the switch's
  * token-driven presentation and let events reach the item.
  */
-function MenuToggleIndicator({
-  checked,
-}: {
-  readonly checked: boolean;
-}): ReactElement {
+function MenuToggleIndicator({ checked }: { readonly checked: boolean }): ReactElement {
   return (
     <span
       aria-hidden="true"

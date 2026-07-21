@@ -26,16 +26,12 @@ export function LivePreview({
   theme,
   tokens,
 }: {
-  readonly onResolvedValuesChange: (
-    values: ReadonlyMap<CssTokenName, string>,
-  ) => void;
+  readonly onResolvedValuesChange: (values: ReadonlyMap<CssTokenName, string>) => void;
   readonly overrides: TokenOverrides;
   readonly theme: string;
   readonly tokens: readonly CssToken[];
 }): ReactElement {
-  const [scenario, setScenario] = useState<PreviewScenario>(
-    PREVIEW_SCENARIOS.CHAT,
-  );
+  const [scenario, setScenario] = useState<PreviewScenario>(PREVIEW_SCENARIOS.CHAT);
   const style = useMemo(() => tokenStyle(overrides), [overrides]);
   const previewRevision = useMemo(
     () => `${theme}:${JSON.stringify([...overrides])}`,
@@ -49,11 +45,7 @@ export function LivePreview({
           <p className="docs-preview-kicker">Live preview</p>
           <h2>Real widget components</h2>
         </div>
-        <div
-          className="docs-segmented-control"
-          role="group"
-          aria-label="Preview scenario"
-        >
+        <div className="docs-segmented-control" role="group" aria-label="Preview scenario">
           {Object.values(PREVIEW_SCENARIOS).map((option) => (
             <button
               aria-pressed={scenario === option}
@@ -101,12 +93,7 @@ function ResolvedValueProbe({
     if (!root) return;
     const computed = getComputedStyle(root);
     onChange(
-      new Map(
-        tokens.map((token) => [
-          token.name,
-          computed.getPropertyValue(token.name).trim(),
-        ]),
-      ),
+      new Map(tokens.map((token) => [token.name, computed.getPropertyValue(token.name).trim()])),
     );
   }, [onChange, revision, tokens]);
   return <span aria-hidden="true" className="docs-token-probe" ref={probe} />;

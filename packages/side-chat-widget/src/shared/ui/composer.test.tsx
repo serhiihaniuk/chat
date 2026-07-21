@@ -139,14 +139,8 @@ beforeEach(() => {
   // ambient lib.dom Event type.
   assignGlobal("Event", windowRef.Event);
   assignGlobal("getComputedStyle", windowRef.getComputedStyle.bind(windowRef));
-  assignGlobal(
-    "requestAnimationFrame",
-    windowRef.requestAnimationFrame.bind(windowRef),
-  );
-  assignGlobal(
-    "cancelAnimationFrame",
-    windowRef.cancelAnimationFrame.bind(windowRef),
-  );
+  assignGlobal("requestAnimationFrame", windowRef.requestAnimationFrame.bind(windowRef));
+  assignGlobal("cancelAnimationFrame", windowRef.cancelAnimationFrame.bind(windowRef));
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -193,9 +187,7 @@ const typeMessage = (value: string): void => {
 };
 
 const clickSend = (): void => {
-  const button = container.querySelector<HTMLElement>(
-    '[aria-label="Send message"]',
-  );
+  const button = container.querySelector<HTMLElement>('[aria-label="Send message"]');
   if (button === null) throw new Error("Expected a send button.");
   act(() => button.click());
 };
@@ -204,9 +196,7 @@ describe("Composer field wiring", () => {
   it("stays editable while a turn streams so the next message can be drafted", () => {
     renderComposer({ status: "streaming" });
     expect(findTextarea().disabled).toBe(false);
-    expect(
-      container.querySelector('[aria-label="Stop generating"]'),
-    ).not.toBeNull();
+    expect(container.querySelector('[aria-label="Stop generating"]')).not.toBeNull();
     expect(container.querySelector('[aria-label="Send message"]')).toBeNull();
   });
 

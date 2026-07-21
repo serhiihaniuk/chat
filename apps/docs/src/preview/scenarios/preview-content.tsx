@@ -7,10 +7,7 @@ import { MessageActions } from "@side-chat/side-chat-widget/ui/message-actions";
 import { Reasoning } from "@side-chat/side-chat-widget/ui/reasoning";
 
 import { ChatPreview } from "./chat-preview.js";
-import {
-  PreviewModelSelector,
-  PreviewToolsMenu,
-} from "./preview-composer-controls.js";
+import { PreviewModelSelector, PreviewToolsMenu } from "./preview-composer-controls.js";
 import { SettingsPreview } from "./settings-preview.js";
 
 export const PREVIEW_SCENARIOS = {
@@ -19,14 +16,9 @@ export const PREVIEW_SCENARIOS = {
   SETTINGS: "settings",
 } as const;
 
-export type PreviewScenario =
-  (typeof PREVIEW_SCENARIOS)[keyof typeof PREVIEW_SCENARIOS];
+export type PreviewScenario = (typeof PREVIEW_SCENARIOS)[keyof typeof PREVIEW_SCENARIOS];
 
-export function PreviewContent({
-  scenario,
-}: {
-  readonly scenario: PreviewScenario;
-}): ReactElement {
+export function PreviewContent({ scenario }: { readonly scenario: PreviewScenario }): ReactElement {
   if (scenario === PREVIEW_SCENARIOS.SETTINGS) return <SettingsPreview />;
   if (scenario === PREVIEW_SCENARIOS.COMPONENTS) return <ComponentGallery />;
   return <ChatPreview />;
@@ -68,14 +60,8 @@ function ComponentGallery(): ReactElement {
       </section>
       <section>
         <span className="docs-gallery-label">Status and actions</span>
-        <ErrorNotice
-          message="The request could not be completed."
-          onRetry={() => undefined}
-        />
-        <MessageActions
-          copyText="A sample assistant response."
-          onRetry={() => undefined}
-        />
+        <ErrorNotice message="The request could not be completed." onRetry={() => undefined} />
+        <MessageActions copyText="A sample assistant response." onRetry={() => undefined} />
       </section>
       <section>
         <span className="docs-gallery-label">Composer</span>

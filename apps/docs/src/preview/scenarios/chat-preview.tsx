@@ -9,10 +9,7 @@ import { ConversationItem } from "@side-chat/side-chat-widget/ui/conversation-it
 import { Message } from "@side-chat/side-chat-widget/ui/message";
 import { ScrollArea } from "@side-chat/side-chat-widget/ui/scroll-area";
 
-import {
-  PreviewModelSelector,
-  PreviewToolsMenu,
-} from "./preview-composer-controls.js";
+import { PreviewModelSelector, PreviewToolsMenu } from "./preview-composer-controls.js";
 
 type ConversationPreview = {
   readonly active?: boolean;
@@ -94,11 +91,7 @@ export function ChatPreview(): ReactElement {
         <div className="flex-1 overflow-y-auto px-4 py-4">
           <div className="mx-auto flex max-w-measure-message flex-col gap-4">
             {PREVIEW_MESSAGES.map((message) => (
-              <Message
-                key={message.id}
-                role={message.role}
-                text={message.text}
-              />
+              <Message key={message.id} role={message.role} text={message.text} />
             ))}
           </div>
         </div>
@@ -129,10 +122,7 @@ function ConversationRail(): ReactElement {
       </div>
       <div className="min-h-0 flex-1">
         <ScrollArea className="px-2 pb-2">
-          <div
-            className="flex flex-col"
-            style={{ gap: "var(--rail-group-gap)" }}
-          >
+          <div className="flex flex-col" style={{ gap: "var(--rail-group-gap)" }}>
             {CONVERSATION_BUCKETS.map((bucket) => (
               <section key={bucket.id} className="flex flex-col gap-px">
                 <div className="px-2 pt-3 pb-1.5 text-2xs font-bold uppercase tracking-wider text-muted-foreground">

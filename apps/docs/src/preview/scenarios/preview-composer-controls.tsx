@@ -2,14 +2,8 @@ import { useState, type ReactElement } from "react";
 
 import { Brain, Sparkles } from "lucide-react";
 
-import {
-  ModelSelector,
-  type Model,
-} from "@side-chat/side-chat-widget/ui/model-selector";
-import {
-  ToolsMenu,
-  type ToolMenuItem,
-} from "@side-chat/side-chat-widget/ui/tools-menu";
+import { ModelSelector, type Model } from "@side-chat/side-chat-widget/ui/model-selector";
+import { ToolsMenu, type ToolMenuItem } from "@side-chat/side-chat-widget/ui/tools-menu";
 
 const PREVIEW_MODELS: readonly Model[] = [
   {
@@ -39,9 +33,7 @@ export function PreviewToolsMenu(): ReactElement {
   const [tools, setTools] = useState(INITIAL_PREVIEW_TOOLS);
   const toggleTool = (name: string): void => {
     setTools((current) =>
-      current.map((tool) =>
-        tool.name === name ? { ...tool, enabled: !tool.enabled } : tool,
-      ),
+      current.map((tool) => (tool.name === name ? { ...tool, enabled: !tool.enabled } : tool)),
     );
   };
 
