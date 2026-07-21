@@ -1,69 +1,81 @@
-# Stream and SDK readability
+# Native stream and SDK readability
 
-Use this reference when a boundary combines streams, an AI SDK, a provider adapter, tools, or protocol mapping. Discover the repository's actual module names and public contracts before applying these patterns.
+Use this reference when code combines AI SDK streams, `WorkflowAgent`, provider
+adapters, tools, journal replay, or public stream handling. Read the current
+stream and package-boundary documents before applying these patterns.
 
-## Local mental model
+## Side Chat stream model
 
-A reader should be able to reconstruct the local path without simulating the entire application:
+Side Chat keeps the AI SDK UI-message stream as its public chat contract. It does
+not insert a repository-owned event vocabulary between the Workflow journal and
+the browser.
 
-```txt
-prepare the allowed request
--> resolve the execution adapter and tools
--> open the provider or external stream
--> normalize external parts into internal events
--> map internal events into the public contract
--> render or persist the public result
-```
-
-If code or comments force the reader to infer this chain from vague terms, improve names, extract a boundary step, or add a short context bridge comment.
-
-## Failure model
-
-Keep expected validation, provider, persistence, policy, and tool failures distinct from unexpected failures. Boundary handlers may normalize unexpected failures as a safety net, but they must not make ordinary failure semantics invisible.
-
-A useful local comment says where conversion happens and what representation downstream callers receive.
-
-## External-to-internal mapping
-
-Keep provider-native or framework-native parts inside the adapter that owns them. Normalize them once into the repository's stable internal event or domain shape.
-
-Preserve the stable identity, sequence, ordering, cancellation, and terminal-state rules defined by the public contract. Do not invent a second mapper in a downstream package.
-
-For a multi-part external operation, a generic mapping table might be:
+The local path is:
 
 ```txt
-external-start  -> one running public activity with empty input
-external-call   -> the same activity with completed input
-external-result -> the same activity completed with safe output
-external-error  -> the same activity failed with a public error code
+validate and admit the request
+-> reconstruct the provider and WorkflowAgent in the Workflow realm
+-> journal native model-call parts
+-> project journal parts to native UIMessageChunk values
+-> validate and scrub the stream profile
+-> encode the safe chunks as SSE
+-> fold native UIMessage values into widget-owned message and activity state
 ```
 
-The operation id is the stable identity. Several external parts may update one public activity; creating a new id for every part causes duplicate rows.
+Provider DTOs, Workflow records, database rows, prompts, and raw errors stay
+inside their owning boundaries. Native `UIMessage` and `UIMessageChunk` types may
+cross only the explicit application, Workflow/HTTP, and widget stream seams
+documented by the repository.
 
-## Dense pipeline smell
+## Make boundary stages visible
 
-Flag one expression that combines request preparation, adapter selection, tool selection, stream opening, external-part mapping, and public-protocol mapping.
-
-Prefer named steps:
+Name the stages that change representation or establish a guarantee. For
+example, a replay edge may have this readable shape:
 
 ```ts
-const execution = createExecution(state, request)
-const externalStream = openExternalStream(execution)
-const internalEvents = normalizeExternalStream(externalStream)
+const journalParts = readDurableJournalParts(replay)
+const publicChunks = projectJournalPartsToUiMessageChunks(journalParts)
+const safeChunks = scrubUiMessageChunks(publicChunks)
 
-return mapToPublicEvents(internalEvents)
+return encodeUiMessageStream(safeChunks)
 ```
 
-Use the shape only when it reduces cognitive load more than it increases navigation.
+These names illustrate responsibilities, not repository APIs. Verify the actual
+helpers before editing. Do not add a second internal event or chat-envelope type
+merely to reproduce this shape.
 
-Avoid helper names such as `handle`, `process`, `map`, or `run` when the boundary can be named directly, for example `normalizeExternalEvents` or `mapActivityToPublicEvent`.
+Keep provider selection, agent construction, journal reading, public projection,
+safety scrubbing, transport encoding, and widget rendering in the modules that
+own those decisions. Split a dense expression only when the named stages reduce
+context load more than they add navigation.
+
+## Failure and lifecycle model
+
+Keep validation, authorization, provider, tool, persistence, replay, transport,
+and widget failures distinct until the boundary that owns public normalization.
+A public scrubber may replace private errors with stable safe vocabulary, but it
+must preserve terminal discipline and must not hide ordinary failure semantics
+from the owning layer.
+
+Make ordering, cancellation, replay position, terminal state, and cleanup visible
+where callers depend on them. Keep byte-level keepalive separate from application
+events, and keep advisory turn-activity SSE separate from transcript authority.
+
+## Widget activity projection
+
+Tool and reasoning activity is a widget-owned view of native message parts. If
+several native parts update one visible activity, preserve the stable native tool
+or part identity used by the widget reducer. Do not introduce a service-owned
+activity protocol or generate a new identity for every update.
 
 ## Review questions
 
-1. Which module owns this decision?
-2. What representation enters this function?
-3. What representation leaves it?
-4. Which identity, order, cancellation, and failure rules are preserved?
-5. Which external details must stay private?
-6. Is the expected failure behavior visible?
-7. Would a reader outside the current change understand the local sequence?
+1. Which module owns each representation change?
+2. Does the path retain native `UIMessageChunk` values instead of inventing a
+   second event vocabulary?
+3. Which provider, Workflow, persistence, or private-content details stay hidden?
+4. Where are validation and safe error normalization applied exactly once?
+5. Are ordering, replay, cancellation, terminal state, and cleanup visible?
+6. Does widget activity remain a projection rather than transcript authority?
+7. Would a maintainer understand the local sequence without reconstructing the
+   entire Workflow and transport architecture?
