@@ -20,13 +20,11 @@ import {
 } from "react";
 
 import { Field } from "@base-ui/react/field";
-import { ArrowUp, Brain, Sparkles, Square } from "lucide-react";
+import { ArrowUp, Square } from "lucide-react";
 
 import { cn } from "#shared/lib/cn";
 import { useWidgetLabels } from "#shared/lib/widget-labels";
 import { ContextMeter } from "#shared/ui/context-meter";
-import { ModelSelector, type Model } from "#shared/ui/model-selector";
-import { ToolsMenu } from "#shared/ui/tools-menu";
 
 export type ComposerStatus = "idle" | "submitted" | "streaming" | "error";
 
@@ -36,8 +34,8 @@ export type ComposerProps = {
   readonly contextWindowTokens?: number | undefined;
   readonly defaultValue?: string;
   readonly disabled?: boolean;
-  readonly modelSelector?: ReactNode;
-  readonly toolsMenu?: ReactNode;
+  readonly modelSelector: ReactNode;
+  readonly toolsMenu: ReactNode;
   readonly onStop?: () => void;
   readonly onSubmit?: (messageText: string) => Promise<void> | void;
   readonly onValueChange?: (value: string) => void;
@@ -50,22 +48,6 @@ export type ComposerProps = {
   readonly status?: ComposerStatus;
   readonly value?: string;
 };
-
-/** Sample models for the self-contained demo. Live callers pass `modelSelector`. */
-const MODELS: readonly Model[] = [
-  {
-    id: "sonnet",
-    name: "Claude Sonnet",
-    desc: "Balanced - everyday tasks",
-    icon: <Sparkles className="size-4" />,
-  },
-  {
-    id: "opus",
-    name: "Claude Opus",
-    desc: "Deepest reasoning, slower",
-    icon: <Brain className="size-4" />,
-  },
-];
 
 export function Composer({
   className,
@@ -86,11 +68,13 @@ export function Composer({
   value,
 }: ComposerProps): ReactElement {
   const labels = useWidgetLabels();
-  const { setText, text } = useComposerText({ defaultValue, onValueChange, value });
+  const { setText, text } = useComposerText({
+    defaultValue,
+    onValueChange,
+    value,
+  });
   const isBusy = isBusyStatus(status);
   const canSend = canSubmitText(text, disabled, isBusy);
-  const selector = resolveModelSelector(modelSelector);
-  const tools = resolveToolsMenu(toolsMenu);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useRefocusOnIdle(isBusy, textareaRef);
   const send = (): void => {
@@ -116,10 +100,13 @@ export function Composer({
         value={text}
       />
       <div className="flex items-center gap-1.5 px-2 pb-2">
-        {tools}
-        <ContextMeter usedTokens={contextUsedTokens} windowTokens={contextWindowTokens} />
+        {toolsMenu}
+        <ContextMeter
+          usedTokens={contextUsedTokens}
+          windowTokens={contextWindowTokens}
+        />
         <div className="ml-auto flex min-w-0 items-center gap-1.5">
-          {selector}
+          {modelSelector}
           <button
             aria-label={isBusy ? stopLabel : sendLabel}
             className="sc-send"
@@ -127,7 +114,11 @@ export function Composer({
             onClick={send}
             type="button"
           >
-            {isBusy ? <Square className="size-3.5 fill-current" /> : <ArrowUp className="size-4" />}
+            {isBusy ? (
+              <Square className="size-3.5 fill-current" />
+            ) : (
+              <ArrowUp className="size-4" />
+            )}
           </button>
         </div>
       </div>
@@ -175,14 +166,11 @@ const useRefocusOnIdle = (
 const isBusyStatus = (status: ComposerStatus): boolean =>
   status === "submitted" || status === "streaming";
 
-const canSubmitText = (text: string, disabled: boolean, isBusy: boolean): boolean =>
-  text.trim().length > 0 && !disabled && !isBusy;
-
-const resolveModelSelector = (modelSelector: ReactNode | undefined): ReactNode =>
-  modelSelector === undefined ? <ModelSelector models={MODELS} /> : modelSelector;
-
-const resolveToolsMenu = (toolsMenu: ReactNode | undefined): ReactNode =>
-  toolsMenu === undefined ? <ToolsMenu /> : toolsMenu;
+const canSubmitText = (
+  text: string,
+  disabled: boolean,
+  isBusy: boolean,
+): boolean => text.trim().length > 0 && !disabled && !isBusy;
 
 const submitComposerText = ({
   canSend,
@@ -195,7 +183,8 @@ const submitComposerText = ({
   readonly canSend: boolean;
   readonly isBusy: boolean;
   readonly onStop: (() => void) | undefined;
-  readonly onSubmit: ((messageText: string) => Promise<void> | void) | undefined;
+  readonly onSubmit:
+    ((messageText: string) => Promise<void> | void) | undefined;
   readonly setText: (value: string) => void;
   readonly text: string;
 }): void => {

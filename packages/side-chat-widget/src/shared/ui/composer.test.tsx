@@ -39,21 +39,41 @@ describe("submitOnEnter policy", () => {
   it("does not send while an IME composition is active", () => {
     let sent = 0;
     const [composing] = enterEvent({ nativeEvent: { isComposing: true } });
-    submitOnEnter({ event: composing, isBusy: false, sendOnEnter: true, send: () => (sent += 1) });
+    submitOnEnter({
+      event: composing,
+      isBusy: false,
+      sendOnEnter: true,
+      send: () => (sent += 1),
+    });
     const [legacy] = enterEvent({ keyCode: 229 });
-    submitOnEnter({ event: legacy, isBusy: false, sendOnEnter: true, send: () => (sent += 1) });
+    submitOnEnter({
+      event: legacy,
+      isBusy: false,
+      sendOnEnter: true,
+      send: () => (sent += 1),
+    });
     expect(sent).toBe(0);
   });
 
   it("sends on Enter and inserts a newline on Shift+Enter by default", () => {
     let sent = 0;
     const [shift, shiftPrevented] = enterEvent({ shiftKey: true });
-    submitOnEnter({ event: shift, isBusy: false, sendOnEnter: true, send: () => (sent += 1) });
+    submitOnEnter({
+      event: shift,
+      isBusy: false,
+      sendOnEnter: true,
+      send: () => (sent += 1),
+    });
     expect(sent).toBe(0);
     expect(shiftPrevented()).toBe(false); // newline: default not prevented
 
     const [plain, plainPrevented] = enterEvent();
-    submitOnEnter({ event: plain, isBusy: false, sendOnEnter: true, send: () => (sent += 1) });
+    submitOnEnter({
+      event: plain,
+      isBusy: false,
+      sendOnEnter: true,
+      send: () => (sent += 1),
+    });
     expect(sent).toBe(1);
     expect(plainPrevented()).toBe(true);
   });
@@ -61,20 +81,40 @@ describe("submitOnEnter policy", () => {
   it("requires Ctrl/Cmd+Enter to send when sendOnEnter is off", () => {
     let sent = 0;
     const [bare] = enterEvent();
-    submitOnEnter({ event: bare, isBusy: false, sendOnEnter: false, send: () => (sent += 1) });
+    submitOnEnter({
+      event: bare,
+      isBusy: false,
+      sendOnEnter: false,
+      send: () => (sent += 1),
+    });
     expect(sent).toBe(0);
 
     const [ctrl] = enterEvent({ ctrlKey: true });
-    submitOnEnter({ event: ctrl, isBusy: false, sendOnEnter: false, send: () => (sent += 1) });
+    submitOnEnter({
+      event: ctrl,
+      isBusy: false,
+      sendOnEnter: false,
+      send: () => (sent += 1),
+    });
     const [meta] = enterEvent({ metaKey: true });
-    submitOnEnter({ event: meta, isBusy: false, sendOnEnter: false, send: () => (sent += 1) });
+    submitOnEnter({
+      event: meta,
+      isBusy: false,
+      sendOnEnter: false,
+      send: () => (sent += 1),
+    });
     expect(sent).toBe(2);
   });
 
   it("neither sends nor stops on Enter while a turn streams", () => {
     let sent = 0;
     const [event, prevented] = enterEvent();
-    submitOnEnter({ event, isBusy: true, sendOnEnter: true, send: () => (sent += 1) });
+    submitOnEnter({
+      event,
+      isBusy: true,
+      sendOnEnter: true,
+      send: () => (sent += 1),
+    });
     expect(sent).toBe(0);
     expect(prevented()).toBe(false); // newline, not a stop
   });
@@ -99,8 +139,14 @@ beforeEach(() => {
   // ambient lib.dom Event type.
   assignGlobal("Event", windowRef.Event);
   assignGlobal("getComputedStyle", windowRef.getComputedStyle.bind(windowRef));
-  assignGlobal("requestAnimationFrame", windowRef.requestAnimationFrame.bind(windowRef));
-  assignGlobal("cancelAnimationFrame", windowRef.cancelAnimationFrame.bind(windowRef));
+  assignGlobal(
+    "requestAnimationFrame",
+    windowRef.requestAnimationFrame.bind(windowRef),
+  );
+  assignGlobal(
+    "cancelAnimationFrame",
+    windowRef.cancelAnimationFrame.bind(windowRef),
+  );
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -112,14 +158,23 @@ afterEach(() => {
 });
 
 const assignGlobal = (name: string, value: unknown): void => {
-  Object.defineProperty(globalThis, name, { configurable: true, value, writable: true });
+  Object.defineProperty(globalThis, name, {
+    configurable: true,
+    value,
+    writable: true,
+  });
 };
 
-// The composer renders its own ModelSelector + ToolsMenu by default; these tests only
-// exercise the field + send, so pass null slots to keep the tree light.
+// These tests exercise the field and send policy, so the required control slots are empty.
 const renderComposer = (props: Partial<ComposerProps>): void => {
   act(() =>
-    root.render(createElement(Composer, { modelSelector: null, toolsMenu: null, ...props })),
+    root.render(
+      createElement(Composer, {
+        modelSelector: null,
+        toolsMenu: null,
+        ...props,
+      }),
+    ),
   );
 };
 
@@ -138,7 +193,9 @@ const typeMessage = (value: string): void => {
 };
 
 const clickSend = (): void => {
-  const button = container.querySelector<HTMLElement>('[aria-label="Send message"]');
+  const button = container.querySelector<HTMLElement>(
+    '[aria-label="Send message"]',
+  );
   if (button === null) throw new Error("Expected a send button.");
   act(() => button.click());
 };
@@ -147,7 +204,9 @@ describe("Composer field wiring", () => {
   it("stays editable while a turn streams so the next message can be drafted", () => {
     renderComposer({ status: "streaming" });
     expect(findTextarea().disabled).toBe(false);
-    expect(container.querySelector('[aria-label="Stop generating"]')).not.toBeNull();
+    expect(
+      container.querySelector('[aria-label="Stop generating"]'),
+    ).not.toBeNull();
     expect(container.querySelector('[aria-label="Send message"]')).toBeNull();
   });
 

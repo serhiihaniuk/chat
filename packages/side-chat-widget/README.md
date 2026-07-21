@@ -17,7 +17,8 @@ The package root is the product integration surface. The enumerated `./ui/...`
 subpaths expose reusable visual primitives only for the local design-token docs
 app. They are deliberately explicit so new shared files do not become public by
 accident. Preview fixtures, sample conversations, and showcase composition belong
-to `apps/docs`, not to this package.
+to `apps/docs`, not to this package. Stateful primitives require their owning
+feature or preview to provide model, tool, and interaction inputs explicitly.
 
 The widget owns:
 

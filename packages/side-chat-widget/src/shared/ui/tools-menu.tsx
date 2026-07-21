@@ -1,18 +1,17 @@
 /**
  * Render the composer's "+" menu.
  *
- * In the live widget, `tools` and `onToggleTool` control which backend tools
- * are enabled for the next turn. Without them, the component renders its
- * self-contained demo rows.
+ * `tools` and `onToggleTool` control which backend tools are enabled for the
+ * next turn. The owning feature supplies all state and behavior.
  *
  * Base UI owns menu state and keyboard behavior. The CSS file owns the popup
  * surface and state styles, so this component only composes menu parts and
  * supplies the tool data.
  */
-import { useState, type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Menu } from "@base-ui/react/menu";
-import { Check, FileText, Globe, Paperclip, Plus } from "lucide-react";
+import { FileText, Globe, Plus } from "lucide-react";
 
 import { usePortalContainer } from "#shared/ui/widget-root";
 
@@ -29,40 +28,20 @@ export type ToolMenuItem = {
   readonly enabled: boolean;
 };
 
-const CONTEXT_SCOPES = {
-  PAGE: "page",
-  SELECTION: "selection",
-  WORKSPACE: "workspace",
-} as const;
-
-type Scope = (typeof CONTEXT_SCOPES)[keyof typeof CONTEXT_SCOPES];
-
-const SAMPLE_TOOLS: readonly ToolMenuItem[] = [
-  { name: "web-search", label: "Web search", enabled: true },
-  { name: "code-tools", label: "Code tools", enabled: false },
-];
-
-const SCOPES: ReadonlyArray<{ value: Scope; label: string }> = [
-  { value: CONTEXT_SCOPES.PAGE, label: "This page" },
-  { value: CONTEXT_SCOPES.SELECTION, label: "Selection" },
-  { value: CONTEXT_SCOPES.WORKSPACE, label: "Whole workspace" },
-];
+export type ToolsMenuProps = {
+  readonly includeHostContext?: boolean | undefined;
+  readonly onToggleHostContext?: (() => void) | undefined;
+  readonly onToggleTool: (name: string) => void;
+  readonly tools: readonly ToolMenuItem[];
+};
 
 export function ToolsMenu({
   includeHostContext = false,
   onToggleHostContext,
-  tools = SAMPLE_TOOLS,
   onToggleTool,
-}: {
-  readonly includeHostContext?: boolean | undefined;
-  readonly onToggleHostContext?: (() => void) | undefined;
-  readonly tools?: readonly ToolMenuItem[];
-  readonly onToggleTool?: ((name: string) => void) | undefined;
-} = {}): ReactElement {
+  tools,
+}: ToolsMenuProps): ReactElement {
   const container = usePortalContainer();
-  // A handler means a live host owns at least one menu section. Without one this
-  // is the design demo, which also shows attach-file and context-scope rows.
-  const isLive = onToggleTool !== undefined || onToggleHostContext !== undefined;
   const hasHostContext = onToggleHostContext !== undefined;
 
   return (
@@ -77,35 +56,20 @@ export function ToolsMenu({
       <Menu.Portal container={container}>
         <Menu.Positioner side="top" align="start" sideOffset={8}>
           <Menu.Popup data-slot="dropdown-menu-content" className="w-menu">
-            {isLive ? null : (
-              <>
-                <Menu.Item className={ITEM_CLASS}>
-                  <Paperclip className="size-4 text-muted-foreground" />
-                  Attach file
-                </Menu.Item>
-                <Menu.Separator className="my-1.5 h-px bg-border" />
-              </>
-            )}
-
             {hasHostContext ? (
-              <HostContextGroup enabled={includeHostContext} onToggle={onToggleHostContext} />
+              <HostContextGroup
+                enabled={includeHostContext}
+                onToggle={onToggleHostContext}
+              />
             ) : null}
             {hasHostContext && tools.length > 0 ? (
               <Menu.Separator className="my-1.5 h-px bg-border" />
             ) : null}
             <ToolCatalogContent
               hasHostContext={hasHostContext}
-              isLive={isLive}
               onToggleTool={onToggleTool}
               tools={tools}
             />
-
-            {isLive ? null : (
-              <>
-                <Menu.Separator className="my-1.5 h-px bg-border" />
-                <ScopeGroup />
-              </>
-            )}
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
@@ -115,20 +79,22 @@ export function ToolsMenu({
 
 function ToolCatalogContent({
   hasHostContext,
-  isLive,
   onToggleTool,
   tools,
 }: {
   readonly hasHostContext: boolean;
-  readonly isLive: boolean;
-  readonly onToggleTool: ((name: string) => void) | undefined;
+  readonly onToggleTool: (name: string) => void;
   readonly tools: readonly ToolMenuItem[];
 }): ReactElement | null {
   if (tools.length > 0) {
-    return <ToolsGroup tools={tools} isLive={isLive} onToggleTool={onToggleTool} />;
+    return <ToolsGroup tools={tools} onToggleTool={onToggleTool} />;
   }
-  if (!isLive || hasHostContext) return null;
-  return <div className="px-2.5 py-2 text-sm text-muted-foreground">No tools available</div>;
+  if (hasHostContext) return null;
+  return (
+    <div className="px-2.5 py-2 text-sm text-muted-foreground">
+      No tools available
+    </div>
+  );
 }
 
 function HostContextGroup({
@@ -157,39 +123,19 @@ function HostContextGroup({
 
 function ToolsGroup({
   tools,
-  isLive,
   onToggleTool,
 }: {
   readonly tools: readonly ToolMenuItem[];
-  readonly isLive: boolean;
-  readonly onToggleTool: ((name: string) => void) | undefined;
+  readonly onToggleTool: (name: string) => void;
 }): ReactElement {
-  // Local state drives the prop-less demo; a live host owns `enabled` and the
-  // toggle flows back through `onToggleTool`.
-  const [localEnabled, setLocalEnabled] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(tools.map((tool) => [tool.name, tool.enabled])),
-  );
-
-  const isEnabled = (tool: ToolMenuItem): boolean =>
-    onToggleTool ? tool.enabled : (localEnabled[tool.name] ?? tool.enabled);
-  const toggle = (tool: ToolMenuItem): void => {
-    if (onToggleTool) {
-      onToggleTool(tool.name);
-      return;
-    }
-    setLocalEnabled((prev) => ({ ...prev, [tool.name]: !(prev[tool.name] ?? tool.enabled) }));
-  };
-
   return (
     <Menu.Group>
-      <Menu.GroupLabel className={LABEL_CLASS}>
-        {isLive ? "Available tools" : "Tools"}
-      </Menu.GroupLabel>
+      <Menu.GroupLabel className={LABEL_CLASS}>Available tools</Menu.GroupLabel>
       {tools.map((tool) => (
         <Menu.CheckboxItem
           key={tool.name}
-          checked={isEnabled(tool)}
-          onCheckedChange={() => toggle(tool)}
+          checked={tool.enabled}
+          onCheckedChange={() => onToggleTool(tool.name)}
           closeOnClick={false}
           className={ITEM_CLASS}
         >
@@ -197,38 +143,14 @@ function ToolsGroup({
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate">{tool.label}</span>
             {tool.description ? (
-              <span className="truncate text-2xs text-muted-foreground">{tool.description}</span>
+              <span className="truncate text-2xs text-muted-foreground">
+                {tool.description}
+              </span>
             ) : null}
           </span>
-          <MenuToggleIndicator checked={isEnabled(tool)} />
+          <MenuToggleIndicator checked={tool.enabled} />
         </Menu.CheckboxItem>
       ))}
-    </Menu.Group>
-  );
-}
-
-function ScopeGroup(): ReactElement {
-  const [scope, setScope] = useState<Scope>(CONTEXT_SCOPES.PAGE);
-
-  return (
-    <Menu.Group>
-      <Menu.GroupLabel className={LABEL_CLASS}>Context scope</Menu.GroupLabel>
-      <Menu.RadioGroup
-        value={scope}
-        onValueChange={(value) => {
-          if (isScope(value)) setScope(value);
-        }}
-      >
-        {SCOPES.map(({ value, label }) => (
-          <Menu.RadioItem key={value} value={value} closeOnClick={false} className={ITEM_CLASS}>
-            <FileText className="size-4 text-muted-foreground" />
-            <span className="flex-1">{label}</span>
-            <Menu.RadioItemIndicator className="flex items-center text-primary">
-              <Check className="size-4" />
-            </Menu.RadioItemIndicator>
-          </Menu.RadioItem>
-        ))}
-      </Menu.RadioGroup>
     </Menu.Group>
   );
 }
@@ -241,7 +163,11 @@ function ScopeGroup(): ReactElement {
  * without changing the parent item, so these spans reuse only the switch's
  * token-driven presentation and let events reach the item.
  */
-function MenuToggleIndicator({ checked }: { readonly checked: boolean }): ReactElement {
+function MenuToggleIndicator({
+  checked,
+}: {
+  readonly checked: boolean;
+}): ReactElement {
   return (
     <span
       aria-hidden="true"
@@ -253,6 +179,3 @@ function MenuToggleIndicator({ checked }: { readonly checked: boolean }): ReactE
     </span>
   );
 }
-
-const isScope = (value: unknown): value is Scope =>
-  typeof value === "string" && Object.values(CONTEXT_SCOPES).some((scope) => scope === value);

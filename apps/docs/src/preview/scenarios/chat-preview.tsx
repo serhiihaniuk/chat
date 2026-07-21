@@ -9,6 +9,11 @@ import { ConversationItem } from "@side-chat/side-chat-widget/ui/conversation-it
 import { Message } from "@side-chat/side-chat-widget/ui/message";
 import { ScrollArea } from "@side-chat/side-chat-widget/ui/scroll-area";
 
+import {
+  PreviewModelSelector,
+  PreviewToolsMenu,
+} from "./preview-composer-controls.js";
+
 type ConversationPreview = {
   readonly active?: boolean;
   readonly id: string;
@@ -98,7 +103,11 @@ export function ChatPreview(): ReactElement {
           </div>
         </div>
         <div className="shrink-0 px-3 pb-3">
-          <Composer placeholder="Ask about this page..." />
+          <Composer
+            modelSelector={<PreviewModelSelector />}
+            placeholder="Ask about this page..."
+            toolsMenu={<PreviewToolsMenu />}
+          />
         </div>
       </div>
     </div>

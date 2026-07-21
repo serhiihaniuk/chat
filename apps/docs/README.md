@@ -33,7 +33,8 @@ and font inheritance intact.
 
 - `src/token-catalog.ts` discovers and groups stylesheet custom properties.
 - `src/configurator/` owns search, filtering, editing, reset, and export behavior.
-- `src/preview/` owns Shadow DOM setup and real widget preview scenarios.
+- `src/preview/` owns Shadow DOM setup; `src/preview/scenarios/` owns real widget
+  preview composition, fixtures, and interactive sample controls.
 - `src/app.css` owns the docs chrome; widget visuals stay in the widget stylesheet.
 
 ## Commands

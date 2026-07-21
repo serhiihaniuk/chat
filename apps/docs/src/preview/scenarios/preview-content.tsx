@@ -7,8 +7,17 @@ import { MessageActions } from "@side-chat/side-chat-widget/ui/message-actions";
 import { Reasoning } from "@side-chat/side-chat-widget/ui/reasoning";
 
 import { ChatPreview } from "./chat-preview.js";
-import { PREVIEW_SCENARIOS } from "./live-preview.js";
+import {
+  PreviewModelSelector,
+  PreviewToolsMenu,
+} from "./preview-composer-controls.js";
 import { SettingsPreview } from "./settings-preview.js";
+
+export const PREVIEW_SCENARIOS = {
+  CHAT: "chat",
+  COMPONENTS: "components",
+  SETTINGS: "settings",
+} as const;
 
 export type PreviewScenario =
   (typeof PREVIEW_SCENARIOS)[keyof typeof PREVIEW_SCENARIOS];
@@ -70,7 +79,11 @@ function ComponentGallery(): ReactElement {
       </section>
       <section>
         <span className="docs-gallery-label">Composer</span>
-        <Composer defaultValue="Ask about this workspace" />
+        <Composer
+          defaultValue="Ask about this workspace"
+          modelSelector={<PreviewModelSelector />}
+          toolsMenu={<PreviewToolsMenu />}
+        />
       </section>
     </div>
   );
