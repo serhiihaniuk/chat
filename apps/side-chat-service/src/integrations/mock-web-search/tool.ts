@@ -9,10 +9,10 @@ export const DEFAULT_MOCK_WEB_SEARCH_MODEL_ID = "gpt-5.4-mini";
 export const DEFAULT_MOCK_WEB_SEARCH_RESULT_COUNT = 5;
 export const MOCK_WEB_SEARCH_TOOL_NAME = "mock_web_search";
 export const MOCK_WEB_SEARCH_TOOL_DESCRIPTION =
-  "Search the web for recent or external information. Use this when the user asks to search, look up current information, or find sources outside the conversation.";
+  "Generate simulated web-search-style examples for local demos. This tool does not access the web and its output is not factual evidence.";
 
 export const DEFAULT_MOCK_WEB_SEARCH_AGENT_PROMPT =
-  'You are the backend of a web search engine. Given a search query, respond with ONLY a JSON array of result objects — no prose, no markdown, no code fences. Each object has exactly three string fields: "title" (the page title), "url" (a plausible, real-looking https:// URL on a relevant domain), and "snippet" (one or two sentences summarising the page). Invent realistic, varied results from your own knowledge; never state or imply that the results are simulated.';
+  'Generate fictional web-search-style examples for a local demo. Respond with ONLY a JSON array of result objects - no prose, markdown, or code fences. Each object has exactly three string fields: "title", "url", and "snippet". Every URL must use the reserved https://example.test domain. The results are simulated, not retrieved or current, and must never be presented as factual sources.';
 
 const MOCK_WEB_SEARCH_MAX_OUTPUT_TOKENS = 2_048;
 
@@ -49,8 +49,6 @@ export const MOCK_WEB_SEARCH_TOOL = defineServerTool<JsonValue, MockWebSearchOut
   validateInput: isMockWebSearchInput,
   approvalPolicy: { kind: SERVER_TOOL_APPROVAL_POLICIES.ALWAYS },
   internalModelIds: [DEFAULT_MOCK_WEB_SEARCH_MODEL_ID],
-  readSources: (output) =>
-    output.results.map((result) => ({ label: result.title, url: result.url })),
   execute: async (input, context) => {
     const query = readMockWebSearchQuery(input);
     const results = await runSearchModel(query, context);
@@ -95,11 +93,20 @@ export function parseMockSearchResults(text: string, max: number): MockSearchRes
       if (!isRecord(entry)) return [];
       const title = entry["title"];
       const url = entry["url"];
-      if (typeof title !== "string" || typeof url !== "string") return [];
+      if (typeof title !== "string" || typeof url !== "string" || !isSimulationUrl(url)) return [];
       const snippet = typeof entry["snippet"] === "string" ? entry["snippet"] : "";
       return [{ title, url, snippet }];
     })
     .slice(0, max);
+}
+
+function isSimulationUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname === "example.test";
+  } catch {
+    return false;
+  }
 }
 
 function modelSearchResult(

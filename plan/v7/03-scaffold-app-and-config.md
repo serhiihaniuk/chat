@@ -2,9 +2,9 @@
 
 Read this when: turning the retained foundation into a safe production composition root.
 
-Source of truth for: configuration selection/resolution/validation, settings, boot failure behavior, and the production composition boundary.
+Historical source for: configuration selection/resolution/validation, settings, boot failure behavior, and the production composition boundary.
 
-Not source of truth for: dependency pins, the build substrate, or the compatibility verdict (Step 02), or providers/auth/telemetry (Step 04).
+Not authoritative for: dependency pins, the build substrate, or the compatibility verdict (Step 02), or providers/auth/telemetry (Step 04).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

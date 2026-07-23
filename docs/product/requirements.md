@@ -8,7 +8,7 @@ Not source of truth for: package ownership, implementation plans, or provider-sp
 
 - Side Chat is an embeddable assistant foundation for ordinary web applications.
 - A host app can embed the widget, provide governed page context and client tools, and receive a stable streamed assistant experience.
-- The service authenticates and scopes every conversation, turn, stream, cancel, tool result, and approval request by tenant, workspace, and subject.
+- The service authenticates and scopes every conversation, turn, stream, cancel, tool result, and approval request by tenant-qualified workspace and subject. The public `workspaceId` is globally unique across tenants; adapters must not reuse an adopter-local workspace id across tenants.
 - A valid turn produces the native AI SDK UI-message stream profiled by `@side-chat/stream-profile`.
 - Invalid setup fails as a safe HTTP error before the public stream starts.
 - Each `requestId` starts at most one durable turn and Workflow run; exact retries reuse it.

@@ -22,6 +22,8 @@ import type {
 /** The approval card's own state: a pending request plus the decided outcomes. */
 type ApprovalCardDecision = "requested" | WorkflowApprovalDecisionState;
 
+const APPROVAL_PENDING_COPY = "Submitting approval decision.";
+
 export function WorkflowToolPresentation({
   approvalDecisions,
   item,
@@ -106,6 +108,8 @@ function ApprovalPresentation({
   const [busy, setBusy] = useState(false);
   const approvalId = item.approval?.id;
   const canDecide = Boolean(decision === "requested" && approvalId && onApprovalDecision);
+  const copy = approvalCopy(decision, labels);
+  const status = busy ? APPROVAL_PENDING_COPY : copy;
   const runDecision = (approved: boolean): void => {
     if (!canDecide || !approvalId || !onApprovalDecision) return;
     setBusy(true);
@@ -114,15 +118,19 @@ function ApprovalPresentation({
 
   return (
     <div
+      aria-busy={busy ? "true" : undefined}
+      aria-label={`${item.name}: ${copy}`}
       data-slot="tool-approval"
       data-state={decision}
-      role="status"
+      role="group"
       className="flex items-start gap-(--tool-detail-gap) rounded-md border border-border bg-muted p-(--tool-detail-pad)"
     >
       <ShieldCheck className="mt-0.5 size-icon-sm shrink-0 text-muted-foreground" />
       <div className="flex min-w-0 flex-col gap-(--tool-detail-gap)">
         <span className="text-sm font-medium text-foreground">{item.name}</span>
-        <span className="text-xs text-muted-foreground">{approvalCopy(decision, labels)}</span>
+        <span aria-live="polite" role="status" className="text-xs text-muted-foreground">
+          {status}
+        </span>
         {approvalId ? (
           <>
             <div className="flex flex-wrap gap-(--tool-detail-gap)">

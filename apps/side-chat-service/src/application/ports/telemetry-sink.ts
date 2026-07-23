@@ -51,7 +51,7 @@ type ServiceTelemetryRecord = Readonly<{
     | "capacity.rejected"
     | "capacity.active"
     | "capacity.queue_wait"
-    | "stream.unknown_chunk"
+    | "stream.dropped_unknown_chunk"
     | "stream.duplicate_terminal"
     | "stream.keepalive"
     | "stream.reconnect"

@@ -2,9 +2,9 @@
 
 Read this when: implementing reattachment behaviors — refresh mid-anything, transport drops, second tabs.
 
-Source of truth for: cold-load reattach, reconnect behavior, transport-error presentation, and multi-tab semantics.
+Historical source for: cold-load reattach, reconnect behavior, transport-error presentation, and multi-tab semantics.
 
-Not source of truth for: transport wiring (Step 13) or server replay (Step 07).
+Not authoritative for: transport wiring (Step 13) or server replay (Step 07).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

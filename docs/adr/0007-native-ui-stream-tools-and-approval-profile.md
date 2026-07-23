@@ -1,6 +1,6 @@
 # ADR 0007: Use the Native UI Stream, Tools, and Approval Vocabulary
 
-Status: accepted 2026-07-11; rebaselined after conversation reconciliation on 2026-07-16
+Status: accepted 2026-07-11; rebaselined after conversation reconciliation on 2026-07-16; production tool defaults clarified on 2026-07-23
 
 ## Context
 
@@ -23,13 +23,16 @@ The public stream contract is AI SDK UI message stream `v1`, identified by `x-ve
 
 ## Approval policy
 
-The configured production and fake deployments expose the read-only
-`mock_web_search` server tool. Client-tool fixtures establish the browser-action
-policy categories without becoming production capabilities.
+Bundled production and fake deployments expose no server tools by default.
+The registered `mock_web_search` integration is an opt-in local demonstration:
+it discloses that its results are simulated, uses reserved example URLs, never
+publishes native source parts, and still requires approval. Client-tool fixtures
+establish the browser-action policy categories without becoming production
+capabilities.
 
 | Tool or category                   | Policy                                     | Reason                                                                |
 | ---------------------------------- | ------------------------------------------ | --------------------------------------------------------------------- |
-| `mock_web_search`                  | Ungated                                    | Read-only demonstration/search behavior; no external mutation.        |
+| `mock_web_search` demo             | Always gated                               | Explicitly simulated local example; not enabled in bundled configs.   |
 | `jira.search_issues` example       | Ungated if adopted unchanged               | Read-only lookup. It is not currently configured.                     |
 | `jira.create_issue` fixture        | Always gated if adopted                    | Creates external state. It is currently test-only.                    |
 | New mutating server or client tool | Always gated by default                    | External writes require explicit user intent and audit.               |

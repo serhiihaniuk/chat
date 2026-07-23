@@ -2,9 +2,9 @@
 
 Read this when: implementing the Side Chat profile of the UI message stream — error vocabulary, `data-*` parts, and the outbound policy filter.
 
-Source of truth for: the scrub filter, the profile document, and the wire-level privacy contract.
+Historical source for: the scrub filter, the profile document, and the wire-level privacy contract.
 
-Not source of truth for: which `data-*` parts exist (Step 01 owns the inventory) or reconnect mechanics (Step 07).
+Not authoritative for: which `data-*` parts exist (Step 01 owns the inventory) or reconnect mechanics (Step 07).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

@@ -2,9 +2,9 @@
 
 Read this when: adding human sign-off for risky tools.
 
-Source of truth for: the execution gate, native approval stream vocabulary, Side Chat authorization/audit policy, expiry, and approval conformance tests.
+Historical source for: the execution gate, native approval stream vocabulary, Side Chat authorization/audit policy, expiry, and approval conformance tests.
 
-Not source of truth for: the gated-tool inventory (Step 01) or card UI (Step 15).
+Not authoritative for: the gated-tool inventory (Step 01) or card UI (Step 15).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

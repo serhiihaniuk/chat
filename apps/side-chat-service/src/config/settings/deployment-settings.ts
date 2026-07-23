@@ -1,7 +1,8 @@
 import {
   AUTH_PROFILES,
   AUTH_PROFILE_VALUES,
-  type AuthProfile,
+  type DevelopmentAuthProfile,
+  type ProductionAuthProfile,
 } from "../declaration/side-chat-config.js";
 import {
   AZURE_PROVIDER,
@@ -29,11 +30,17 @@ import {
 
 export type ModelSettings = OpenAIModelSettings | AzureModelSettings | ScriptedModelSettings;
 
-export type AuthSettings = Readonly<{
-  profile: AuthProfile;
-  bearerToken: string;
+export type DevelopmentAuthSettings = Readonly<{
+  profile: DevelopmentAuthProfile;
+  staticBearerToken: string;
   workspaceId: string;
 }>;
+
+export type ProductionAuthSettings = Readonly<{
+  profile: ProductionAuthProfile;
+}>;
+
+export type AuthSettings = DevelopmentAuthSettings | ProductionAuthSettings;
 
 export function readDeploymentSettings(
   modelsCandidate: unknown,
@@ -44,17 +51,27 @@ export function readDeploymentSettings(
   const auth = readObject(authCandidate, "auth", issues);
   return {
     models: readModelSettings(models, issues),
-    auth: {
-      profile: readRequiredCatalogValue(
-        auth["profile"],
-        "auth.profile",
-        AUTH_PROFILE_VALUES,
-        AUTH_PROFILES.DEVELOPMENT,
-        issues,
-      ),
-      bearerToken: readRequiredString(auth["bearerToken"], "auth.bearerToken", issues),
-      workspaceId: readRequiredString(auth["workspaceId"], "auth.workspaceId", issues),
-    },
+    auth: readAuthSettings(auth, issues),
+  };
+}
+
+function readAuthSettings(auth: SettingsObject, issues: SettingsIssue[]): AuthSettings {
+  const profile = readRequiredCatalogValue(
+    auth["profile"],
+    "auth.profile",
+    AUTH_PROFILE_VALUES,
+    AUTH_PROFILES.DEVELOPMENT,
+    issues,
+  );
+  if (profile === AUTH_PROFILES.PRODUCTION) return { profile };
+  return {
+    profile,
+    staticBearerToken: readRequiredString(
+      auth["staticBearerToken"],
+      "auth.staticBearerToken",
+      issues,
+    ),
+    workspaceId: readRequiredString(auth["workspaceId"], "auth.workspaceId", issues),
   };
 }
 

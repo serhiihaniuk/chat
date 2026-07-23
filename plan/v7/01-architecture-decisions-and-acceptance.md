@@ -2,9 +2,9 @@
 
 Read this when: establishing or reviewing the rewrite architecture.
 
-Source of truth for: AI SDK 7 adoption, product-owned boundaries, feature cuts, and acceptance rules.
+Historical source for: AI SDK 7 adoption, product-owned boundaries, feature cuts, and acceptance rules.
 
-Not source of truth for: runtime behavior; permanent tests and later feature steps own executable proof.
+Not authoritative for: runtime behavior; permanent tests and later feature steps own executable proof.
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

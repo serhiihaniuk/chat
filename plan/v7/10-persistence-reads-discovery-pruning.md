@@ -2,9 +2,9 @@
 
 Read this when: building history/list read paths, active-run discovery, and Workflow journal pruning.
 
-Source of truth for: read-path contracts, drift handling, discovery, and pruning semantics.
+Historical source for: read-path contracts, drift handling, discovery, and pruning semantics.
 
-Not source of truth for: schema/write path (Step 09).
+Not authoritative for: schema/write path (Step 09).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

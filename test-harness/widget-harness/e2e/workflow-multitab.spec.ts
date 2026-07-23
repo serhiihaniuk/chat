@@ -8,6 +8,8 @@ const widgetUrl = `/side-chat-frame/?workspaceId=${workspaceId}`;
 const recoveryStorageKey = `side-chat-widget:${workspaceId}:workflow-active-turn`;
 const partialAnswer = "Both tabs receive the shared";
 const completeAnswer = `${partialAnswer} workflow answer.`;
+const cancelledNotice = "Response cancelled.";
+const multitabClientToolPrompt = "multitab client tool contract";
 const FIXTURE_COUNTER_KEYS = ["conversations", "models", "state", "tools"] as const;
 
 test("keeps two workflow tabs isolated while both replay one accepted run", async ({
@@ -111,6 +113,94 @@ test("keeps two workflow tabs isolated while both replay one accepted run", asyn
   expect(pageErrors).toEqual([]);
 });
 
+test("shows cancelled terminal state after Stop and keeps the next send usable", async ({
+  page,
+  request,
+}) => {
+  const pageErrors: string[] = [];
+  collectPageErrors(page, pageErrors);
+  await request.post(`${fixtureUrl}/__test/reset`);
+  await page.goto(widgetUrl);
+
+  await page.getByLabel("Message").fill("Cancel this streaming answer");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText(partialAnswer)).toBeVisible();
+  await page.getByRole("button", { name: "Stop generating" }).click();
+
+  await expect
+    .poll(async () => (await readFixtureSnapshot(request)).counters.cancelRequests)
+    .toBe(1);
+  await expect.poll(async () => (await readFixtureSnapshot(request)).cancelled).toBe(true);
+  await page.reload();
+  await expect(page.getByText(cancelledNotice)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Stop generating" })).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate((key) => sessionStorage.getItem(key), recoveryStorageKey))
+    .toBeNull();
+
+  await page.getByLabel("Message").fill("Send after cancellation");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByRole("button", { name: "Stop generating" })).toBeVisible();
+  await expect.poll(async () => (await readFixtureSnapshot(request)).counters.chatAccepted).toBe(2);
+
+  await request.post(`${fixtureUrl}/__test/complete`);
+  await expect(page.getByText(completeAnswer)).toBeVisible();
+  await expect(page.getByText(cancelledNotice)).toHaveCount(0);
+  expect(pageErrors).toEqual([]);
+});
+
+test("keeps client-tool execution in the originating tab while another tab watches", async ({
+  context,
+  page,
+  request,
+}) => {
+  const pageErrors: string[] = [];
+  collectPageErrors(page, pageErrors);
+  await request.post(`${fixtureUrl}/__test/reset`);
+  await request.post(`${fixtureUrl}/__test/defer-client-tool-output`);
+
+  const secondTab = await context.newPage();
+  collectPageErrors(secondTab, pageErrors);
+  await Promise.all([page.goto(widgetUrl), secondTab.goto(widgetUrl)]);
+  await expect.poll(async () => (await readFixtureCounters(request)).activitySubscribers).toBe(2);
+
+  await page.getByLabel("Message").fill(multitabClientToolPrompt);
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByTestId("demo-host-assistant-count")).toHaveText("Assistant actions: 1");
+  await expect
+    .poll(async () => (await readFixtureSnapshot(request)).counters.clientToolOutputs)
+    .toBe(1);
+  await expect
+    .poll(async () => (await readFixtureSnapshot(request)).pendingClientToolOutput)
+    .toBe(true);
+
+  await expect(secondTab.getByLabel("Generating")).toBeVisible();
+  await secondTab.getByText("Shared running chat").click();
+  await expect(secondTab.getByText(multitabClientToolPrompt)).toHaveCount(1);
+  await expect(
+    secondTab.locator('[data-slot="tool-detail-row"][data-state="running"]').filter({
+      hasText: "Open resource",
+    }),
+  ).toBeVisible();
+  await expect(secondTab.getByTestId("demo-host-assistant-count")).toHaveText(
+    "Assistant actions: 0",
+  );
+  await expect(secondTab.getByText("No client tools called yet.")).toBeVisible();
+  await expect
+    .poll(async () => (await readFixtureSnapshot(request)).counters.clientToolOutputs)
+    .toBe(1);
+
+  await request.post(`${fixtureUrl}/__test/release-client-tool-output`);
+  await expect.poll(async () => (await readFixtureSnapshot(request)).completed).toBe(true);
+  await expect(secondTab.getByTestId("demo-host-assistant-count")).toHaveText(
+    "Assistant actions: 0",
+  );
+  await expect
+    .poll(async () => (await readFixtureSnapshot(request)).counters.clientToolOutputs)
+    .toBe(1);
+  expect(pageErrors).toEqual([]);
+});
+
 test("lets only one simultaneous tab start a turn and keeps the conflict bounded", async ({
   context,
   page,
@@ -172,14 +262,23 @@ test("lets only one simultaneous tab start a turn and keeps the conflict bounded
 
 type FixtureCounters = Readonly<{
   activitySubscribers: number;
+  cancelRequests: number;
   chatAccepted: number;
   chatConflicts: number;
+  clientToolOutputs: number;
   conversations: number;
   models: number;
   replayConnections: number;
   state: number;
   subscribers: number;
   tools: number;
+}>;
+
+type FixtureSnapshot = Readonly<{
+  cancelled: boolean;
+  completed: boolean;
+  counters: FixtureCounters;
+  pendingClientToolOutput: boolean;
 }>;
 
 async function didEveryWorkflowReadAdvance(
@@ -190,17 +289,36 @@ async function didEveryWorkflowReadAdvance(
   return FIXTURE_COUNTER_KEYS.every((key) => current[key] > before[key]);
 }
 
+async function readFixtureSnapshot(request: APIRequestContext): Promise<FixtureSnapshot> {
+  const response = await request.get(`${fixtureUrl}/__test/state`);
+  const value: unknown = await response.json();
+  if (!isRecord(value)) throw new Error("Invalid multi-tab fixture state.");
+  return {
+    cancelled: readBoolean(value, "cancelled"),
+    completed: readBoolean(value, "completed"),
+    counters: readFixtureCountersFromState(value),
+    pendingClientToolOutput: readBoolean(value, "pendingClientToolOutput"),
+  };
+}
+
 async function readFixtureCounters(request: APIRequestContext): Promise<FixtureCounters> {
   const response = await request.get(`${fixtureUrl}/__test/state`);
   const value: unknown = await response.json();
-  if (!isRecord(value) || !isRecord(value["counters"])) {
-    throw new Error("Invalid multi-tab fixture state.");
+  if (!isRecord(value)) throw new Error("Invalid multi-tab fixture state.");
+  return readFixtureCountersFromState(value);
+}
+
+function readFixtureCountersFromState(value: Record<string, unknown>): FixtureCounters {
+  if (!isRecord(value["counters"])) {
+    throw new Error("Invalid multi-tab fixture counters.");
   }
   const counters = value["counters"];
   return {
     activitySubscribers: readCounter(value, "activitySubscribers"),
+    cancelRequests: readCounter(counters, "cancelRequests"),
     chatAccepted: readCounter(counters, "chatAccepted"),
     chatConflicts: readCounter(counters, "chatConflicts"),
+    clientToolOutputs: readCounter(counters, "clientToolOutputs"),
     conversations: readCounter(counters, "conversations"),
     models: readCounter(counters, "models"),
     replayConnections: readCounter(counters, "replayConnections"),
@@ -221,6 +339,12 @@ function readCounter(value: Record<string, unknown>, key: string): number {
   const counter = value[key];
   if (typeof counter !== "number") throw new Error(`Invalid multi-tab counter: ${key}.`);
   return counter;
+}
+
+function readBoolean(value: Record<string, unknown>, key: string): boolean {
+  const flag = value[key];
+  if (typeof flag !== "boolean") throw new Error(`Invalid multi-tab flag: ${key}.`);
+  return flag;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

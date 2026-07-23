@@ -2,9 +2,9 @@
 
 Read this when: the new wing is feature-complete and the old architecture is ready to die.
 
-Source of truth for: the cutover order and the deletion inventory.
+Historical source for: the cutover order and the deletion inventory.
 
-Not source of truth for: governance rules and documentation (Step 21) — but this step and Step 21 land as one coherent change set; do not leave the repo between them longer than review requires.
+Not authoritative for: governance rules and documentation (Step 21) — but this step and Step 21 land as one coherent change set; do not leave the repo between them longer than review requires.
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

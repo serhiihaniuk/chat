@@ -2,9 +2,9 @@
 
 Read this when: wiring the browser side of client tools and approval decisions.
 
-Source of truth for: `onToolCall` dispatch, host-bridge integration, dispatch dedupe, and the approval card's decision flow.
+Historical source for: `onToolCall` dispatch, host-bridge integration, dispatch dedupe, and the approval card's decision flow.
 
-Not source of truth for: server mechanics (Steps 11/12) or rendering (Step 14).
+Not authoritative for: server mechanics (Steps 11/12) or rendering (Step 14).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

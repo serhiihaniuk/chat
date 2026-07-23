@@ -2,9 +2,9 @@
 
 Read this when: completing the app foundation so turn work can start.
 
-Source of truth for: provider construction, auth/tenancy, telemetry registration, readiness, and the service test harness.
+Historical source for: provider construction, auth/tenancy, telemetry registration, readiness, and the service test harness.
 
-Not source of truth for: the complete telemetry inventory (Step 18) or turn behavior (Step 05+).
+Not authoritative for: the complete telemetry inventory (Step 18) or turn behavior (Step 05+).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

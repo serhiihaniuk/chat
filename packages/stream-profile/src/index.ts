@@ -12,6 +12,7 @@ export {
 } from "./finish-reasons.js";
 export {
   SIDE_CHAT_CLIENT_TOOL_CAPABILITY,
+  SIDE_CHAT_DATA_PART_TYPES,
   SIDE_CHAT_STREAM_PROTOCOL,
   type SideChatDataParts,
 } from "./data-parts.js";

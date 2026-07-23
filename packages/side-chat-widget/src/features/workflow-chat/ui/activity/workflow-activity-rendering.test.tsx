@@ -1,8 +1,10 @@
+import { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import type { RenderActivityItem } from "#entities/activity";
 import type { ToolDetailLevel } from "#entities/settings";
+import { createReactDomTestHarness } from "#testing/react-dom-test-harness";
 
 import type { WorkflowTimelineMessage } from "../../model/native-message-projection.js";
 import { WorkflowMessageTimeline } from "../workflow-message-timeline.js";
@@ -101,4 +103,66 @@ describe("Workflow activity customization", () => {
     expect(html).toContain("Approve");
     expect(html).not.toContain("unsafe-replacement");
   });
+
+  it("labels approval decisions as an actionable group and announces pending submit", async () => {
+    const harness = createReactDomTestHarness();
+    const pendingDecision = createDeferred<void>();
+    const onApprovalDecision = vi.fn<() => Promise<void>>(() => pendingDecision.promise);
+
+    try {
+      harness.render(
+        <WorkflowMessageTimeline
+          isStreaming
+          message={assistant([
+            {
+              type: "dynamic-tool",
+              toolCallId: "call-approval",
+              toolName: "needs_access",
+              state: "approval-requested",
+              input: { resourceId: "doc-1" },
+              approval: { id: "approval-1" },
+            },
+          ])}
+          onApprovalDecision={onApprovalDecision}
+        />,
+      );
+
+      const approvalGroup = harness.container.querySelector<HTMLElement>(
+        '[data-slot="tool-approval"]',
+      );
+      expect(approvalGroup?.getAttribute("role")).toBe("group");
+      expect(approvalGroup?.getAttribute("aria-label")).toBe("Needs access: Approval required");
+      const status = approvalGroup?.querySelector<HTMLElement>('[role="status"]');
+      expect(status?.getAttribute("aria-live")).toBe("polite");
+      expect(status?.textContent).toBe("Approval required");
+
+      const approveButton = Array.from(harness.container.querySelectorAll("button")).find(
+        (button) => button.textContent === "Approve",
+      );
+      if (!approveButton) throw new Error("Expected an approval button.");
+      act(() => approveButton.click());
+
+      expect(onApprovalDecision).toHaveBeenCalledWith("approval-1", true);
+      expect(approvalGroup?.getAttribute("aria-busy")).toBe("true");
+      expect(status?.textContent).toBe("Submitting approval decision.");
+
+      await act(async () => {
+        pendingDecision.resolve();
+        await pendingDecision.promise;
+      });
+    } finally {
+      harness.cleanup();
+    }
+  });
 });
+
+function createDeferred<Value>(): {
+  readonly promise: Promise<Value>;
+  readonly resolve: (value: Value) => void;
+} {
+  let resolve = (_value: Value): void => undefined;
+  const promise = new Promise<Value>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}

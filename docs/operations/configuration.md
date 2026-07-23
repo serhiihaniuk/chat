@@ -20,7 +20,7 @@ Not source of truth for: turn order ([assistant-turn.md](../architecture/assista
 | `conversationTitle` | Title model and bounded enrichment timeout.                                                                                                                         |
 | `serverTools`       | Deployment-selected names from the closed registered server-tool catalog.                                                                                           |
 | `hostContext`       | Enablement and serialized/string/depth/entry limits for untrusted page context.                                                                                     |
-| `auth`              | Development/production profile, bearer reference, and workspace mapping.                                                                                            |
+| `auth`              | Development/production profile. Production uses an app-local `RequestAuthorizer` binding; development may use static bearer settings.                               |
 | `timeouts`          | Admission queue, provider execution, and client-tool wait deadlines.                                                                                                |
 | `capacity`          | Active-turn admission, activity-stream process/subject limits, queue size/deadline, and shutdown drain budget.                                                      |
 | `agent`             | System instructions and maximum model/tool steps.                                                                                                                   |
@@ -44,8 +44,6 @@ Config files use `readEnv`, `readEnv.secret`, and `readEnv.number`; production c
 Important service-owned inputs include:
 
 - `SIDECHAT_CONFIG`
-- `SIDECHAT_AUTH_TOKEN`
-- `SIDECHAT_WORKSPACE_ID`
 - `SIDECHAT_DATABASE_URL`
 - `SIDECHAT_DRAIN_BUDGET_MS`
 - `SIDECHAT_OTLP_ENDPOINT`
@@ -56,7 +54,11 @@ Important service-owned inputs include:
 - `WORKFLOW_LOCAL_DATA_DIR`
 - `WORKFLOW_LOCAL_BASE_URL`
 
-Secret references are resolved only during boot and are excluded from readable settings, logs, Workflow input, and browser catalogs.
+Secret references are resolved only during boot and are excluded from readable
+settings, logs, Workflow input, and browser catalogs. Production authentication
+credentials are not represented in `SideChatConfig`; they belong inside the
+app-local `RequestAuthorizer` binding under
+`apps/side-chat-service/src/auth/production-request-authorizer.ts`.
 
 ## Capacity and database pools
 
@@ -68,7 +70,16 @@ Product persistence and Workflow persistence are separate configured connections
 
 ## Loading and validation
 
-Boot resolves the selected declaration against the process environment, validates types and cross-field relationships, freezes the resulting settings, builds safe public catalogs, and only then composes routes and Workflow execution. A production auth profile cannot select the scripted provider. A missing required secret, invalid number, unknown tool, invalid model/default relationship, or unsupported provider is fatal; the service never silently switches behavior.
+Boot resolves the selected declaration against the process environment, validates
+types and cross-field relationships, freezes the resulting settings, builds safe
+public catalogs, and only then composes routes and Workflow execution.
+
+A production auth profile cannot select the scripted provider. The development
+profile remains local/test-only, but may use a real provider for an explicitly
+authorized smoke without turning static bearer auth into a production boundary.
+A missing required secret, invalid number, unknown tool, invalid model/default
+relationship, unsupported provider, or missing production `RequestAuthorizer`
+binding is fatal; the service never silently switches behavior.
 
 ## Rules
 

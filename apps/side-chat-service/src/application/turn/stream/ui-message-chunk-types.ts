@@ -1,10 +1,10 @@
 /**
  * The native UI message stream `v1` chunk-type discriminants the service reasons
  * about by name. The SDK ships these only as a type union, so the scrub filter
- * names them here to detect forward-compatible unknowns (a future or `data-*`
- * type is absent from this catalog, so it is forwarded and counted) and to guard
- * the single-terminal rule. `custom` and `data-*` are intentionally omitted —
- * they are the extension surface, not part of the fixed native set.
+ * names them here to fail closed on forward-compatible unknowns and to guard the
+ * single-terminal rule. `custom` and `data-*` are intentionally omitted because
+ * Side Chat-owned data parts must be registered by the stream profile before
+ * they are allowed through the outbound privacy boundary.
  */
 export const UI_MESSAGE_CHUNK_TYPES = {
   START: "start",

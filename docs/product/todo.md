@@ -13,7 +13,8 @@ Shipped configuration lives in [`apps/side-chat-service/sidechat.config.ts`](../
 
 ## Release engineering
 
-- Wire `npm run verify` into the chosen CI service before an alpha tag so local and remote gates match.
 - Add the intended license before publishing the starter outside the owning organization.
+- Production-container validation remains deferred until Docker/infra release ownership is reopened. Do not treat a local alpha pass as production-container evidence.
+- Track missing dependency source maps in the pinned Workflow/Nitro beta stack; do not broadly suppress build warnings to hide that upstream noise.
 
 The [`plan/v7/`](../../plan/v7/README.md) folder is planning history. Canonical architecture and operations docs describe shipped behavior directly.

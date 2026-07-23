@@ -6,9 +6,9 @@
 
 Read this when: implementing any step or verifying an SDK API, limit, or behavior.
 
-Source of truth for: verified AI SDK 7 facts, gotchas, and configuration obligations for this program.
+Historical source for: verified AI SDK 7 facts, gotchas, and configuration obligations for this program.
 
-Not source of truth for: the API of a future SDK release. Re-verify against installed declarations after every version bump and update this file.
+Not authoritative for: the API of a future SDK release. Re-verify against installed declarations after every version bump and update this file.
 
 ## Verified baseline
 

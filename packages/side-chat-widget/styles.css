@@ -207,6 +207,10 @@
   --size-icon-md: 1rem;
   --size-control: 2rem;
   --size-touch: 2.75rem;
+  --layer-panel: 50;
+  --layer-panel-resize-handle: 80;
+  --layer-dialog-backdrop: 90;
+  --layer-dialog-content: 91;
 
   /* ── TIER 2 component tokens — each an alias of a tier-1 value or a calc()
         over --spacing, never a raw literal except the sub-grid cases. ─ */
@@ -404,6 +408,7 @@
   --cite-marker-active-bg: var(--foreground);
   --cite-marker-active-fg: var(--background);
   --cite-link-fg: var(--muted-foreground);
+  --dialog-backdrop-bg: oklch(0.145 0 0 / 0.32);
 }
 
 /*
@@ -1599,14 +1604,14 @@ a.sc-cite-source:hover {
 [data-slot="dialog-backdrop"] {
   position: absolute;
   inset: 0;
-  z-index: 90;
+  z-index: var(--layer-dialog-backdrop);
   border-radius: inherit;
-  background: oklch(0.145 0 0 / 0.32);
+  background: var(--dialog-backdrop-bg);
   transition: opacity var(--dur) var(--ease-out);
 }
 [data-slot="dialog-content"] {
   @apply absolute rounded-xl border border-border bg-popover p-4 text-popover-foreground shadow-(--shadow-popover);
-  z-index: 91;
+  z-index: var(--layer-dialog-content);
   top: 50%;
   left: 50%;
   translate: -50% -50%;

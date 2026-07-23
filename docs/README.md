@@ -36,6 +36,7 @@ Side Chat has one production architecture: `apps/side-chat-service` runs AI SDK 
 | Product schema, migrations, and journal maintenance | [operations/database.md](operations/database.md)                               |
 | Telemetry and privacy                               | [operations/telemetry.md](operations/telemetry.md)                             |
 | Verification commands and what they prove           | [operations/verification.md](operations/verification.md)                       |
+| Alpha adoption and release stop conditions          | [operations/adoption-release.md](operations/adoption-release.md)               |
 | Iframe embedding                                    | [operations/embed-widget-iframe.md](operations/embed-widget-iframe.md)         |
 
 ## Documentation ownership

@@ -2,9 +2,9 @@
 
 Read this when: implementing the chat turn's happy path, cancellation, and terminal invariants.
 
-Source of truth for: the POST route order, the agent/run construction, and the exactly-one-terminal contract.
+Historical source for: the POST route order, the agent/run construction, and the exactly-one-terminal contract.
 
-Not source of truth for: the scrub filter/profile (Step 06), reconnect (Step 07), title/edge-case sweep (Step 08), storage shapes (Step 09 — this step uses its interfaces or temporary in-memory stand-ins if executed first; record which).
+Not authoritative for: the scrub filter/profile (Step 06), reconnect (Step 07), title/edge-case sweep (Step 08), storage shapes (Step 09 — this step uses its interfaces or temporary in-memory stand-ins if executed first; record which).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

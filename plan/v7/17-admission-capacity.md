@@ -2,9 +2,9 @@
 
 Read this when: implementing the bounded-load model behind Step 05's `admitTurn()` seam.
 
-Source of truth for: admission mechanics, slot lifecycle, overload mapping, and capacity configuration.
+Historical source for: admission mechanics, slot lifecycle, overload mapping, and capacity configuration.
 
-Not source of truth for: shutdown/drain (Step 19) or metrics emission (Step 18 — this step exposes counters, Step 18 wires them).
+Not authoritative for: shutdown/drain (Step 19) or metrics emission (Step 18 — this step exposes counters, Step 18 wires them).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

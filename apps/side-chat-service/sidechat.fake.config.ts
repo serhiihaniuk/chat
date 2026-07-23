@@ -92,7 +92,7 @@ const config: SideChatConfig = defineSideChatConfig({
   },
   auth: {
     profile: AUTH_PROFILES.DEVELOPMENT,
-    bearerToken: "local-test-token",
+    staticBearerToken: "local-test-token",
     workspaceId: "local-workspace",
   },
   timeouts: {

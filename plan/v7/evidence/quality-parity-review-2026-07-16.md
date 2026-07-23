@@ -1,8 +1,8 @@
 # Quality Parity Review: side-chat-service vs the Effect Wing
 
 Read this when: reconstructing the quality review performed on 2026-07-16.
-Source of truth for: the historical 2026-07-16 parity verdict and the evidence recorded at that time.
-Not source of truth for: the normative architecture (plan/v7/ARCHITECTURE.md), program status (plan/v7/STATUS.md), or governance rules (ADR 0013).
+Historical source for: the historical 2026-07-16 parity verdict and the evidence recorded at that time.
+Not authoritative for: the normative architecture (plan/v7/ARCHITECTURE.md), program status (plan/v7/STATUS.md), or governance rules (ADR 0013).
 
 > **Historical evidence:** Paths, counts, findings, and proposed actions below describe the repository as reviewed on 2026-07-16. Subsequent pre-alpha rewrites have repaired, replaced, or deleted parts of that design. Do not use this file as a current backlog or architecture guide; revalidate any historical finding against the current code, canonical docs, and executable gates.
 

@@ -25,7 +25,7 @@ Not source of truth for: package ownership ([system-map.md](system-map.md)) or p
 | `POST /api/chat/:runId/tools/:toolCallId/output` | Authorize and submit an originating-tab client-tool result.                              |
 | `POST /api/chat/:runId/approvals/:approvalId`    | Submit a durable server-tool approval decision.                                          |
 
-Conversation history, catalogs, configuration, and activity routes are described in [system-map.md](system-map.md).
+Conversation history, model and capability catalogs, and activity routes are described in [system-map.md](system-map.md).
 
 ## New-turn lifecycle
 

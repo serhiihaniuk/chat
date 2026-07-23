@@ -3,8 +3,8 @@
  *
  * The shell contains the textarea, tools menu, real context meter, model selector,
  * and send button. `sc-composer` owns the `:focus-within` ring, so focusing the
- * textarea highlights the whole surface. One `sc-send` button changes between
- * idle, send, and stop through its `data-armed` state.
+ * textarea highlights the whole surface. `sc-send` changes between disabled idle,
+ * send, and stop through its native disabled state plus `data-armed`.
  *
  * The field stays enabled while a turn streams so the next message can be drafted.
  * Enter inserts a newline; stopping is the button's job. Focus returns to the
@@ -75,6 +75,7 @@ export function Composer({
   });
   const isBusy = isBusyStatus(status);
   const canSend = canSubmitText(text, disabled, isBusy);
+  const sendButtonDisabled = isSendButtonDisabled(canSend, isBusy);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useRefocusOnIdle(isBusy, textareaRef);
   const send = (): void => {
@@ -108,6 +109,7 @@ export function Composer({
             aria-label={isBusy ? stopLabel : sendLabel}
             className="sc-send"
             data-armed={canSend || isBusy ? true : undefined}
+            disabled={sendButtonDisabled}
             onClick={send}
             type="button"
           >
@@ -161,6 +163,8 @@ const isBusyStatus = (status: ComposerStatus): boolean =>
 
 const canSubmitText = (text: string, disabled: boolean, isBusy: boolean): boolean =>
   text.trim().length > 0 && !disabled && !isBusy;
+
+const isSendButtonDisabled = (canSend: boolean, isBusy: boolean): boolean => !canSend && !isBusy;
 
 const submitComposerText = ({
   canSend,

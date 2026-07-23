@@ -2,9 +2,9 @@
 
 Read this when: building on, verifying, or upgrading the greenfield service foundation, or reviewing how the execution substrate was decided.
 
-Source of truth for: the step-02 history (both gate passes), the implemented WorkflowAgent/Nitro foundation, the realm patch and its removal criterion, the permanent compatibility suite, and the package boundary.
+Historical source for: the step-02 history (both gate passes), the implemented WorkflowAgent/Nitro foundation, the realm patch and its removal criterion, the permanent compatibility suite, and the package boundary.
 
-Not source of truth for: production configuration (Step 03), providers/auth/telemetry (Step 04), or turn policy (Step 05). The substrate decision itself is owned by [ADR 0008](../../docs/adr/0008-workflow-durable-execution-substrate.md) and the verdict section of [`STATUS.md`](./STATUS.md).
+Not authoritative for: production configuration (Step 03), providers/auth/telemetry (Step 04), or turn policy (Step 05). The substrate decision itself is owned by [ADR 0008](../../docs/adr/0008-workflow-durable-execution-substrate.md) and the verdict section of [`STATUS.md`](./STATUS.md).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

@@ -2,7 +2,7 @@
 
 Read this when: choosing work, resuming a step, or reporting program status.
 
-Source of truth for: milestone state, ownership, the execution-substrate verdict, and evidence links.
+Historical source for: milestone state, ownership, the execution-substrate verdict, and evidence links.
 
 ## State vocabulary
 

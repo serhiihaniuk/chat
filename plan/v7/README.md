@@ -4,9 +4,9 @@ Status: completed on 2026-07-16. This directory is the historical execution reco
 
 Read this when: planning, implementing, reviewing, or resuming the SDK-native rewrite.
 
-Source of truth for: the rewrite target, step order, shared rules, execution-substrate gate, and handoff protocol.
+Source of truth for: this dated rewrite program, its historical step order, shared rules, execution-substrate gate, and handoff evidence.
 
-Not source of truth for: current behavior (the running code and `docs/` own that until cutover) or future SDK APIs (installed declarations, ignored source clones, and [`KNOWLEDGE.md`](./KNOWLEDGE.md) own the verified baseline).
+Not source of truth for: current behavior (the running code and `docs/` own that) or future SDK APIs (installed declarations and current official documentation own those contracts).
 
 ## Outcome
 

@@ -14,7 +14,7 @@ import { Brain, Settings, Sparkles } from "lucide-react";
 import { cn } from "#shared/lib/cn";
 
 const TAB_CLASS =
-  "flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left text-sm text-muted-foreground cursor-pointer hover:bg-accent selected:bg-sidebar-accent selected:text-foreground";
+  "flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left text-sm text-muted-foreground cursor-pointer highlighted:bg-accent selected:bg-sidebar-accent selected:text-foreground";
 
 type TabGroup = {
   value: string;

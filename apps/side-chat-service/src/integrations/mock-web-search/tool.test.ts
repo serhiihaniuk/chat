@@ -6,9 +6,11 @@ import {
 } from "@side-chat/side-chat-server";
 
 import {
+  DEFAULT_MOCK_WEB_SEARCH_AGENT_PROMPT,
   DEFAULT_MOCK_WEB_SEARCH_MODEL_ID,
   DEFAULT_MOCK_WEB_SEARCH_RESULT_COUNT,
   MOCK_WEB_SEARCH_TOOL,
+  MOCK_WEB_SEARCH_TOOL_DESCRIPTION,
   MOCK_WEB_SEARCH_TOOL_NAME,
   parseMockSearchResults,
 } from "./tool.js";
@@ -33,12 +35,15 @@ describe("mock web search integration tool", () => {
     expect(MOCK_WEB_SEARCH_TOOL.validateInput({ query: "current releases" })).toBe(true);
     expect(MOCK_WEB_SEARCH_TOOL.validateInput({ query: "   " })).toBe(false);
     expect(MOCK_WEB_SEARCH_TOOL.validateInput({ query: 42 })).toBe(false);
+    expect(MOCK_WEB_SEARCH_TOOL_DESCRIPTION).toContain("does not access the web");
+    expect(DEFAULT_MOCK_WEB_SEARCH_AGENT_PROMPT).toContain("results are simulated");
+    expect(MOCK_WEB_SEARCH_TOOL.readSources).toBeUndefined();
   });
 
   it("runs nested generation after approval", async () => {
     const generateText = vi.fn<ServerToolTextGenerator>(() =>
       Promise.resolve(
-        '[{"title":"Workflow guide","url":"https://example.com/workflows","snippet":"A current guide."}]',
+        '[{"title":"Workflow guide","url":"https://example.test/workflows","snippet":"A simulated guide."}]',
       ),
     );
 
@@ -69,29 +74,19 @@ describe("mock web search integration tool", () => {
       results: [{ title: "Mock Search Result", url: "https://example.test/search-result" }],
     });
   });
-
-  it("projects trusted result URLs into native message sources", () => {
-    expect(
-      MOCK_WEB_SEARCH_TOOL.readSources?.({
-        query: "durable workflows",
-        summary: "One result",
-        results: [
-          {
-            title: "Workflow guide",
-            url: "https://example.com/workflows",
-            snippet: "A current guide.",
-          },
-        ],
-      }),
-    ).toEqual([{ label: "Workflow guide", url: "https://example.com/workflows" }]);
-  });
 });
 
 describe("parseMockSearchResults", () => {
   it("extracts valid entries and fails safely", () => {
     expect(
-      parseMockSearchResults('Results:\n```json\n[{"title":"A","url":"https://a.test"}]\n```', 5),
-    ).toEqual([{ title: "A", url: "https://a.test", snippet: "" }]);
+      parseMockSearchResults(
+        'Results:\n```json\n[{"title":"A","url":"https://example.test/a"}]\n```',
+        5,
+      ),
+    ).toEqual([{ title: "A", url: "https://example.test/a", snippet: "" }]);
+    expect(
+      parseMockSearchResults('[{"title":"External","url":"https://real.example.com/result"}]', 5),
+    ).toEqual([]);
     expect(parseMockSearchResults("not JSON", 5)).toEqual([]);
   });
 });

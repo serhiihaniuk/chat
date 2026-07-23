@@ -12,6 +12,7 @@ import {
   TOOL_APPROVAL_LOOKUP,
   type ToolApprovalDecisionStore,
 } from "#application/ports/turn/tools/tool-approval-store";
+import { requireDevelopmentAuthSettings } from "#auth/create-service-authorizer";
 import type { Settings } from "#config/settings/resolve-settings";
 import { createPostgresTurnActivityNotificationSource } from "@side-chat/db";
 
@@ -34,7 +35,9 @@ export function createConfiguredTestingPersistence(
   const databaseUrl = settings.persistence.databaseUrl;
   if (databaseUrl === undefined) {
     return createInMemoryTestingPersistence(
-      new InMemoryTurnState([localChatConversation(settings.auth.workspaceId)]),
+      new InMemoryTurnState([
+        localChatConversation(requireDevelopmentAuthSettings(settings.auth).workspaceId),
+      ]),
     );
   }
   const store = createPostgresTurnState(databaseUrl);

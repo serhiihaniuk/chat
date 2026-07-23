@@ -20,4 +20,6 @@ Adopter code belongs under `apps/side-chat-service/src/auth/`,
 `apps/side-chat-service/src/integrations/`, and `src/sidechat.ts`. Request tokens
 and vendor credentials must not enter the durable actor reference or Workflow
 input. A tool adapter receives the actor reference and must resolve current
-authority or credentials inside its executing realm.
+authority or credentials inside its executing realm. The public `workspaceId`
+is globally unique and tenant-qualified; an adopter must not reuse a local
+workspace identifier across tenants.

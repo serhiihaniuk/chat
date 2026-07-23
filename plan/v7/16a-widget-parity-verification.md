@@ -2,9 +2,9 @@
 
 Read this when: proving the native widget matches the legacy polished widget before the Step 20 cutover deletes the legacy path.
 
-Source of truth for: the pre-cutover parity gate — the feature-identity and look-identity checklists, the side-by-side verification method, and the intentional-divergence sign-off.
+Historical source for: the pre-cutover parity gate — the feature-identity and look-identity checklists, the side-by-side verification method, and the intentional-divergence sign-off.
 
-Not source of truth for: individual widget features (Steps 13–16) or the cutover and deletion mechanics (Step 20).
+Not authoritative for: individual widget features (Steps 13–16) or the cutover and deletion mechanics (Step 20).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

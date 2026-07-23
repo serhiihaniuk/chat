@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  SIDE_CHAT_DATA_PART_TYPES,
   SIDE_CHAT_MESSAGE_TERMINAL_STATUSES,
   TURN_ACTIVITY_STATUS,
   isTurnActivityStatus,
@@ -61,6 +62,11 @@ describe("turn activity status vocabulary", () => {
     expect(isTurnActivityStatus(TURN_ACTIVITY_STATUS.TERMINAL)).toBe(true);
     expect(isTurnActivityStatus("completed")).toBe(false);
     expect(isTurnActivityStatus(undefined)).toBe(false);
+  });
+});
+describe("Side Chat data part registry", () => {
+  it("has no public data parts at baseline", () => {
+    expect(SIDE_CHAT_DATA_PART_TYPES).toEqual([]);
   });
 });
 

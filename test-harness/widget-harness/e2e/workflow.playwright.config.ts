@@ -18,6 +18,7 @@ export default defineConfig({
     "workflow-interactions.spec.ts",
     "workflow-iframe.spec.ts",
     "workflow-multitab.spec.ts",
+    "workflow-responsive.spec.ts",
     "workflow-compiled-service.spec.ts",
   ],
   // All projects share fixed ports and process-global fixture state; serial

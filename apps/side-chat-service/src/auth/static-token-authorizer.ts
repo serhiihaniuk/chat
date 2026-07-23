@@ -2,27 +2,18 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 import type { RequestAuthorizer } from "@side-chat/side-chat-server";
 
-export const DEVELOPMENT_BEARER_TOKEN = "Bearer local-test-token";
 const STATIC_SUBJECT_SUFFIX = "subject";
 
 export type StaticTokenAuthorizerOptions = Readonly<{
-  allowDevelopmentToken: boolean;
   bearerToken: string;
   workspaceId: string;
   now?: () => Date;
 }>;
 
-export class AuthConfigurationError extends Error {
-  readonly code = "production_auth_required";
-}
-
 export function createStaticTokenAuthorizer(
   options: StaticTokenAuthorizerOptions,
 ): RequestAuthorizer {
   const trustedToken = normalizeBearerToken(options.bearerToken);
-  if (!options.allowDevelopmentToken && trustedToken === DEVELOPMENT_BEARER_TOKEN) {
-    throw new AuthConfigurationError("Production auth cannot use the development bearer token");
-  }
   return {
     authorize: (request) =>
       Promise.resolve(

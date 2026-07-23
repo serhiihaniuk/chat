@@ -40,11 +40,11 @@ The architecture gate in `scripts/check-side-chat-service-architecture.mjs` enfo
 
 The public wire is the AI SDK UI-message stream `v1`, narrowed by the shared [stream profile](../../docs/architecture/stream-profile.md). Replay cursors count public UI chunks, not raw Workflow journal records. Workflow owns the durable run/journal; product history and terminal state are projected through `@side-chat/db`.
 
-The service exposes authenticated conversation, model, capability, configuration, and activity routes plus `/healthz` and `/readyz`. Activity SSE is separate from the chat stream and contains identity/lifecycle data only.
+The service exposes authenticated conversation, model catalog, capability, and activity routes plus `/healthz` and `/readyz`. Activity SSE is separate from the chat stream and contains identity/lifecycle data only.
 
 ## Configuration
 
-The app-root `sidechat*.config.ts` declarations select provider connections, model catalogs and reasoning policy, title behavior, server tools, host-context limits, turn admission, authenticated activity-stream limits, timeouts, auth references, and telemetry. `SIDECHAT_CONFIG` chooses the configured declaration. Secret values resolve only through the environment adapter and never enter Workflow input or browser catalogs.
+The app-root `sidechat*.config.ts` declarations select provider connections, model catalogs and reasoning policy, title behavior, server tools, host-context limits, turn admission, authenticated activity-stream limits, timeouts, auth profile, and telemetry. `SIDECHAT_CONFIG` chooses the configured declaration. Production authentication credentials stay in the app-local `RequestAuthorizer` binding rather than readable config. Secret values resolve only through the environment adapter and never enter Workflow input or browser catalogs.
 
 Production Workflow composition carries only serializable, non-secret provider/model identity across the durable boundary and reconstructs SDK delegates in the current Workflow realm. The production build pins the PostgreSQL Workflow world; `WORKFLOW_POSTGRES_URL` supplies its runtime connection.
 

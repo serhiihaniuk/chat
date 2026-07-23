@@ -2,9 +2,9 @@
 
 Read this when: completing runtime observability on the Step 04 foundation.
 
-Source of truth for: the telemetry event/metric inventory, label vocabulary, privacy tests, and exporter posture.
+Historical source for: the telemetry event/metric inventory, label vocabulary, privacy tests, and exporter posture.
 
-Not source of truth for: the registration bootstrap (Step 04) or business analytics.
+Not authoritative for: the registration bootstrap (Step 04) or business analytics.
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

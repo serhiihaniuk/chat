@@ -41,12 +41,19 @@ adopter-authored code lives at visible top-level paths:
 - `sidechat*.config.ts` selects deployment settings and may narrow the registered
   tool catalog.
 
-Request authentication produces an `AuthContext`. Durable execution receives
-only its `DurableActorRef`, containing stable workspace and subject identity.
-Every server-tool execution receives that actor reference plus invocation and
-idempotency identity. Tool adapters use the actor reference to re-evaluate
-current authorization or resolve server-held credentials; they never receive or
-journal the request bearer token.
+Production request authentication is bound by an app-local adopter
+`RequestAuthorizer`. The built-in static bearer authorizer is development-only.
+Request authentication produces an `AuthContext`.
+
+Durable execution receives only the `DurableActorRef`, containing stable
+tenant-qualified workspace and subject identity. Every server-tool execution receives that actor
+reference plus invocation and idempotency identity. Tool adapters use the actor
+reference to re-evaluate current authorization or resolve server-held
+credentials; they never receive or journal the request bearer token.
+
+Production bearer tokens and workspace mappings are not declared in
+`SideChatConfig`. Deployers keep those credentials inside their process-local
+authorizer integration.
 
 Production Workflow entrypoints remain app-local in this decision. Nitro
 currently scans app-local Workflow directories, and external workspace-package

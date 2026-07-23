@@ -5,16 +5,16 @@ Source of truth for: the root `package.json` gate commands and what each proves.
 Not source of truth for: test placement and fixture design (see the testing skill under `.agents/skills`) or product requirements.
 
 Side Chat gates every change through scripts in the root `package.json`. Run
-`npm run verify` during ordinary development and `npm run verify:container`
-before an alpha release. The local command chains six checks and fails on the
-first one; the container command runs the complete alpha gate in the pinned test
-image. This doc lists every command, what it proves, and the run order of the
-custom governance gates.
+`npm run verify` during ordinary development. Run `npm run verify:alpha` for an
+alpha candidate when Docker/Testcontainers are available. CI's
+`npm run verify:container` builds the pinned development/test image and runs that
+alpha gate inside it; it does not validate the production service image. This doc
+lists every command, what it proves, and the run order of the custom governance
+gates.
 
 ## The one command
 
-`npm run verify` runs these six steps in order, stopping at the first failure
-(`package.json:29`):
+`npm run verify` runs these six steps in order, stopping at the first failure:
 
 1. `format:check`
 2. `lint:oxlint`
@@ -35,20 +35,21 @@ npx -p node@24.16.0 -p npm@11.15.0 npm run verify
 
 ## Command reference
 
-Every command below is a root `package.json` script (`package.json:11-31`).
+Every command below is a root `package.json` script.
 
-| Command                    | What it proves                                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `npm run format:check`     | Oxfmt would not rewrite any tracked file.                                                              |
-| `npm run lint:oxlint`      | Oxlint and TypeScript-aware rules pass; warnings fail.                                                 |
-| `npm run lint:custom`      | The 16 custom governance gates pass (see below).                                                       |
-| `npm run lint`             | Both lint layers pass: Oxlint, then custom gates.                                                      |
-| `npm run typecheck`        | Strict TypeScript compiles with no emit.                                                               |
-| `npm run build`            | The project-reference build (`tsc -b`) succeeds.                                                       |
-| `npm test`                 | Deterministic Vitest scenarios (unit, service, adoption) pass.                                         |
-| `npm run verify`           | The full local gate passes in order; `lint:custom` runs last.                                          |
-| `npm run verify:alpha`     | Local gate, disposable Postgres, compiled lifecycle, and current browser E2E all pass.                 |
-| `npm run verify:container` | Builds the pinned test image and runs `verify:alpha` inside it; this is the CI and alpha release gate. |
+| Command                    | What it proves                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run format:check`     | Oxfmt would not rewrite any tracked file.                                                                                      |
+| `npm run lint:oxlint`      | Oxlint and TypeScript-aware rules pass; warnings fail.                                                                         |
+| `npm run lint:custom`      | The 16 custom governance gates pass (see below).                                                                               |
+| `npm run lint`             | Both lint layers pass: Oxlint, then custom gates.                                                                              |
+| `npm run typecheck`        | Strict TypeScript compiles with no emit.                                                                                       |
+| `npm run build`            | The project-reference build (`tsc -b`) succeeds.                                                                               |
+| `npm test`                 | Deterministic Vitest scenarios (unit, service, adoption) pass.                                                                 |
+| `npm run verify`           | The full local gate passes in order; `lint:custom` runs last.                                                                  |
+| `npm run audit`            | Registry audit reports no high-or-above advisory. It is registry-dependent and not part of `verify`.                           |
+| `npm run verify:alpha`     | Local gate, registry audit, disposable Postgres, compiled lifecycle, and current browser E2E all pass.                         |
+| `npm run verify:container` | Builds the pinned development/test image and runs `verify:alpha` inside it; it does not validate the production service image. |
 
 ### Database lanes
 
@@ -67,7 +68,7 @@ Every command below is a root `package.json` script (`package.json:11-31`).
 | `npm run test:e2e`                   | Playwright drives the widget through direct, iframe-host, and compiled-service seams.           | No           |
 | `npm run test:service:lifecycle`     | Compiled boot, request replay, streaming, cancel, autonomous crash recovery, and bounded drain. | Yes          |
 | `npm run test:service:compatibility` | Compiled Workflow/AI SDK compatibility and production-route stream behavior.                    | No           |
-| `npm run audit`                      | `npm audit` reports no high-or-above advisory.                                                  | No           |
+| `npm run audit`                      | `npm audit` reports no high-or-above advisory. This command depends on registry availability.   | No           |
 
 The native iframe host-context contract has a narrower no-Docker lane. It proves the
 public parent/child adapter, default-off user choice, request correlation, and exclusion
@@ -80,8 +81,7 @@ npx playwright test workflow-iframe.spec.ts --config test-harness/widget-harness
 ## Custom governance gates
 
 `npm run lint:custom` runs `scripts/run-custom-lints.mjs`, which executes 16 gates
-in the fixed order below (`run-custom-lints.mjs:7-23`). The first non-zero exit
-aborts the run and prints a per-gate repair prompt (`run-custom-lints.mjs:24-37`).
+in the fixed order below. The first non-zero exit aborts the run and prints a per-gate repair prompt.
 Run them in this order:
 
 | #   | Gate                                       | Enforces                                                                                                                                                                                                                                                                                                  |
@@ -109,14 +109,19 @@ Gate 16 is the meta-gate: it proves no gate silently stops running, so add a new
 ## Docker vs. no-Docker
 
 The `verify:alpha`, `verify:container`, `test:db:container` (and its
-`test:db:local` alias), and `test:service:lifecycle` lanes need Docker. Container
-verification runs the local gate, disposable database suite, compiled lifecycle,
-and current Playwright suite inside the pinned test image. GitHub Actions invokes
-that same container command, so local alpha and remote merge gates do not drift.
+`test:db:local` alias), and `test:service:lifecycle` lanes need Docker.
+`verify:alpha` is the current alpha candidate lane when Docker/Testcontainers are
+available. `verify:container` is the pinned test-environment gate used by CI.
+Validation of the production service Dockerfile is deferred and is not implied by
+any of these passing commands.
 
 To work without Docker, run the in-memory stack with `node scripts/run-local-fake.mjs`
 — see [embed-widget-iframe.md](embed-widget-iframe.md). For day-to-day checks,
 `npm run verify` and `npm run test:e2e` need no Docker at all.
+
+For release stop conditions, including audit, provider smoke authorization,
+license, ownership, and deferred container evidence, use
+[adoption-release.md](adoption-release.md).
 
 ## Supported runtimes
 
@@ -131,7 +136,7 @@ import that API while builds and typechecks run on TypeScript 7.
 | Node | `>=24.15.0 <25.0.0` | `24.16.0` (`.nvmrc`)         |
 | npm  | `>=11.12.0 <12.0.0` | `11.15.0` (`packageManager`) |
 
-The engine ranges live at `package.json:51-55`. Use the pinned reproducible
+The engine ranges live in the root `package.json`. Use the pinned reproducible
 command above (`npx -p node@24.16.0 -p npm@11.15.0 npm run verify`) when you need
 a run that matches CI exactly.
 

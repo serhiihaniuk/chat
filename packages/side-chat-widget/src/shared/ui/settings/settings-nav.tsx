@@ -9,7 +9,7 @@ import type { SettingsGroup } from "#shared/ui/settings-groups";
 import { usePortalContainer } from "#shared/ui/widget-root";
 
 const SETTINGS_NAV_ROW_CLASS =
-  "flex w-full cursor-pointer select-none items-center gap-(--row-gap) rounded-(--settings-item-radius) border-0 bg-transparent px-(--settings-item-px) py-(--settings-item-py) text-left hover:bg-(--settings-item-hover-bg) data-[active=true]:bg-(--settings-item-active-bg)";
+  "flex w-full cursor-pointer select-none items-center gap-(--row-gap) rounded-(--settings-item-radius) border-0 bg-transparent px-(--settings-item-px) py-(--settings-item-py) text-left highlighted:bg-(--settings-item-hover-bg) selected:bg-(--settings-item-active-bg)";
 
 export const WideSettingsNav = ({
   activeGroupId,

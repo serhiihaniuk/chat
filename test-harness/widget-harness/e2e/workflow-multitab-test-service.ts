@@ -32,10 +32,12 @@ const CONFLICT_PROMPT = "Earlier conflict conversation";
 const CONFLICT_ANSWER = "Conflict conversation history.";
 // Exact prompt sentinel that selects the iframe client-tool scenario.
 const IFRAME_CLIENT_TOOL_PROMPT = "iframe client tool contract";
+const MULTITAB_CLIENT_TOOL_PROMPT = "multitab client tool contract";
 const CLIENT_TOOL_CALL_ID = "call-iframe-open-resource";
 
 type StreamChunk = Readonly<Record<string, unknown>>;
 type FixtureCounters = {
+  cancelRequests: number;
   chatAccepted: number;
   chatConflicts: number;
   clientToolOutputs: number;
@@ -45,12 +47,19 @@ type FixtureCounters = {
   state: number;
   tools: number;
 };
+type PendingClientToolOutput = {
+  readonly body: Record<string, unknown>;
+  readonly response: ServerResponse;
+};
 type FixtureState = {
   activitySubscribers: Set<ServerResponse>;
+  cancelled: boolean;
   clientToolCapabilities: string[];
+  clientToolOutputDeferred: boolean;
   clientToolOutput: Record<string, unknown> | undefined;
   completed: boolean;
   conversationId: string | undefined;
+  pendingClientToolOutput: PendingClientToolOutput | undefined;
   prompt: string;
   running: boolean;
   subscribers: Set<ServerResponse>;
@@ -70,6 +79,8 @@ const terminalChunks = [
   { type: "finish-step" },
   { type: "finish" },
 ];
+const cancelledChunks = [{ type: "abort" }];
+const emptyUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 } as const;
 
 let state = createState();
 
@@ -106,6 +117,10 @@ async function handleChatRequest(
     await acceptClientToolOutput(request, response);
     return true;
   }
+  if (request.method === "POST" && url.pathname === `/api/chat/${RUN_ID}/cancel`) {
+    cancelRun(response);
+    return true;
+  }
   if (request.method === "GET" && url.pathname === `/api/chat/${RUN_ID}/stream`) {
     state.counters.replayConnections += 1;
     openStream(response, false);
@@ -123,15 +138,19 @@ process.on("SIGTERM", () => server.close(() => process.exit(0)));
 function createState(): FixtureState {
   return {
     activitySubscribers: new Set(),
+    cancelled: false,
     clientToolCapabilities: [],
+    clientToolOutputDeferred: false,
     clientToolOutput: undefined,
     completed: false,
     conversationId: undefined,
+    pendingClientToolOutput: undefined,
     prompt: "",
     running: false,
     subscribers: new Set(),
     toolMode: false,
     counters: {
+      cancelRequests: 0,
       chatAccepted: 0,
       chatConflicts: 0,
       clientToolOutputs: 0,
@@ -144,28 +163,39 @@ function createState(): FixtureState {
   };
 }
 
-function handleTestControl(request: IncomingMessage, response: ServerResponse, url: URL): boolean {
-  if (request.method === "GET" && url.pathname === "/__test/health") {
-    json(response, 200, { ok: true });
-    return true;
-  }
-  if (request.method === "GET" && url.pathname === "/__test/state") {
-    json(response, 200, publicState());
-    return true;
-  }
-  if (request.method === "POST" && url.pathname === "/__test/reset") {
-    closeSubscribers();
-    closeActivitySubscribers();
-    state = createState();
-    json(response, 200, { reset: true });
-    return true;
-  }
-  if (request.method === "POST" && url.pathname === "/__test/complete") {
+type TestControlHandler = (response: ServerResponse) => void;
+
+const TEST_CONTROL_HANDLERS: Readonly<Record<string, TestControlHandler>> = {
+  "GET /__test/health": (response) => json(response, 200, { ok: true }),
+  "GET /__test/state": (response) => json(response, 200, publicState()),
+  "POST /__test/reset": resetFixture,
+  "POST /__test/defer-client-tool-output": (response) => {
+    state.clientToolOutputDeferred = true;
+    json(response, 200, { deferred: true });
+  },
+  "POST /__test/release-client-tool-output": (response) => {
+    releasePendingClientToolOutput();
+    json(response, 200, { released: true });
+  },
+  "POST /__test/complete": (response) => {
     completeRun();
     json(response, 200, { completed: true });
-    return true;
-  }
-  return false;
+  },
+};
+
+function handleTestControl(request: IncomingMessage, response: ServerResponse, url: URL): boolean {
+  const handler = TEST_CONTROL_HANDLERS[`${request.method ?? ""} ${url.pathname}`];
+  if (handler === undefined) return false;
+  handler(response);
+  return true;
+}
+
+function resetFixture(response: ServerResponse): void {
+  closeSubscribers();
+  closeActivitySubscribers();
+  closePendingClientToolOutput();
+  state = createState();
+  json(response, 200, { reset: true });
 }
 
 function handleCatalogRead(request: IncomingMessage, response: ServerResponse, url: URL): boolean {
@@ -228,75 +258,96 @@ function handleConversationRead(
   url: URL,
 ): boolean {
   if (request.method !== "GET") return false;
-  if (state.conversationId) {
-    const conversationRoot = `/api/conversations/${encodeURIComponent(state.conversationId)}`;
-    if (url.pathname === `${conversationRoot}/state`) {
-      state.counters.state += 1;
-      const messages: unknown[] = [
-        { id: "user-multitab", role: "user", parts: [{ type: "text", text: state.prompt }] },
-      ];
-      if (state.toolMode) {
-        const output = state.clientToolOutput?.["output"];
-        messages.push({
-          id: ASSISTANT_MESSAGE_ID,
-          role: "assistant",
-          parts: [
-            {
-              type: "dynamic-tool",
-              toolCallId: CLIENT_TOOL_CALL_ID,
-              toolName: "open_resource",
-              state: output === undefined ? "input-available" : "output-available",
-              input: { resourceType: "ticket", resourceId: "ticket-4821" },
-              ...(output === undefined ? {} : { output }),
-            },
-          ],
-        });
-      } else if (state.completed) {
-        messages.push({
-          id: ASSISTANT_MESSAGE_ID,
-          role: "assistant",
-          parts: [{ type: "text", text: COMPLETE_ANSWER }],
-        });
-      }
-      json(response, 200, {
-        messages,
-        activeTurn: state.running ? { turnId: TURN_ID, runId: RUN_ID, status: "running" } : null,
-      });
-      return true;
-    }
-  }
-  if (url.pathname === `/api/conversations/${REFERENCE_CONVERSATION_ID}/state`) {
-    state.counters.state += 1;
-    json(response, 200, {
-      activeTurn: null,
-      messages: [
-        { id: "user-reference", role: "user", parts: [{ type: "text", text: REFERENCE_PROMPT }] },
-        {
-          id: "assistant-reference",
-          role: "assistant",
-          parts: [{ type: "text", text: REFERENCE_ANSWER }],
-        },
-      ],
-    });
-    return true;
-  }
-  if (url.pathname === `/api/conversations/${CONFLICT_CONVERSATION_ID}/state`) {
-    state.counters.state += 1;
-    json(response, 200, {
-      activeTurn: null,
-      messages: [
-        { id: "user-conflict", role: "user", parts: [{ type: "text", text: CONFLICT_PROMPT }] },
-        {
-          id: "assistant-conflict",
-          role: "assistant",
-          parts: [{ type: "text", text: CONFLICT_ANSWER }],
-        },
-      ],
-    });
-    return true;
-  }
-  return false;
+  const payload = readConversationStatePayload(url.pathname);
+  if (payload === undefined) return false;
+  state.counters.state += 1;
+  json(response, 200, payload);
+  return true;
 }
+
+function readConversationStatePayload(pathname: string): Record<string, unknown> | undefined {
+  const current = readCurrentConversationState(pathname);
+  if (current !== undefined) return current;
+  return STATIC_CONVERSATION_STATES[pathname];
+}
+
+function readCurrentConversationState(pathname: string): Record<string, unknown> | undefined {
+  if (!state.conversationId) return undefined;
+  const statePath = `/api/conversations/${encodeURIComponent(state.conversationId)}/state`;
+  if (pathname !== statePath) return undefined;
+  return {
+    messages: currentConversationMessages(),
+    activeTurn: state.running ? { turnId: TURN_ID, runId: RUN_ID, status: "running" } : null,
+  };
+}
+
+function currentConversationMessages(): unknown[] {
+  const messages: unknown[] = [
+    { id: "user-multitab", role: "user", parts: [{ type: "text", text: state.prompt }] },
+  ];
+  const assistantMessage = currentAssistantMessage();
+  if (assistantMessage !== undefined) messages.push(assistantMessage);
+  return messages;
+}
+
+function currentAssistantMessage(): Record<string, unknown> | undefined {
+  if (state.toolMode) {
+    const output = state.clientToolOutput?.["output"];
+    return {
+      id: ASSISTANT_MESSAGE_ID,
+      role: "assistant",
+      parts: [
+        {
+          type: "dynamic-tool",
+          toolCallId: CLIENT_TOOL_CALL_ID,
+          toolName: "open_resource",
+          state: output === undefined ? "input-available" : "output-available",
+          input: { resourceType: "ticket", resourceId: "ticket-4821" },
+          ...(output === undefined ? {} : { output }),
+        },
+      ],
+    };
+  }
+  if (state.cancelled) {
+    return {
+      id: ASSISTANT_MESSAGE_ID,
+      role: "assistant",
+      parts: [{ type: "text", text: PARTIAL_ANSWER }],
+      metadata: { usage: emptyUsage, terminal: { status: "cancelled" } },
+    };
+  }
+  if (!state.completed) return undefined;
+  return {
+    id: ASSISTANT_MESSAGE_ID,
+    role: "assistant",
+    parts: [{ type: "text", text: COMPLETE_ANSWER }],
+  };
+}
+
+const STATIC_CONVERSATION_STATES: Readonly<Record<string, Record<string, unknown>>> = {
+  [`/api/conversations/${REFERENCE_CONVERSATION_ID}/state`]: {
+    activeTurn: null,
+    messages: [
+      { id: "user-reference", role: "user", parts: [{ type: "text", text: REFERENCE_PROMPT }] },
+      {
+        id: "assistant-reference",
+        role: "assistant",
+        parts: [{ type: "text", text: REFERENCE_ANSWER }],
+      },
+    ],
+  },
+  [`/api/conversations/${CONFLICT_CONVERSATION_ID}/state`]: {
+    activeTurn: null,
+    messages: [
+      { id: "user-conflict", role: "user", parts: [{ type: "text", text: CONFLICT_PROMPT }] },
+      {
+        id: "assistant-conflict",
+        role: "assistant",
+        parts: [{ type: "text", text: CONFLICT_ANSWER }],
+      },
+    ],
+  },
+};
 
 async function startChat(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const body = await readJson(request);
@@ -314,7 +365,11 @@ async function startChat(request: IncomingMessage, response: ServerResponse): Pr
   state.counters.chatAccepted += 1;
   state.conversationId = typeof conversationId === "string" ? conversationId : undefined;
   state.prompt = readPrompt(body["messages"]);
-  state.toolMode = state.prompt === IFRAME_CLIENT_TOOL_PROMPT;
+  state.toolMode =
+    state.prompt === IFRAME_CLIENT_TOOL_PROMPT || state.prompt === MULTITAB_CLIENT_TOOL_PROMPT;
+  state.cancelled = false;
+  state.completed = false;
+  state.clientToolOutput = undefined;
   recordClientToolCapability(request);
   state.running = true;
   // The conflict fixture deliberately withholds the cross-tab running event so
@@ -373,6 +428,11 @@ function openStream(response: ServerResponse, includeRunHeader: boolean): void {
     return;
   }
   for (const chunk of partialChunks) writeChunk(response, chunk);
+  if (state.cancelled) {
+    for (const chunk of cancelledChunks) writeChunk(response, chunk);
+    response.end("data: [DONE]\n\n");
+    return;
+  }
   if (state.completed) {
     for (const chunk of terminalChunks) writeChunk(response, chunk);
     response.end("data: [DONE]\n\n");
@@ -384,6 +444,7 @@ function openStream(response: ServerResponse, includeRunHeader: boolean): void {
 
 function completeRun(): void {
   state.completed = true;
+  state.cancelled = false;
   state.running = false;
   publishActivity(TURN_ACTIVITY_STATUS.TERMINAL);
   for (const response of state.subscribers) {
@@ -397,13 +458,56 @@ async function acceptClientToolOutput(
   request: IncomingMessage,
   response: ServerResponse,
 ): Promise<void> {
-  state.clientToolOutput = await readJson(request);
-  state.counters.clientToolOutputs += 1;
+  const body = await readJson(request);
   recordClientToolCapability(request);
+  if (state.pendingClientToolOutput || state.clientToolOutput !== undefined) {
+    json(response, 200, { accepted: true, duplicate: true });
+    return;
+  }
+  state.counters.clientToolOutputs += 1;
+  if (state.clientToolOutputDeferred) {
+    state.pendingClientToolOutput = { body, response };
+    return;
+  }
+  commitClientToolOutput(body);
+  json(response, 200, { accepted: true });
+}
+
+function commitClientToolOutput(body: Record<string, unknown>): void {
+  state.clientToolOutput = body;
   state.completed = true;
+  state.cancelled = false;
   state.running = false;
   publishActivity(TURN_ACTIVITY_STATUS.TERMINAL);
-  json(response, 200, { accepted: true });
+}
+
+function releasePendingClientToolOutput(): void {
+  const pending = state.pendingClientToolOutput;
+  if (!pending) return;
+  state.pendingClientToolOutput = undefined;
+  commitClientToolOutput(pending.body);
+  json(pending.response, 200, { accepted: true });
+}
+
+function closePendingClientToolOutput(): void {
+  const pending = state.pendingClientToolOutput;
+  if (!pending) return;
+  state.pendingClientToolOutput = undefined;
+  json(pending.response, 409, { error: "reset" });
+}
+
+function cancelRun(response: ServerResponse): void {
+  state.counters.cancelRequests += 1;
+  state.cancelled = true;
+  state.completed = false;
+  state.running = false;
+  publishActivity(TURN_ACTIVITY_STATUS.TERMINAL);
+  for (const subscriber of state.subscribers) {
+    for (const chunk of cancelledChunks) writeChunk(subscriber, chunk);
+    subscriber.end("data: [DONE]\n\n");
+  }
+  state.subscribers.clear();
+  json(response, 200, { cancelled: true, runId: RUN_ID });
 }
 
 function recordClientToolCapability(request: IncomingMessage): void {
@@ -438,11 +542,14 @@ function publishActivityTo(response: ServerResponse, status: TurnActivityStatus)
 function publicState(): Readonly<Record<string, unknown>> {
   return {
     activitySubscribers: state.activitySubscribers.size,
+    cancelled: state.cancelled,
     clientToolCapabilities: state.clientToolCapabilities,
+    clientToolOutputDeferred: state.clientToolOutputDeferred,
     clientToolOutput: state.clientToolOutput,
     completed: state.completed,
     conversationId: state.conversationId,
     counters: state.counters,
+    pendingClientToolOutput: state.pendingClientToolOutput !== undefined,
     running: state.running,
     subscribers: state.subscribers.size,
   };

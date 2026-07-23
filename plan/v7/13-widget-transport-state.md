@@ -2,9 +2,9 @@
 
 Read this when: reviewing the historical Step 13 transport integration.
 
-Source of truth for: the Step 13 implementation record only. ADR 0009 and Step 16 own the current session/lifecycle architecture.
+Historical source for: the Step 13 implementation record only. ADR 0009 and Step 16 own the current session/lifecycle architecture.
 
-Not source of truth for: part rendering (Step 14), tool/approval interactions (Step 15), or recovery/multi-tab (Step 16).
+Not authoritative for: part rendering (Step 14), tool/approval interactions (Step 15), or recovery/multi-tab (Step 16).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

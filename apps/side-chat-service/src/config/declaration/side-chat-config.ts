@@ -16,8 +16,6 @@ export const SERVICE_ENV_KEYS = {
   WORKFLOW_LOCAL_DATA_DIR: "WORKFLOW_LOCAL_DATA_DIR",
   WORKFLOW_LOCAL_BASE_URL: "WORKFLOW_LOCAL_BASE_URL",
   SIDECHAT_DATABASE_URL: "SIDECHAT_DATABASE_URL",
-  SIDECHAT_AUTH_TOKEN: "SIDECHAT_AUTH_TOKEN",
-  SIDECHAT_WORKSPACE_ID: "SIDECHAT_WORKSPACE_ID",
   SIDECHAT_OTLP_ENDPOINT: "SIDECHAT_OTLP_ENDPOINT",
   SIDECHAT_OTEL_SERVICE_NAME: "SIDECHAT_OTEL_SERVICE_NAME",
 } as const;
@@ -43,6 +41,8 @@ export const TELEMETRY_MODE_VALUES = Object.values(TELEMETRY_MODES);
 export const WORKFLOW_JOURNAL_CLASS_VALUES = Object.values(WORKFLOW_JOURNAL_CLASSES);
 
 export type AuthProfile = (typeof AUTH_PROFILE_VALUES)[number];
+export type DevelopmentAuthProfile = typeof AUTH_PROFILES.DEVELOPMENT;
+export type ProductionAuthProfile = typeof AUTH_PROFILES.PRODUCTION;
 export type TelemetryMode = (typeof TELEMETRY_MODE_VALUES)[number];
 export type WorkflowJournalClass = (typeof WORKFLOW_JOURNAL_CLASS_VALUES)[number];
 
@@ -120,11 +120,15 @@ export interface SideChatConfig {
     readonly maxMetadataDepth: ConfigValue<number>;
     readonly maxMetadataEntries: ConfigValue<number>;
   };
-  readonly auth: {
-    readonly profile: AuthProfile;
-    readonly bearerToken: ConfigValue<string>;
-    readonly workspaceId: ConfigValue<string>;
-  };
+  readonly auth:
+    | {
+        readonly profile: DevelopmentAuthProfile;
+        readonly staticBearerToken: ConfigValue<string>;
+        readonly workspaceId: ConfigValue<string>;
+      }
+    | {
+        readonly profile: ProductionAuthProfile;
+      };
   readonly timeouts: {
     readonly queueMs: ConfigValue<number>;
     readonly providerMs: ConfigValue<number>;

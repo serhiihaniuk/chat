@@ -142,17 +142,41 @@ describe("outbound scrub filter", () => {
     expect(out).toEqual([{ type: "finish", finishReason: "content-filter" }]);
   });
 
-  it("forwards unknown chunk types and counts them", async () => {
+  it("drops unregistered data chunks and counts only their type", async () => {
+    const sentinel = "PRIVATE_DATA_PART_SENTINEL";
     const unknown: UIMessageChunk = {
       type: "data-demo",
-      data: { phase: "streaming" },
+      data: { privateValue: sentinel },
     };
-    const seen: string[] = [];
+    const dropped: string[] = [];
     const out = await scrub([{ type: "start" }, unknown, { type: "finish" }], {
-      onUnknownChunk: (type) => seen.push(type),
+      onDroppedUnknownChunk: (type) => dropped.push(type),
     });
-    expect(out.map((part) => part.type)).toEqual(["start", "data-demo", "finish"]);
-    expect(seen).toEqual(["data-demo"]);
+
+    expect(out.map((part) => part.type)).toEqual(["start", "finish"]);
+    expect(dropped).toEqual(["data-demo"]);
+    expect(JSON.stringify(out)).not.toContain(sentinel);
+    expect(JSON.stringify(dropped)).not.toContain(sentinel);
+  });
+
+  it("drops custom and future data chunks fail-closed", async () => {
+    const dropped: string[] = [];
+    const out = await scrub(
+      [
+        {
+          type: "custom",
+          kind: "sidechat.private",
+          providerMetadata: { sidechat: { privateValue: "PRIVATE_CUSTOM_SENTINEL" } },
+        },
+        { type: "data-future", data: { privateValue: "PRIVATE_FUTURE_SENTINEL" } },
+        { type: "finish" },
+      ],
+      { onDroppedUnknownChunk: (type) => dropped.push(type) },
+    );
+
+    expect(out).toEqual([{ type: "finish" }]);
+    expect(dropped).toEqual(["custom", "data-future"]);
+    expect(JSON.stringify(out)).not.toContain("PRIVATE_");
   });
 
   it("drops a second terminal chunk and counts it", async () => {

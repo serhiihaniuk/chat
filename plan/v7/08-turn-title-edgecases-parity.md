@@ -2,9 +2,9 @@
 
 Read this when: finishing the turn feature set and auditing it against the old app.
 
-Source of truth for: title generation, the residual edge cases, and the behavior-parity checklist execution.
+Historical source for: title generation, the residual edge cases, and the behavior-parity checklist execution.
 
-Not source of truth for: core turn flow (Step 05) or the scrub rules (Step 06).
+Not authoritative for: core turn flow (Step 05) or the scrub rules (Step 06).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

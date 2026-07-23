@@ -34,6 +34,7 @@ Important transport rules:
 
 - ownership is proven before any replay data is returned;
 - malformed or out-of-range cursors fail with safe JSON errors;
+- negative cursors resolve once as `tail + 1 + startIndex` against the current public UI tail and clamp to zero;
 - simultaneous subscribers receive independent stream readers;
 - keepalive frames maintain the HTTP connection but do not advance the UI-chunk cursor;
 - reconnecting with the last confirmed public index is idempotent;
@@ -51,6 +52,8 @@ The outbound scrubber allows only public UI-message structure and profile-owned 
 - stack traces and database information.
 
 Public errors use the closed vocabulary exported by `@side-chat/stream-profile`. HTTP setup failures remain JSON responses. Once streaming begins, terminal state is represented by the profiled message finish/error shape and later reconciled from the durable conversation snapshot.
+
+Unknown chunk types fail closed at this same outbound privacy boundary. An unregistered `data-*`, `custom`, or future native chunk is dropped before SSE encoding, and the observer receives only its `type` so telemetry cannot capture private payloads.
 
 ## Message metadata
 

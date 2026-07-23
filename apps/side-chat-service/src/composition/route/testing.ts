@@ -33,7 +33,10 @@ import {
   configuredModelCatalog,
   publishedModelCatalog,
 } from "../providers/configured-model-catalog.js";
-import { createServiceAuthorizer } from "#auth/create-service-authorizer";
+import {
+  createServiceAuthorizer,
+  requireDevelopmentAuthSettings,
+} from "#auth/create-service-authorizer";
 import { localChatConversation } from "./local-development/local-chat-seed.js";
 import {
   createConfiguredTestingPersistence,
@@ -73,7 +76,9 @@ export async function startTestingService(
 ) {
   const persistence = createInMemoryTestingPersistence(
     overrides.turnState ??
-      new InMemoryTurnState([localChatConversation(settings.auth.workspaceId)]),
+      new InMemoryTurnState([
+        localChatConversation(requireDevelopmentAuthSettings(settings.auth).workspaceId),
+      ]),
   );
   return startTestingServiceWithPersistence(settings, starters, overrides, persistence);
 }

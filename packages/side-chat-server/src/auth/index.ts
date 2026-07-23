@@ -5,6 +5,7 @@
  * Workflow persistence receives the smaller secret-free actor reference.
  */
 export type DurableActorRef = Readonly<{
+  /** Globally unique, tenant-qualified scope; never reuse an adopter-local workspace id across tenants. */
   workspaceId: string;
   subjectId: string;
 }>;

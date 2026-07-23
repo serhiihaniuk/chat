@@ -6,7 +6,7 @@ import type { TelemetryRecord } from "#application/ports/telemetry-sink";
 import { createObservedScrubTransform } from "./observed-scrub-transform.js";
 
 describe("observed scrub transform", () => {
-  it("counts unknown and duplicate-terminal chunks without recording their content", async () => {
+  it("counts dropped unknown and duplicate-terminal chunks without recording their content", async () => {
     const sentinel = "PRIVATE_UNKNOWN_CHUNK_SENTINEL";
     const records: TelemetryRecord[] = [];
     const source = chunks(
@@ -23,9 +23,9 @@ describe("observed scrub transform", () => {
       ),
     );
 
-    expect(output.map((chunk) => chunk.type)).toEqual(["data-demo", "finish"]);
+    expect(output.map((chunk) => chunk.type)).toEqual(["finish"]);
     expect(records).toEqual([
-      { type: "stream.unknown_chunk", count: 1 },
+      { type: "stream.dropped_unknown_chunk", count: 1 },
       { type: "stream.duplicate_terminal", count: 1 },
     ]);
     expect(JSON.stringify(records)).not.toContain(sentinel);

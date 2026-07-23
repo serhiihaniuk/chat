@@ -8,7 +8,6 @@ import {
   type SideChatConfig,
 } from "./src/config/declaration/side-chat-config.js";
 import { OPENAI_PROVIDER } from "./src/config/providers/openai-provider-config.js";
-import { MOCK_WEB_SEARCH_TOOL_NAME } from "./src/sidechat.js";
 
 /** Production defaults remain readable here; secrets resolve only during boot. */
 const config: SideChatConfig = defineSideChatConfig({
@@ -43,7 +42,7 @@ const config: SideChatConfig = defineSideChatConfig({
     modelId: OPENAI_PROVIDER.MODELS.GPT_5_6_LUNA.MODEL_ID,
     timeoutMs: 10_000,
   },
-  serverTools: [MOCK_WEB_SEARCH_TOOL_NAME],
+  serverTools: [],
   hostContext: {
     enabled: true,
     maxSerializedBytes: 16_384,
@@ -51,16 +50,7 @@ const config: SideChatConfig = defineSideChatConfig({
     maxMetadataDepth: 8,
     maxMetadataEntries: 128,
   },
-  auth: {
-    profile: AUTH_PROFILES.PRODUCTION,
-    bearerToken: readEnv.secret(SERVICE_ENV_KEYS.SIDECHAT_AUTH_TOKEN, {
-      description: "Bearer token accepted by the built-in production auth profile.",
-    }),
-    workspaceId: readEnv(SERVICE_ENV_KEYS.SIDECHAT_WORKSPACE_ID, {
-      description: "Workspace id assigned to requests accepted by the built-in auth profile.",
-      required: true,
-    }),
-  },
+  auth: { profile: AUTH_PROFILES.PRODUCTION },
   timeouts: {
     queueMs: 5_000,
     providerMs: 180_000,

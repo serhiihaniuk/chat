@@ -2,9 +2,9 @@
 
 Read this when: rebuilding the browser-executed tool capability (formerly "host commands") on native primitives.
 
-Source of truth for: the client-tool lifecycle, the hook-based wait, the result endpoint, ownership checks, and the exactly-once contract.
+Historical source for: the client-tool lifecycle, the hook-based wait, the result endpoint, ownership checks, and the exactly-once contract.
 
-Not source of truth for: approvals (Step 12) or the widget dispatch code (Step 15 lands it; this step designs the client contract).
+Not authoritative for: approvals (Step 12) or the widget dispatch code (Step 15 lands it; this step designs the client contract).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

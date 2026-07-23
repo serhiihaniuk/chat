@@ -2,9 +2,9 @@
 
 Read this when: implementing durable stream reattachment and multi-client delivery.
 
-Source of truth for: the GET stream route, `startIndex` semantics, replay correctness, and the coalescing decision.
+Historical source for: the GET stream route, `startIndex` semantics, replay correctness, and the coalescing decision.
 
-Not source of truth for: run discovery queries (Step 10) or widget reconnect wiring (Step 16).
+Not authoritative for: run discovery queries (Step 10) or widget reconnect wiring (Step 16).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

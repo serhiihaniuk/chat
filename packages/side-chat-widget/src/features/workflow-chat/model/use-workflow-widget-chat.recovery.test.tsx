@@ -140,7 +140,9 @@ describe("useWorkflowWidgetChat recovery", () => {
     };
 
     harness.render(createElement(Probe));
-    await waitFor(() => current.current?.phase === "settling");
+    await waitFor(
+      () => current.current?.phase === "settling" && onRunTerminal.mock.calls.length === 1,
+    );
     expect(onRunTerminal).toHaveBeenCalledWith("run-1");
     expect(onRunReconciled).not.toHaveBeenCalled();
 

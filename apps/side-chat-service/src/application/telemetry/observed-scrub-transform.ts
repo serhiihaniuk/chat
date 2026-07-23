@@ -10,9 +10,9 @@ export function createObservedScrubTransform(
   telemetry: Pick<TelemetrySink, "record">,
 ): TransformStream<UIMessageChunk, UIMessageChunk> {
   return createScrubTransform({
-    onUnknownChunk: () =>
+    onDroppedUnknownChunk: () =>
       recordTelemetrySafely(telemetry, {
-        type: "stream.unknown_chunk",
+        type: "stream.dropped_unknown_chunk",
         count: 1,
       }),
     onDroppedTerminalChunk: () =>

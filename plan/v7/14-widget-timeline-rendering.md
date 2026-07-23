@@ -2,9 +2,9 @@
 
 Read this when: rendering message parts into the widget's timeline and terminal presentations.
 
-Source of truth for: the part→component mapping, terminal presentations, and cut-list reconciliation.
+Historical source for: the part→component mapping, terminal presentations, and cut-list reconciliation.
 
-Not source of truth for: interactions (Step 15) or state/transport (Step 13).
+Not authoritative for: interactions (Step 15) or state/transport (Step 13).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

@@ -2,9 +2,9 @@
 
 Read this when: building or reviewing any live/durable chat state in `packages/side-chat-widget` — the timeline, streaming, refresh, reconnect, cancel, or multi-tab behavior.
 
-Source of truth for: who owns conversation state on the client, how the native stream is consumed, and the epoch/reducer/snapshot model.
+Historical source for: who owns conversation state on the client, how the native stream is consumed, and the epoch/reducer/snapshot model.
 
-Not source of truth for: server ownership ([`ARCHITECTURE.md`](./ARCHITECTURE.md), the durable turn), visual design (the design-system skill), or the wire vocabulary (`@side-chat/stream-profile`).
+Not authoritative for: server ownership ([`ARCHITECTURE.md`](./ARCHITECTURE.md), the durable turn), visual design (the design-system skill), or the wire vocabulary (`@side-chat/stream-profile`).
 
 ## The one law
 

@@ -59,6 +59,24 @@ describe("service settings", () => {
     });
   });
 
+  it("resolves production auth without static bearer settings", () => {
+    const result = resolveTestSettings(
+      createDefaultConfig({
+        models: {
+          provider: "openai",
+          connection: { apiKey: "test-key" },
+          defaultModelId: "production-model",
+          availableModels: [{ id: "production-model", contextWindowTokens: 1_000 }],
+        },
+        auth: { profile: "production" },
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.settings.auth).toEqual({ profile: "production" });
+  });
+
   it("reserves explicit Workflow worker headroom above active turns", () => {
     const result = resolveTestSettings(
       createDefaultConfig({

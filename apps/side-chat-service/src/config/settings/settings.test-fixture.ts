@@ -45,7 +45,7 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
     },
     auth: {
       profile: AUTH_PROFILES.DEVELOPMENT,
-      bearerToken: "local-test-token",
+      staticBearerToken: "local-test-token",
       workspaceId: "local-workspace",
     },
     timeouts: {
@@ -85,7 +85,7 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
     },
     serverTools: overrides.serverTools ?? defaults.serverTools,
     hostContext: { ...defaults.hostContext, ...overrides.hostContext },
-    auth: { ...defaults.auth, ...overrides.auth },
+    auth: createAuthConfig(defaults.auth, overrides.auth),
     timeouts: { ...defaults.timeouts, ...overrides.timeouts },
     capacity: { ...defaults.capacity, ...overrides.capacity },
     agent: { ...defaults.agent, ...overrides.agent },
@@ -94,4 +94,15 @@ export function createDefaultConfig(overrides: ConfigOverrides = {}): SideChatCo
     telemetry: overrides.telemetry ?? defaults.telemetry,
     workflow: { ...defaults.workflow, ...overrides.workflow },
   });
+}
+
+function createAuthConfig(
+  defaults: SideChatConfig["auth"],
+  override: ConfigOverrides["auth"],
+): SideChatConfig["auth"] {
+  if (override?.profile === AUTH_PROFILES.PRODUCTION) return { profile: AUTH_PROFILES.PRODUCTION };
+  if (defaults.profile !== AUTH_PROFILES.DEVELOPMENT) {
+    throw new Error("Test fixture defaults must use development auth.");
+  }
+  return { ...defaults, ...override, profile: AUTH_PROFILES.DEVELOPMENT };
 }

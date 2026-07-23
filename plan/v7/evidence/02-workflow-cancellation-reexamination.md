@@ -2,7 +2,7 @@
 
 Read this when: deciding or reviewing the execution-substrate verdict, or re-running the reproduction.
 
-Source of truth for: the verified cancellation behavior of WorkflowAgent on current package versions, the exact root cause, the proven workaround, and the upstream-issue material.
+Historical source for: the verified cancellation behavior of WorkflowAgent on current package versions, the exact root cause, the proven workaround, and the upstream-issue material.
 
 Context: the original Step 02b evidence document was deleted during an interrupted plan cleanup. This re-examination was run from scratch on the newest published versions to restore reproducible evidence and to answer the product owner's requirement that the durability features (crash-resume, multi-instance continuation, durable waits, engine replay) are needed.
 

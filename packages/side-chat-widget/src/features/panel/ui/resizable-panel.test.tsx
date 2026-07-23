@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { calculateResizedPanel, ResizablePanel } from "./resizable-panel.js";
+
+const styles = readFileSync(new URL("../../../../styles.css", import.meta.url), "utf8");
 
 const START = {
   size: { width: 640, height: 600 },
@@ -52,7 +55,18 @@ describe("ResizablePanel", () => {
       </ResizablePanel>,
     );
 
-    expect(html.match(/z-\[80\]/g)).toHaveLength(6);
+    expect(html.match(/z-\(--layer-panel-resize-handle\)/g)).toHaveLength(6);
+    expect(html).toContain("z-(--layer-panel)");
+  });
+
+  it("declares named layer tokens for panel handles and dialogs", () => {
+    expect(styles).toContain("--layer-panel: 50;");
+    expect(styles).toContain("--layer-panel-resize-handle: 80;");
+    expect(styles).toContain("--layer-dialog-backdrop: 90;");
+    expect(styles).toContain("--layer-dialog-content: 91;");
+    expect(styles).toContain("z-index: var(--layer-dialog-backdrop);");
+    expect(styles).toContain("z-index: var(--layer-dialog-content);");
+    expect(styles).toContain("background: var(--dialog-backdrop-bg);");
   });
 
   it("becomes a full-width bottom sheet with no resize handles below the mobile breakpoint", () => {

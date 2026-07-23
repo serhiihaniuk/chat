@@ -50,16 +50,7 @@ const config: SideChatConfig = defineSideChatConfig({
     maxMetadataDepth: 8,
     maxMetadataEntries: 128,
   },
-  auth: {
-    profile: AUTH_PROFILES.PRODUCTION,
-    bearerToken: readEnv.secret(SERVICE_ENV_KEYS.SIDECHAT_AUTH_TOKEN, {
-      description: "Bearer token accepted by the built-in production auth profile.",
-    }),
-    workspaceId: readEnv(SERVICE_ENV_KEYS.SIDECHAT_WORKSPACE_ID, {
-      description: "Workspace id assigned to requests accepted by the built-in auth profile.",
-      required: true,
-    }),
-  },
+  auth: { profile: AUTH_PROFILES.PRODUCTION },
   timeouts: {
     queueMs: 5_000,
     providerMs: 180_000,

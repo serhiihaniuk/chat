@@ -1,6 +1,10 @@
 import type { UIMessageChunk } from "ai";
 
-import { sideChatMessageMetadataSchema, SIDE_CHAT_ERROR_CODES } from "@side-chat/stream-profile";
+import {
+  SIDE_CHAT_DATA_PART_TYPES,
+  sideChatMessageMetadataSchema,
+  SIDE_CHAT_ERROR_CODES,
+} from "@side-chat/stream-profile";
 
 import {
   TERMINAL_UI_MESSAGE_CHUNK_TYPES,
@@ -32,11 +36,14 @@ import {
  *   untouched; it already is the blocked/length representation (ADR 0007).
  * - exactly one terminal-class chunk reaches the client; a second is dropped
  *   (defense in depth; the SDK should already guarantee this).
- * - unknown chunk types are forwarded, never dropped, and counted.
+ * - unknown chunk types are dropped and counted by type only. A future native,
+ *   `custom`, or `data-*` chunk may become public only after it is registered in
+ *   the stream profile and reviewed as part of the browser contract.
  */
 
 const TERMINAL_CHUNK_TYPES = new Set<string>(TERMINAL_UI_MESSAGE_CHUNK_TYPES);
 const KNOWN_CHUNK_TYPES = new Set<string>(Object.values(UI_MESSAGE_CHUNK_TYPES));
+const REGISTERED_DATA_PART_TYPES = new Set<string>(SIDE_CHAT_DATA_PART_TYPES);
 const MESSAGE_METADATA_CHUNK_TYPES = new Set<string>([
   UI_MESSAGE_CHUNK_TYPES.START,
   UI_MESSAGE_CHUNK_TYPES.FINISH,
@@ -44,13 +51,13 @@ const MESSAGE_METADATA_CHUNK_TYPES = new Set<string>([
 ]);
 
 /**
- * Optional counters for the two chunks the filter handles defensively. The filter
- * stays sink-free; `createObservedScrubTransform` connects these hooks to telemetry
- * at the HTTP composition boundary.
+ * Optional counters for chunks the filter handles defensively. The filter stays
+ * sink-free; `createObservedScrubTransform` connects these hooks to telemetry at
+ * the HTTP composition boundary.
  */
 export type ScrubObserver = Readonly<{
-  /** Receives the `type` of a forwarded unknown chunk (a future or `data-*` type); the chunk still passes through. */
-  onUnknownChunk?: (type: string) => void;
+  /** Receives only the `type` of an unknown chunk that was dropped. The chunk payload stays private. */
+  onDroppedUnknownChunk?: (type: string) => void;
   /** Receives the `type` of a second terminal-class chunk, dropped to keep exactly one terminal per turn. */
   onDroppedTerminalChunk?: (type: string) => void;
 }>;
@@ -60,9 +67,9 @@ export type ScrubObserver = Readonly<{
  * profile (see the file contract above). Returns a fresh, single-use
  * `TransformStream`, so call it once per response.
  *
- * @param observer - Hooks invoked when a chunk is forwarded as unknown or a
- *   duplicate terminal is dropped, so telemetry can count them without the filter
- *   depending on a sink. Defaults to no-op.
+ * @param observer - Hooks invoked when an unknown or duplicate-terminal chunk is
+ *   dropped, so telemetry can count it without the filter depending on a sink.
+ *   Defaults to no-op.
  */
 export function createScrubTransform(
   observer: ScrubObserver = {},
@@ -77,10 +84,17 @@ export function createScrubTransform(
         }
         terminated = true;
       }
-      if (!KNOWN_CHUNK_TYPES.has(chunk.type)) observer.onUnknownChunk?.(chunk.type);
+      if (!isPublicChunkType(chunk.type)) {
+        observer.onDroppedUnknownChunk?.(chunk.type);
+        return;
+      }
       controller.enqueue(scrubChunk(chunk));
     },
   });
+}
+
+function isPublicChunkType(type: string): boolean {
+  return KNOWN_CHUNK_TYPES.has(type) || REGISTERED_DATA_PART_TYPES.has(type);
 }
 
 function scrubChunk(chunk: UIMessageChunk): UIMessageChunk {

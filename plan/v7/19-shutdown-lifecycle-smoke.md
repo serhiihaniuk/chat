@@ -2,9 +2,9 @@
 
 Read this when: implementing graceful shutdown and the self-terminating end-to-end smoke.
 
-Source of truth for: the shutdown sequence, drain semantics, deploy guidance, and the `test:service:lifecycle` command.
+Historical source for: the shutdown sequence, drain semantics, deploy guidance, and the `test:service:lifecycle` command.
 
-Not source of truth for: capacity mechanics (Step 17) or telemetry content (Step 18).
+Not authoritative for: capacity mechanics (Step 17) or telemetry content (Step 18).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

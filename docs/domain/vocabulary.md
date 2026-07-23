@@ -26,6 +26,15 @@ Not source of truth for: package ownership, lifecycle sequencing, wire payloads,
 | Effective turn activity | Product/Workflow classification used to distinguish active, starting, terminal, and repair-required turns.                          | Product database queries   |
 | Terminal repair         | Guarded reconciliation of an open product turn whose Workflow run is already terminal or irrecoverably absent.                      | Product database           |
 
+## Identity and ownership
+
+| Term          | Meaning                                                                                                                                   | Owner                          |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Tenant        | Adopter-owned top-level isolation domain. Side Chat represents it through a globally unique, tenant-qualified `workspaceId`, not a field. | Adopter auth integration       |
+| Workspace     | Durable authorization scope inside a tenant. Its public `workspaceId` must never be reused across tenants.                                | Adopter auth integration       |
+| Subject       | Authenticated principal inside a tenant-qualified workspace.                                                                              | Adopter auth integration       |
+| `AuthContext` | Request-scoped workspace/subject identity plus issue time. Credentials and mutable claims are intentionally excluded.                     | Server framework and HTTP edge |
+
 ## Workflow and streaming
 
 | Term                         | Meaning                                                                                                                                                  | Owner                             |
@@ -44,19 +53,19 @@ Not source of truth for: package ownership, lifecycle sequencing, wire payloads,
 
 ## Models, context, and tools
 
-| Term                    | Meaning                                                                                                                 | Owner                                        |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Model catalog           | Service-published list of selectable model ids and supported reasoning efforts.                                         | Service configuration/composition            |
-| Model preference        | Optional per-turn model selection validated against the published catalog.                                              | Turn policy                                  |
-| Reasoning effort        | Provider-neutral `low`, `medium`, or `high` selection when the chosen model advertises it.                              | Stream profile/model policy                  |
-| Host context            | Optional browser page reference data collected for one opted-in request. It is untrusted context, never authentication. | Host bridge and HTTP validation              |
-| Server tool             | Model-callable action executed inside the service Workflow.                                                             | Service tool registry                        |
-| Client tool             | Model-callable action executed by the originating browser tab or host page.                                             | Host bridge and durable client-tool dispatch |
-| Client-tool capability  | High-entropy run-scoped value retained by the originating tab; only its digest crosses into durable execution.          | Widget/HTTP boundary                         |
-| Client-tool dispatch    | Durable row binding one tool call, originating-tab digest, and terminal output.                                         | Product database                             |
-| Tool approval           | Durable human decision required before an approval-gated server tool executes.                                          | Product database and Workflow wait           |
-| Durable actor reference | Secret-free workspace and subject identity carried through Workflow so tools can authorize the current actor.           | Server framework and Workflow input          |
-| Activity item           | Widget-owned normalized display model for reasoning or tool activity.                                                   | Widget                                       |
+| Term                    | Meaning                                                                                                                        | Owner                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| Model catalog           | Service-published list of selectable model ids and supported reasoning efforts.                                                | Service configuration/composition            |
+| Model preference        | Optional per-turn model selection validated against the published catalog.                                                     | Turn policy                                  |
+| Reasoning effort        | Provider-neutral `low`, `medium`, or `high` selection when the chosen model advertises it.                                     | Stream profile/model policy                  |
+| Host context            | Optional browser page reference data collected for one opted-in request. It is untrusted context, never authentication.        | Host bridge and HTTP validation              |
+| Server tool             | Model-callable action executed inside the service Workflow.                                                                    | Service tool registry                        |
+| Client tool             | Model-callable action executed by the originating browser tab or host page.                                                    | Host bridge and durable client-tool dispatch |
+| Client-tool capability  | High-entropy run-scoped value retained by the originating tab; only its digest crosses into durable execution.                 | Widget/HTTP boundary                         |
+| Client-tool dispatch    | Durable row binding one tool call, originating-tab digest, and terminal output.                                                | Product database                             |
+| Tool approval           | Durable human decision required before an approval-gated server tool executes.                                                 | Product database and Workflow wait           |
+| Durable actor reference | Secret-free tenant-qualified workspace and subject identity carried through Workflow so tools can authorize the current actor. | Server framework and Workflow input          |
+| Activity item           | Widget-owned normalized display model for reasoning or tool activity.                                                          | Widget                                       |
 
 ## Packages and applications
 

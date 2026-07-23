@@ -161,17 +161,39 @@ const typeMessage = (value: string): void => {
   });
 };
 
-const clickSend = (): void => {
-  const button = container.querySelector<HTMLElement>('[aria-label="Send message"]');
+const findSendButton = (): HTMLButtonElement => {
+  const button = container.querySelector<HTMLButtonElement>('[aria-label="Send message"]');
   if (button === null) throw new Error("Expected a send button.");
-  act(() => button.click());
+  return button;
+};
+
+const clickSend = (): void => {
+  act(() => findSendButton().click());
 };
 
 describe("Composer field wiring", () => {
+  it("semantically disables idle send until there is text", () => {
+    const submitted: string[] = [];
+    renderComposer({
+      onSubmit: (text) => {
+        submitted.push(text);
+      },
+    });
+
+    expect(findSendButton().disabled).toBe(true);
+    clickSend();
+    expect(submitted).toEqual([]);
+
+    typeMessage("hello");
+    expect(findSendButton().disabled).toBe(false);
+  });
+
   it("stays editable while a turn streams so the next message can be drafted", () => {
     renderComposer({ status: "streaming" });
     expect(findTextarea().disabled).toBe(false);
-    expect(container.querySelector('[aria-label="Stop generating"]')).not.toBeNull();
+    const stopButton = container.querySelector<HTMLButtonElement>('[aria-label="Stop generating"]');
+    expect(stopButton).not.toBeNull();
+    expect(stopButton?.disabled).toBe(false);
     expect(container.querySelector('[aria-label="Send message"]')).toBeNull();
   });
 

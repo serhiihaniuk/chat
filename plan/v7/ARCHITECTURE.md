@@ -2,9 +2,9 @@
 
 Read this when: creating, moving, or reviewing ANY file in `apps/side-chat-service` — before writing code, not after.
 
-Source of truth for: the target shape — layers, ports, dependency law, physical seams, and where each step's artifacts live.
+Historical source for: the target shape — layers, ports, dependency law, physical seams, and where each step's artifacts live.
 
-Not source of truth for: step sequencing ([`README.md`](./README.md)) or verified engine facts ([`KNOWLEDGE.md`](./KNOWLEDGE.md)).
+Not authoritative for: step sequencing ([`README.md`](./README.md)) or verified engine facts ([`KNOWLEDGE.md`](./KNOWLEDGE.md)).
 
 ## The style
 

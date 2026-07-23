@@ -2,9 +2,9 @@
 
 Read this when: making the repository's rules and docs describe the new architecture, then closing the program.
 
-Source of truth for: governance rule changes, the documentation cutover, plan disposition, and program completion evidence.
+Historical source for: governance rule changes, the documentation cutover, plan disposition, and program completion evidence.
 
-Not source of truth for: permission to retain bridges — the program completes only when governance and docs match the deleted-legacy reality of Step 20.
+Not authoritative for: permission to retain bridges — the program completes only when governance and docs match the deleted-legacy reality of Step 20.
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

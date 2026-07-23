@@ -2,9 +2,9 @@
 
 Read this when: defining the native stack's storage shapes and the durable write path.
 
-Source of truth for: the schema (UIMessage messages, turns, tool/approval rows), id policy, and write-path idempotency.
+Historical source for: the schema (UIMessage messages, turns, tool/approval rows), id policy, and write-path idempotency.
 
-Not source of truth for: read paths/pruning (Step 10) or database tooling (docs/operations/database.md).
+Not authoritative for: read paths/pruning (Step 10) or database tooling (docs/operations/database.md).
 
 Tracking: status and owner are maintained only in [`STATUS.md`](./STATUS.md).
 

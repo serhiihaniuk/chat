@@ -48,11 +48,15 @@ The engine's `createModelCallToUIChunkTransform` emits a bare `finish` chunk; th
 
 `activityDurationMs` is measured inside the durable workflow from immediately before `WorkflowAgent.stream` starts until a completed model stream settles. It therefore covers provider generation and any tool or approval suspension inside that assistant activity, but excludes pre-run admission/preparation and terminal persistence. This is the replay-safe source for the widget's completed `Thought for Ns` label; the widget rounds up to whole seconds with a one-second display minimum when a trace exists.
 
-The dependency-free stream-profile schema rejects unknown/private fields. Live and replayed terminal chunks carry the same folded usage and activity duration. Completed assistant persistence replaces arbitrary metadata with that safe object; the history read edge omits empty metadata and degrades invalid metadata before transport. The scrub edge validates every metadata-bearing stream chunk, and the widget validates both history and live messages with the same schema. Older messages may omit `activityDurationMs` and render the duration-free `Thought process` label.
+The dependency-free stream-profile schema rejects unknown/private fields. Live and replayed terminal chunks carry the same folded usage and activity duration. Completed assistant persistence replaces arbitrary metadata with that safe object.
 
-### `data-*` parts
+The history read edge omits empty metadata and degrades invalid metadata before transport. The scrub edge validates every metadata-bearing stream chunk, and the widget validates both history and live messages with the same schema.
 
-Baseline: **none.** Turn state derives from native parts, so no custom `data-*` part ships (ADR 0007). The extension point is `SideChatDataParts` in `packages/stream-profile`; adding a part requires a schema, a named consumer that cannot derive the concept from native parts, and a privacy review. Injection composes into the outbound transform chain, ordered relative to native parts.
+Older messages may omit `activityDurationMs` and render the duration-free `Thought process` label.
+
+### `data-*` Parts
+
+Baseline: **none.** Turn state derives from native parts, so no custom `data-*` part ships (ADR 0007). The extension point is `SideChatDataParts` plus its runtime registry in `packages/stream-profile`; adding a part requires a schema, a registered chunk type, a named consumer that cannot derive the concept from native parts, and a privacy review. Injection composes into the outbound transform chain, ordered relative to native parts.
 
 ## Errors
 
@@ -85,8 +89,9 @@ keepalive chain as `POST /api/chat`. It returns both `x-workflow-run-id` and
 
 `startIndex` is an index in the public `UIMessageChunk` stream, not the raw
 WorkflowAgent journal. Missing and `0` replay from the beginning; a negative
-value is resolved once against the current UI tail and clamps to zero; exactly
+value is resolved once as `tail + 1 + startIndex` against the current UI tail and clamps to zero; exactly
 `tail + 1` opens an empty live tail; anything greater returns `416` before SSE.
+
 The service scans the bounded raw prefix to translate that cursor because the
 pinned SDK's model-part-to-UI transform is not one-to-one. This preserves an
 exact client contract at O(history) reconnect cost without inventing a second
@@ -98,7 +103,7 @@ one assistant projection; it never creates a second transient message identity.
 
 ## Terminal discipline
 
-Exactly one terminal-class part (`finish`, `error`, or `abort`) reaches the client. The scrub filter drops and counts any second terminal chunk as defense in depth; the SDK should already guarantee this. Unknown chunk types are forwarded untouched and counted, never dropped, so a future native part is forward-compatible.
+Exactly one terminal-class part (`finish`, `error`, or `abort`) reaches the client. The scrub filter drops and counts any second terminal chunk as defense in depth; the SDK should already guarantee this. Unknown chunk types fail closed at the same boundary: unregistered `data-*`, `custom`, or future native chunks are dropped and counted by type only, never by payload. A future chunk becomes public only after the stream profile registers and documents it.
 
 ## Transport envelope
 

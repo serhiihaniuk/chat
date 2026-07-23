@@ -36,7 +36,7 @@
     "test:e2e": "node node_modules/playwright/cli.js test --config test-harness/widget-harness/e2e/workflow.playwright.config.ts",
     "audit": "npm audit --audit-level=high",
     "verify": "npm run format:check && npm run lint:oxlint && npm run typecheck && npm test && npm run build && npm run lint:custom",
-    "verify:alpha": "npm run verify && npm run test:db:container && npm run test:service:lifecycle && npm run test:e2e",
+    "verify:alpha": "npm run verify && npm run audit && npm run test:db:container && npm run test:service:lifecycle && npm run test:e2e",
     "verify:container": "node scripts/run-verify-container.mjs",
     "clean": "node scripts/clean-dist.mjs"
   },
