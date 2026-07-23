@@ -15,6 +15,6 @@
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "tsc -b --pretty false",
-    "test": "cd ../.. && vitest run packages/shared/src --passWithNoTests"
+    "test": "cd ../.. && vitest run packages/shared/src"
   }
 }

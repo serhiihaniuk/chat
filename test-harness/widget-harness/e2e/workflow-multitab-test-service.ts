@@ -1,13 +1,14 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import {
+  SIDE_CHAT_CLIENT_TOOL_CAPABILITY,
   SIDE_CHAT_ERROR_CODES,
   SIDE_CHAT_ERROR_VOCABULARY,
   TURN_ACTIVITY_EVENT_TYPE,
+  TURN_ACTIVITY_STATUS,
   TURN_ACTIVITY_SYNC_EVENT_TYPE,
+  type TurnActivityStatus,
 } from "@side-chat/stream-profile";
-
-type TurnActivityStatus = "running" | "completed";
 
 const PORT = readPort("SIDECHAT_WORKFLOW_FIXTURE_PORT", 8788);
 const RUN_ID = "run-multitab";
@@ -22,11 +23,14 @@ const REFERENCE_ANSWER = "Reference conversation history.";
 const CONFLICT_CONVERSATION_ID = "conversation-conflict";
 const CONFLICT_PROMPT = "Earlier conflict conversation";
 const CONFLICT_ANSWER = "Conflict conversation history.";
+const IFRAME_CLIENT_TOOL_PROMPT = "iframe client tool contract";
+const CLIENT_TOOL_CALL_ID = "call-iframe-open-resource";
 
 type StreamChunk = Readonly<Record<string, unknown>>;
 type FixtureCounters = {
   chatAccepted: number;
   chatConflicts: number;
+  clientToolOutputs: number;
   conversations: number;
   models: number;
   replayConnections: number;
@@ -35,11 +39,14 @@ type FixtureCounters = {
 };
 type FixtureState = {
   activitySubscribers: Set<ServerResponse>;
+  clientToolCapabilities: string[];
+  clientToolOutput: Record<string, unknown> | undefined;
   completed: boolean;
   conversationId: string | undefined;
   prompt: string;
   running: boolean;
   subscribers: Set<ServerResponse>;
+  toolMode: boolean;
   counters: FixtureCounters;
 };
 
@@ -71,16 +78,32 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     openActivityStream(response);
     return;
   }
+  if (await handleChatRequest(request, response, url)) return;
+  json(response, 404, { error: "not_found" });
+}
+
+async function handleChatRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+): Promise<boolean> {
   if (request.method === "POST" && url.pathname === "/api/chat") {
     await startChat(request, response);
-    return;
+    return true;
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === `/api/chat/${RUN_ID}/tools/${CLIENT_TOOL_CALL_ID}/output`
+  ) {
+    await acceptClientToolOutput(request, response);
+    return true;
   }
   if (request.method === "GET" && url.pathname === `/api/chat/${RUN_ID}/stream`) {
     state.counters.replayConnections += 1;
     openStream(response, false);
-    return;
+    return true;
   }
-  json(response, 404, { error: "not_found" });
+  return false;
 }
 
 server.listen(PORT, "127.0.0.1", () => {
@@ -92,14 +115,18 @@ process.on("SIGTERM", () => server.close(() => process.exit(0)));
 function createState(): FixtureState {
   return {
     activitySubscribers: new Set(),
+    clientToolCapabilities: [],
+    clientToolOutput: undefined,
     completed: false,
     conversationId: undefined,
     prompt: "",
     running: false,
     subscribers: new Set(),
+    toolMode: false,
     counters: {
       chatAccepted: 0,
       chatConflicts: 0,
+      clientToolOutputs: 0,
       conversations: 0,
       models: 0,
       replayConnections: 0,
@@ -200,7 +227,23 @@ function handleConversationRead(
       const messages: unknown[] = [
         { id: "user-multitab", role: "user", parts: [{ type: "text", text: state.prompt }] },
       ];
-      if (state.completed) {
+      if (state.toolMode) {
+        const output = state.clientToolOutput?.["output"];
+        messages.push({
+          id: ASSISTANT_MESSAGE_ID,
+          role: "assistant",
+          parts: [
+            {
+              type: "dynamic-tool",
+              toolCallId: CLIENT_TOOL_CALL_ID,
+              toolName: "open_resource",
+              state: output === undefined ? "input-available" : "output-available",
+              input: { resourceType: "ticket", resourceId: "ticket-4821" },
+              ...(output === undefined ? {} : { output }),
+            },
+          ],
+        });
+      } else if (state.completed) {
         messages.push({
           id: ASSISTANT_MESSAGE_ID,
           role: "assistant",
@@ -263,11 +306,13 @@ async function startChat(request: IncomingMessage, response: ServerResponse): Pr
   state.counters.chatAccepted += 1;
   state.conversationId = typeof conversationId === "string" ? conversationId : undefined;
   state.prompt = readPrompt(body["messages"]);
+  state.toolMode = state.prompt === IFRAME_CLIENT_TOOL_PROMPT;
+  recordClientToolCapability(request);
   state.running = true;
   // The conflict fixture deliberately withholds the cross-tab running event so
   // the losing tab can prove its bounded 409 presentation before reconciliation.
   if (state.conversationId !== CONFLICT_CONVERSATION_ID) {
-    publishActivity("running");
+    publishActivity(TURN_ACTIVITY_STATUS.RUNNING);
   }
   openStream(response, true);
 }
@@ -297,6 +342,24 @@ function openStream(response: ServerResponse, includeRunHeader: boolean): void {
     ...(includeRunHeader ? { "x-workflow-run-id": RUN_ID } : {}),
     "x-vercel-ai-ui-message-stream": "v1",
   });
+  if (state.toolMode) {
+    const toolChunks = [
+      { type: "start", messageId: ASSISTANT_MESSAGE_ID },
+      { type: "start-step" },
+      {
+        type: "tool-input-available",
+        dynamic: true,
+        toolCallId: CLIENT_TOOL_CALL_ID,
+        toolName: "open_resource",
+        input: { resourceType: "ticket", resourceId: "ticket-4821" },
+      },
+      { type: "finish-step" },
+      { type: "finish" },
+    ];
+    for (const chunk of toolChunks) writeChunk(response, chunk);
+    response.end("data: [DONE]\n\n");
+    return;
+  }
   for (const chunk of partialChunks) writeChunk(response, chunk);
   if (state.completed) {
     for (const chunk of terminalChunks) writeChunk(response, chunk);
@@ -310,12 +373,30 @@ function openStream(response: ServerResponse, includeRunHeader: boolean): void {
 function completeRun(): void {
   state.completed = true;
   state.running = false;
-  publishActivity("completed");
+  publishActivity(TURN_ACTIVITY_STATUS.TERMINAL);
   for (const response of state.subscribers) {
     for (const chunk of terminalChunks) writeChunk(response, chunk);
     response.end("data: [DONE]\n\n");
   }
   state.subscribers.clear();
+}
+
+async function acceptClientToolOutput(
+  request: IncomingMessage,
+  response: ServerResponse,
+): Promise<void> {
+  state.clientToolOutput = await readJson(request);
+  state.counters.clientToolOutputs += 1;
+  recordClientToolCapability(request);
+  state.completed = true;
+  state.running = false;
+  publishActivity(TURN_ACTIVITY_STATUS.TERMINAL);
+  json(response, 200, { accepted: true });
+}
+
+function recordClientToolCapability(request: IncomingMessage): void {
+  const capability = request.headers[SIDE_CHAT_CLIENT_TOOL_CAPABILITY.HEADER];
+  if (typeof capability === "string") state.clientToolCapabilities.push(capability);
 }
 
 function closeSubscribers(): void {
@@ -345,6 +426,8 @@ function publishActivityTo(response: ServerResponse, status: TurnActivityStatus)
 function publicState(): Readonly<Record<string, unknown>> {
   return {
     activitySubscribers: state.activitySubscribers.size,
+    clientToolCapabilities: state.clientToolCapabilities,
+    clientToolOutput: state.clientToolOutput,
     completed: state.completed,
     conversationId: state.conversationId,
     counters: state.counters,

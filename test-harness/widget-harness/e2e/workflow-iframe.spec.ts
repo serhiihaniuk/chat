@@ -1,5 +1,5 @@
 import { isRecord } from "@side-chat/shared";
-import { expect, test } from "playwright/test";
+import { expect, test, type APIRequestContext } from "playwright/test";
 
 const hostPort = readPort("SIDECHAT_WORKFLOW_HOST_PORT", 5181);
 const hostBaseUrl = `http://127.0.0.1:${String(hostPort)}`;
@@ -72,6 +72,63 @@ test("collects opted-in page context through the public iframe adapter", async (
   await expect(frame.getByText(/workflow answer/u)).toBeVisible();
   expect(pageErrors).toEqual([]);
 });
+
+test("dispatches a client tool through the iframe parent and returns one authorized output", async ({
+  page,
+  request,
+}) => {
+  await request.post(`${workflowFixtureUrl}/__test/reset`);
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") pageErrors.push(message.text());
+  });
+
+  await page.goto(
+    `${hostBaseUrl}/workbench-embed.html?open=true` +
+      `&authToken=${encodeURIComponent(authToken)}` +
+      `&workspaceId=${encodeURIComponent("workspace_iframe_tool")}` +
+      `&apiBaseUrl=${encodeURIComponent("/side-chat-api")}` +
+      `&framePath=${encodeURIComponent("/side-chat-frame/")}`,
+  );
+  const frame = page.frameLocator('iframe[title="Workspace Assistant"]');
+  await expect(frame.getByRole("region", { name: "Workspace Assistant" })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  await frame.getByLabel("Message").fill("iframe client tool contract");
+  await frame.getByRole("button", { name: "Send" }).click();
+
+  await expect(page.locator("#host-status")).toHaveText("Assistant opened: ticket-4821");
+  await expect.poll(async () => (await readClientToolFixtureState(request)).outputCount).toBe(1);
+  const fixture = await readClientToolFixtureState(request);
+  expect(fixture.output).toMatchObject({
+    output: { status: "applied", resultCode: "workbench_opened" },
+  });
+  expect(fixture.capabilities).toHaveLength(2);
+  expect(new Set(fixture.capabilities).size).toBe(1);
+  expect(fixture.capabilities[0]).toMatch(/^[a-f0-9]{64}$/u);
+  expect(pageErrors).toEqual([]);
+});
+
+async function readClientToolFixtureState(
+  request: APIRequestContext,
+): Promise<Readonly<{ capabilities: string[]; output: unknown; outputCount: number }>> {
+  const response = await request.get(`${workflowFixtureUrl}/__test/state`);
+  const value: unknown = await response.json();
+  if (!isRecord(value) || !isRecord(value["counters"])) {
+    throw new Error("Invalid iframe client-tool fixture state.");
+  }
+  const capabilities = value["clientToolCapabilities"];
+  const outputCount = value["counters"]["clientToolOutputs"];
+  if (!Array.isArray(capabilities) || !capabilities.every((entry) => typeof entry === "string")) {
+    throw new Error("Invalid iframe client-tool capabilities.");
+  }
+  if (typeof outputCount !== "number") {
+    throw new Error("Invalid iframe client-tool output count.");
+  }
+  return { capabilities, output: value["clientToolOutput"], outputCount };
+}
 
 function readPort(name: string, fallback: number): number {
   const value = Number.parseInt(process.env[name] ?? "", 10);

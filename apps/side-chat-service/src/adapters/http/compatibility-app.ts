@@ -8,7 +8,6 @@ import {
   startCompatibilityTurn,
   type CompatibilityTurnRequest,
 } from "#workflows/testing/compatibility-turn";
-import { inspectTestingChatTurnJournal } from "#workflows/testing/chat-turn";
 import {
   approveWrapperApprovalGate,
   startWrapperApprovalGateProbe,
@@ -64,10 +63,6 @@ export function createCompatibilityApp(): Hono {
       context.req.param("approvalId"),
     );
     return context.json({ resumed }, resumed ? 200 : 404);
-  });
-
-  app.get("/compatibility/chat-turns/:runId/journal-shape", async (context) => {
-    return context.json(await inspectTestingChatTurnJournal(context.req.param("runId")));
   });
 
   return app;

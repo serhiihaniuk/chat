@@ -7,9 +7,9 @@ export type CompiledShutdownResult = Readonly<{
 }>;
 
 export async function stopCompiledProcess(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null) return;
+  if (hasCompiledProcessExited(child)) return;
   await requestCompiledShutdown(child, 1).catch(() => undefined);
-  if (child.exitCode !== null) return;
+  if (hasCompiledProcessExited(child)) return;
   await crashCompiledProcess(child);
 }
 
@@ -17,7 +17,7 @@ export async function requestCompiledShutdown(
   child: ChildProcess,
   requestCount: number,
 ): Promise<CompiledShutdownResult> {
-  if (child.exitCode !== null) return { exitCode: child.exitCode, observations: [] };
+  if (hasCompiledProcessExited(child)) return { exitCode: child.exitCode, observations: [] };
   requirePositiveInteger(requestCount, "requestCount");
   let observations: readonly unknown[] = [];
   const onMessage = (message: unknown): void => {
@@ -36,19 +36,26 @@ export async function requestCompiledShutdown(
 }
 
 export async function crashCompiledProcess(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null) return;
-  if (process.platform === "win32" && child.pid !== undefined) {
-    await killWindowsProcessTree(child.pid);
-  } else {
-    child.kill("SIGKILL");
-  }
-  if (child.exitCode !== null) return;
+  if (hasCompiledProcessExited(child)) return;
+  const exited = once(child, "exit", { signal: AbortSignal.timeout(5_000) });
   try {
-    await once(child, "exit", { signal: AbortSignal.timeout(5_000) });
+    if (process.platform === "win32" && child.pid !== undefined) {
+      await killWindowsProcessTree(child.pid);
+    } else {
+      child.kill("SIGKILL");
+    }
+    if (hasCompiledProcessExited(child)) return;
+    await exited;
   } catch {
-    if (child.exitCode !== null) return;
+    if (hasCompiledProcessExited(child)) return;
     throw new Error("Compiled service did not exit after SIGKILL");
   }
+}
+
+export function hasCompiledProcessExited(
+  child: Pick<ChildProcess, "exitCode" | "signalCode">,
+): boolean {
+  return child.exitCode !== null || child.signalCode !== null;
 }
 
 async function killWindowsProcessTree(pid: number): Promise<void> {

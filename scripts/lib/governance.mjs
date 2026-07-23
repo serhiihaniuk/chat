@@ -51,6 +51,7 @@ export function listFiles(root, predicate = () => true, current = root) {
   for (const entry of entries) {
     const absolute = join(current, entry.name);
     const rel = relative(root, absolute);
+    const normalizedRel = rel.split(sep).join("/");
 
     if (entry.isDirectory()) {
       if (!isIgnoredDirectory(entry.name)) {
@@ -59,7 +60,7 @@ export function listFiles(root, predicate = () => true, current = root) {
       continue;
     }
 
-    if (entry.isFile() && predicate(rel)) files.push(rel.split(sep).join("/"));
+    if (entry.isFile() && predicate(normalizedRel)) files.push(normalizedRel);
   }
 
   return files;

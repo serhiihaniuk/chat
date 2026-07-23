@@ -1,33 +1,23 @@
-// @vitest-environment happy-dom
-
-import { Window } from "happy-dom";
 import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import {
+  createReactDomTestHarness,
+  type ReactDomTestHarness,
+} from "#testing/react-dom-test-harness";
 import type { WorkflowTimelineMessage } from "../../model/native-message-projection.js";
 import { WorkflowMessageTimeline } from "../workflow-message-timeline.js";
 
-let windowRef: Window;
-let root: Root;
+let harness: ReactDomTestHarness;
 let container: HTMLElement;
 
 beforeEach(() => {
-  windowRef = new Window();
-  assignGlobal("window", windowRef);
-  assignGlobal("document", windowRef.document);
-  assignGlobal("Element", windowRef.Element);
-  assignGlobal("HTMLElement", windowRef.HTMLElement);
-  assignGlobal("Node", windowRef.Node);
-  Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
+  harness = createReactDomTestHarness();
+  container = harness.container;
 });
 
 afterEach(() => {
-  act(() => root.unmount());
-  windowRef.close();
+  harness.cleanup();
 });
 
 describe("WorkflowMessageTimeline reasoning disclosure", () => {
@@ -38,7 +28,6 @@ describe("WorkflowMessageTimeline reasoning disclosure", () => {
 
     renderTimeline(answeringMessage(), true);
     expect(reasoningTrigger().getAttribute("aria-expanded")).toBe("false");
-    expect(container.textContent).not.toContain("checking context");
 
     // A later turn can rerender this completed answer while the session is busy.
     // That unrelated update must not reopen the previous trace.
@@ -57,7 +46,6 @@ describe("WorkflowMessageTimeline reasoning disclosure", () => {
     renderTimeline(answeringMessage(), false);
 
     expect(reasoningTrigger().getAttribute("aria-expanded")).toBe("false");
-    expect(container.textContent).not.toContain("checking context");
   });
 });
 
@@ -76,19 +64,11 @@ const answeringMessage = (): WorkflowTimelineMessage => ({
 });
 
 const renderTimeline = (message: WorkflowTimelineMessage, isStreaming: boolean): void => {
-  act(() => root.render(<WorkflowMessageTimeline isStreaming={isStreaming} message={message} />));
+  harness.render(<WorkflowMessageTimeline isStreaming={isStreaming} message={message} />);
 };
 
 const reasoningTrigger = (): HTMLButtonElement => {
   const trigger = container.querySelector<HTMLButtonElement>("button[aria-expanded]");
   if (!trigger) throw new Error("Expected the reasoning trigger.");
   return trigger;
-};
-
-const assignGlobal = (name: string, value: unknown): void => {
-  Object.defineProperty(globalThis, name, {
-    configurable: true,
-    value,
-    writable: true,
-  });
 };

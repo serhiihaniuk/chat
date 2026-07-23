@@ -1,6 +1,4 @@
-import { Window } from "happy-dom";
 import { act, createElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
 
@@ -9,6 +7,10 @@ import type {
   WorkflowConversationClient,
   WorkflowUIMessage,
 } from "#entities/workflow-chat";
+import {
+  createReactDomTestHarness,
+  type ReactDomTestHarness,
+} from "#testing/react-dom-test-harness";
 import {
   createWorkflowWidgetChatSessionRegistry,
   useWorkflowWidgetChat,
@@ -28,30 +30,15 @@ const SEEDED_MESSAGE: WorkflowUIMessage = {
   parts: [{ type: "text", text: "Earlier" }],
 };
 
-let windowRef: Window;
-let root: Root;
-let container: HTMLElement;
+let harness: ReactDomTestHarness;
 
 beforeEach(() => {
-  windowRef = new Window();
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: windowRef,
-  });
-  Object.defineProperty(globalThis, "document", {
-    configurable: true,
-    value: windowRef.document,
-  });
-  Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
+  harness = createReactDomTestHarness();
 });
 
 afterEach(() => {
-  act(() => root.unmount());
-  windowRef.close();
   vi.restoreAllMocks();
+  harness.cleanup();
 });
 
 describe("useWorkflowWidgetChat recovery", () => {
@@ -83,7 +70,7 @@ describe("useWorkflowWidgetChat recovery", () => {
       return null;
     };
 
-    act(() => root.render(createElement(Probe)));
+    harness.render(createElement(Probe));
     await waitFor(() => JSON.stringify(current.current?.messages).includes("client-tool-call-1"));
 
     expect(request).toHaveBeenCalledTimes(1);
@@ -152,19 +139,19 @@ describe("useWorkflowWidgetChat recovery", () => {
       return null;
     };
 
-    act(() => root.render(createElement(Probe)));
+    harness.render(createElement(Probe));
     await waitFor(() => current.current?.phase === "settling");
     expect(onRunTerminal).toHaveBeenCalledWith("run-1");
     expect(onRunReconciled).not.toHaveBeenCalled();
 
     activeTurn = undefined;
     initialMessages = structuredClone(current.current?.messages ?? []);
-    act(() => root.render(createElement(Probe)));
+    harness.render(createElement(Probe));
     expect(current.current?.phase).toBe("settling");
     expect(onRunReconciled).not.toHaveBeenCalled();
 
     stateObservationId = "snapshot-terminal";
-    act(() => root.render(createElement(Probe)));
+    harness.render(createElement(Probe));
     await waitFor(() => onRunReconciled.mock.calls.length === 1);
     expect(current.current?.phase).toBe("idle");
     expect(onRunReconciled).toHaveBeenCalledWith("run-1");
@@ -195,7 +182,7 @@ describe("useWorkflowWidgetChat recovery", () => {
       return null;
     };
 
-    act(() => root.render(createElement(Probe)));
+    harness.render(createElement(Probe));
     await waitFor(() => current.current?.phase === "streaming");
 
     activeTurn = undefined;
@@ -212,7 +199,7 @@ describe("useWorkflowWidgetChat recovery", () => {
         },
       },
     ];
-    act(() => root.render(createElement(Probe)));
+    harness.render(createElement(Probe));
 
     await waitFor(() => current.current?.phase === "idle");
     expect(JSON.stringify(current.current?.messages)).toContain("Durable answer");
@@ -242,7 +229,7 @@ describe("useWorkflowWidgetChat recovery", () => {
       return null;
     };
 
-    act(() => root.render(createElement(Probe)));
+    harness.render(createElement(Probe));
     act(() => {
       void current.current?.submitMessage("Keep running");
     });
@@ -252,10 +239,10 @@ describe("useWorkflowWidgetChat recovery", () => {
         false,
     );
 
-    act(() => root.render(null));
+    harness.render(null);
     controlled.finish();
     await act(async () => Promise.resolve());
-    act(() => root.render(createElement(Probe)));
+    harness.render(createElement(Probe));
     await waitFor(() => current.current?.status === "idle");
 
     expect(request).toHaveBeenCalledTimes(1);
@@ -355,7 +342,7 @@ function renderChat(
     });
     return null;
   };
-  act(() => root.render(createElement(Probe)));
+  harness.render(createElement(Probe));
   return current;
 }
 

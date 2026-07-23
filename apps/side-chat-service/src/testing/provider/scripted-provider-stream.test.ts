@@ -1,5 +1,5 @@
 import type { LanguageModelV4StreamPart } from "@ai-sdk/provider";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { PROVIDER_SCRIPT_MODE, type ProviderScriptMode } from "../scripted-provider-contract.js";
 import { createScriptedStream } from "./scripted-provider-stream.js";
@@ -30,12 +30,47 @@ describe("scripted provider residual edge cases", () => {
 
     expect(finishReason(parts)).toBe("length");
   });
+
+  it("holds a crash-recovery stream open after content, then completes it", async () => {
+    vi.useFakeTimers();
+    try {
+      const reader = createScriptedStream(
+        "request-recovery",
+        PROVIDER_SCRIPT_MODE.CRASH_RECOVERY,
+        1,
+        undefined,
+      ).getReader();
+      const partial = await Promise.all([reader.read(), reader.read(), reader.read()]);
+      expect(partial.map((result) => (result.done ? "done" : result.value.type))).toEqual([
+        "stream-start",
+        "text-start",
+        "text-delta",
+      ]);
+
+      const terminal = readRemaining(reader);
+      await vi.runAllTimersAsync();
+      expect((await terminal).map((part) => part.type)).toEqual(["text-end", "finish"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 async function readAll(mode: ProviderScriptMode): Promise<LanguageModelV4StreamPart[]> {
   const reader = createScriptedStream("request-1", mode, 1, undefined).getReader();
   const parts: LanguageModelV4StreamPart[] = [];
   while (true) {
+    const next = await reader.read();
+    if (next.done) return parts;
+    parts.push(next.value);
+  }
+}
+
+async function readRemaining(
+  reader: ReadableStreamDefaultReader<LanguageModelV4StreamPart>,
+): Promise<LanguageModelV4StreamPart[]> {
+  const parts: LanguageModelV4StreamPart[] = [];
+  for (;;) {
     const next = await reader.read();
     if (next.done) return parts;
     parts.push(next.value);

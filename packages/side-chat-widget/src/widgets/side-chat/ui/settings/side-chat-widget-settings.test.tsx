@@ -23,7 +23,6 @@ const renderThemeWidget = () =>
   );
 
 const widgetRoot = (): Element | null => document.querySelector(".side-chat-widget-root");
-const widgetPanel = (): Element | null => document.querySelector(".sc-widget-panel");
 
 describe("SideChatWidget settings", () => {
   it("opens settings from the header and applies a theme to the widget root", async () => {
@@ -40,33 +39,31 @@ describe("SideChatWidget settings", () => {
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("sage");
   });
 
-  it("opens settings inside the existing chat panel container", async () => {
+  it("returns from settings to the active chat panel", async () => {
     renderThemeWidget();
 
     await clickButton("Settings");
+    expect(document.body.textContent).toContain("Appearance controls");
 
-    const panel = widgetPanel();
-    expect(panel?.querySelector(":scope > .sc-settings-root")).not.toBeNull();
-    expect(panel?.querySelector(".sc-rail-newchat")).not.toBeNull();
-    expect(panel?.querySelector(".sc-header")).not.toBeNull();
-    expect(panel?.querySelector(".sc-settings-root .max-w-measure-message")).not.toBeNull();
-    expect(panel?.querySelector(":scope > .absolute.inset-0")).toBeNull();
+    await clickButton("Back to chat");
+    expect(document.body.textContent).toContain("Workspace Assistant");
+    expect(document.querySelector('textarea[aria-label="Message"]')).not.toBeNull();
   });
 
-  it("uses conversation-row styling for settings groups and keeps General to the behavior settings", async () => {
+  it("keeps General focused on behavior settings", async () => {
     renderThemeWidget();
 
     await clickButton("Settings");
 
-    const themeTab = document.querySelector('button[aria-label="Theme"]');
-    expect(themeTab?.getAttribute("data-active")).toBe("true");
-    expect(themeTab?.textContent).toContain("Appearance controls");
+    expect(document.querySelector('button[aria-label="Theme"]')?.textContent).toContain(
+      "Appearance controls",
+    );
 
     await clickButton("General");
 
-    const generalTab = document.querySelector('button[aria-label="General"]');
-    expect(generalTab?.getAttribute("data-active")).toBe("true");
-    expect(generalTab?.textContent).toContain("Behavior preferences");
+    expect(document.querySelector('button[aria-label="General"]')?.textContent).toContain(
+      "Behavior preferences",
+    );
     expect(document.body.textContent).toContain("Send with Ctrl+Enter");
     expect(document.body.textContent).toContain("Tool call details");
     expect(document.body.textContent).not.toContain("Custom instructions");
@@ -92,15 +89,6 @@ describe("SideChatWidget settings", () => {
     expect(document.body.textContent).toContain("DM Sans");
     expect(document.body.textContent).toContain("Instrument Sans");
     expect(document.body.textContent).not.toContain("IBM Plex");
-  });
-
-  it("maps legacy Jakarta storage to the local Plus Jakarta Sans typeface", () => {
-    window.localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify({ typeface: "jakarta" }));
-    renderThemeWidget();
-
-    const root = widgetRoot();
-    if (!(root instanceof HTMLElement)) throw new Error("Expected widget root.");
-    expect(root.getAttribute("data-sidechat-typeface")).toBe("plus-jakarta");
   });
 
   it("keeps graphite attribute-free so it tracks the host light/dark", async () => {

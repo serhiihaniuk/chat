@@ -6,6 +6,10 @@ const hostPort = readPort("SIDECHAT_WORKFLOW_HOST_PORT", 5181);
 const hostBaseUrl = `http://127.0.0.1:${hostPort}`;
 const workflowFixturePort = readPort("SIDECHAT_WORKFLOW_FIXTURE_PORT", 8788);
 const workflowFixtureUrl = `http://127.0.0.1:${workflowFixturePort}`;
+const compiledServicePort = readPort("SIDECHAT_COMPILED_SERVICE_PORT", 8790);
+const compiledServiceUrl = `http://127.0.0.1:${compiledServicePort}`;
+const compiledWidgetPort = readPort("SIDECHAT_COMPILED_WIDGET_PORT", 5176);
+const compiledWidgetUrl = `http://127.0.0.1:${compiledWidgetPort}`;
 
 /** Browser proof for the native Workflow branch without the legacy service stack. */
 export default defineConfig({
@@ -14,6 +18,7 @@ export default defineConfig({
     "workflow-interactions.spec.ts",
     "workflow-iframe.spec.ts",
     "workflow-multitab.spec.ts",
+    "workflow-compiled-service.spec.ts",
   ],
   fullyParallel: false,
   workers: 1,
@@ -23,6 +28,15 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: [
+    {
+      command: "node ../../../scripts/run-compiled-fake-test-service.mjs",
+      env: {
+        PORT: String(compiledServicePort),
+      },
+      reuseExistingServer: false,
+      timeout: 300_000,
+      url: `${compiledServiceUrl}/healthz`,
+    },
     {
       command: "node workflow-multitab-test-service.ts",
       env: {
@@ -52,6 +66,17 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       url: `${hostBaseUrl}/workbench-embed.html`,
+    },
+    {
+      command: `npm --workspace @side-chat/widget-harness run dev -- --host 127.0.0.1 --port ${compiledWidgetPort} --strictPort`,
+      env: {
+        SIDECHAT_WIDGET_HARNESS_API_TARGET: compiledServiceUrl,
+        SIDECHAT_WIDGET_HARNESS_BASE_PATH: "/compiled-side-chat/",
+        SIDECHAT_WIDGET_HARNESS_CACHE: "compiled",
+      },
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: `${compiledWidgetUrl}/compiled-side-chat/`,
     },
   ],
 });

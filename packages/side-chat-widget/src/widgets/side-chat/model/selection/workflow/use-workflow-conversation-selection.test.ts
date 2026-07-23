@@ -1,7 +1,10 @@
-import { Window } from "happy-dom";
 import { act, createElement } from "react";
-import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import {
+  createReactDomTestHarness,
+  type ReactDomTestHarness,
+} from "#testing/react-dom-test-harness";
 
 import {
   createInitialWorkflowConversationSelection,
@@ -79,29 +82,17 @@ describe("workflow conversation selection state", () => {
 });
 
 describe("workflow conversation selection recovery cursor", () => {
-  const openWindows: Window[] = [];
+  let harness: ReactDomTestHarness;
 
+  beforeEach(() => {
+    harness = createReactDomTestHarness();
+  });
   afterEach(() => {
-    for (const currentWindow of openWindows) currentWindow.close();
-    openWindows.length = 0;
-    Reflect.deleteProperty(globalThis, "window");
-    Reflect.deleteProperty(globalThis, "document");
-    Reflect.deleteProperty(globalThis, "sessionStorage");
+    harness.cleanup();
   });
 
   it("clears the focused run on New chat and ignores a delayed background acceptance", () => {
     const storageKey = "workflow-active-turn";
-    const currentWindow = new Window();
-    openWindows.push(currentWindow);
-    Object.defineProperty(globalThis, "window", { configurable: true, value: currentWindow });
-    Object.defineProperty(globalThis, "document", {
-      configurable: true,
-      value: currentWindow.document,
-    });
-    Object.defineProperty(globalThis, "sessionStorage", {
-      configurable: true,
-      value: currentWindow.sessionStorage,
-    });
     sessionStorage.setItem(
       storageKey,
       JSON.stringify({
@@ -110,16 +101,7 @@ describe("workflow conversation selection recovery cursor", () => {
         scopeKey: SCOPE_KEY,
       }),
     );
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
-    const Probe = () => {
-      current.value = useWorkflowConversationSelection(SCOPE_KEY, undefined, storageKey, undefined);
-      return null;
-    };
-
-    act(() => root.render(createElement(Probe)));
+    const current = renderSelection(harness, undefined, storageKey, undefined);
     expect(current.value?.activeConversationId).toBe("conversation-running");
 
     act(() => current.value?.startNewConversation());
@@ -131,38 +113,11 @@ describe("workflow conversation selection recovery cursor", () => {
     expect(current.value?.activeConversationId).toBe(draftId);
     expect(current.value?.isLocalDraft).toBe(true);
     expect(sessionStorage.getItem(storageKey)).toBeNull();
-
-    act(() => root.unmount());
   });
 
   it("stores only the selected conversation's discovered active run", () => {
     const storageKey = "workflow-active-turn";
-    const currentWindow = new Window();
-    openWindows.push(currentWindow);
-    Object.defineProperty(globalThis, "window", { configurable: true, value: currentWindow });
-    Object.defineProperty(globalThis, "document", {
-      configurable: true,
-      value: currentWindow.document,
-    });
-    Object.defineProperty(globalThis, "sessionStorage", {
-      configurable: true,
-      value: currentWindow.sessionStorage,
-    });
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
-    const Probe = () => {
-      current.value = useWorkflowConversationSelection(
-        SCOPE_KEY,
-        "conversation-1",
-        storageKey,
-        undefined,
-      );
-      return null;
-    };
-
-    act(() => root.render(createElement(Probe)));
+    const current = renderSelection(harness, "conversation-1", storageKey, undefined);
     act(() => current.value?.focusActiveRun("conversation-other", "run-other"));
     expect(sessionStorage.getItem(storageKey)).toBeNull();
 
@@ -175,76 +130,28 @@ describe("workflow conversation selection recovery cursor", () => {
 
     act(() => current.value?.selectConversation("conversation-2"));
     expect(sessionStorage.getItem(storageKey)).toBeNull();
-    act(() => root.unmount());
   });
 
   it("clears a stale recovery cursor without replacing the persisted selection", () => {
     const storageKey = "workflow-active-turn";
-    const currentWindow = new Window();
-    openWindows.push(currentWindow);
-    Object.defineProperty(globalThis, "window", { configurable: true, value: currentWindow });
-    Object.defineProperty(globalThis, "document", {
-      configurable: true,
-      value: currentWindow.document,
-    });
-    Object.defineProperty(globalThis, "sessionStorage", {
-      configurable: true,
-      value: currentWindow.sessionStorage,
-    });
     const cursor = { conversationId: "conversation-1", runId: "run-stale", scopeKey: SCOPE_KEY };
     sessionStorage.setItem(storageKey, JSON.stringify(cursor));
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
-    const Probe = () => {
-      current.value = useWorkflowConversationSelection(SCOPE_KEY, undefined, storageKey, undefined);
-      return null;
-    };
-
-    act(() => root.render(createElement(Probe)));
+    const current = renderSelection(harness, undefined, storageKey, undefined);
     act(() => current.value?.discardInvalidRecovery(cursor));
 
     expect(current.value?.activeConversationId).toBe("conversation-1");
     expect(current.value?.isLocalDraft).toBe(false);
     expect(current.value?.recoveryCursor).toBeUndefined();
     expect(sessionStorage.getItem(storageKey)).toBeNull();
-
-    act(() => root.unmount());
   });
 
   it("restores, updates, and explicitly clears tab-scoped idle selection", () => {
     const selectionStorageKey = "workflow-conversation-selection";
-    const currentWindow = new Window();
-    openWindows.push(currentWindow);
-    Object.defineProperty(globalThis, "window", { configurable: true, value: currentWindow });
-    Object.defineProperty(globalThis, "document", {
-      configurable: true,
-      value: currentWindow.document,
-    });
-    Object.defineProperty(globalThis, "sessionStorage", {
-      configurable: true,
-      value: currentWindow.sessionStorage,
-    });
     sessionStorage.setItem(
       selectionStorageKey,
       JSON.stringify({ conversationId: "conversation-restored", scopeKey: SCOPE_KEY }),
     );
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
-    const Probe = () => {
-      current.value = useWorkflowConversationSelection(
-        SCOPE_KEY,
-        undefined,
-        undefined,
-        selectionStorageKey,
-      );
-      return null;
-    };
-
-    act(() => root.render(createElement(Probe)));
+    const current = renderSelection(harness, undefined, undefined, selectionStorageKey);
     expect(current.value?.activeConversationId).toBe("conversation-restored");
 
     act(() => current.value?.selectConversation("conversation-next"));
@@ -256,7 +163,25 @@ describe("workflow conversation selection recovery cursor", () => {
     act(() => current.value?.startNewConversation());
     expect(current.value?.isLocalDraft).toBe(true);
     expect(sessionStorage.getItem(selectionStorageKey)).toBeNull();
-
-    act(() => root.unmount());
   });
 });
+
+function renderSelection(
+  harness: ReactDomTestHarness,
+  initialConversationId: string | undefined,
+  activeTurnStorageKey: string | undefined,
+  selectionStorageKey: string | undefined,
+): { value: WorkflowConversationSelection | undefined } {
+  const current: { value: WorkflowConversationSelection | undefined } = { value: undefined };
+  const Probe = () => {
+    current.value = useWorkflowConversationSelection(
+      SCOPE_KEY,
+      initialConversationId,
+      activeTurnStorageKey,
+      selectionStorageKey,
+    );
+    return null;
+  };
+  harness.render(createElement(Probe));
+  return current;
+}

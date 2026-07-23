@@ -1,27 +1,35 @@
-import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { WorkflowChatClient } from "#entities/workflow-chat";
 import { openTurnResponse } from "#testing/workflow-chat/workflow-widget-chat.test-support";
 import { SideChatWidget } from "./side-chat-widget.js";
-import { installWidgetTestDom, mountWidget } from "./widget-test-env.js";
+import { installWidgetTestDom, mountWidget, waitForWidgetDom } from "./widget-test-env.js";
 
 installWidgetTestDom();
 
 describe("SideChatWidget authenticated scope isolation", () => {
   it("disposes an active colliding session and renders only the next scope after rerender", async () => {
     let scopeARunSignal: AbortSignal | undefined;
+    let reportScopeARunSignal: (signal: AbortSignal | undefined) => void = () => undefined;
+    const scopeARunSignalReady = new Promise<AbortSignal | undefined>((resolveSignal) => {
+      reportScopeARunSignal = resolveSignal;
+    });
     const scopeA = createScopedClient("scope-a", "Scope A transcript", (signal) => {
       scopeARunSignal = signal;
+      reportScopeARunSignal(signal);
     });
     const scopeB = createScopedClient("scope-b", "Scope B transcript");
 
     renderScopedWidget(scopeA);
-    await waitFor(() => document.body.textContent?.includes("Scope A transcript") === true);
-    await waitFor(() => scopeARunSignal !== undefined);
+    await waitForWidgetDom(
+      () => document.body.textContent?.includes("Scope A transcript") === true,
+    );
+    await scopeARunSignalReady;
 
     renderScopedWidget(scopeB);
-    await waitFor(() => document.body.textContent?.includes("Scope B transcript") === true);
+    await waitForWidgetDom(
+      () => document.body.textContent?.includes("Scope B transcript") === true,
+    );
 
     expect(scopeARunSignal?.aborted).toBe(true);
     expect(document.body.textContent).not.toContain("Scope A transcript");
@@ -102,13 +110,4 @@ function openActivityResponse(signal: AbortSignal | null | undefined): Response 
 function requestUrl(input: RequestInfo | URL): string {
   if (input instanceof Request) return input.url;
   return input instanceof URL ? input.href : input;
-}
-
-async function waitFor(predicate: () => boolean): Promise<void> {
-  const deadline = Date.now() + 2_000;
-  while (Date.now() < deadline) {
-    if (predicate()) return;
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-  }
-  throw new Error("Timed out waiting for scoped widget state.");
 }

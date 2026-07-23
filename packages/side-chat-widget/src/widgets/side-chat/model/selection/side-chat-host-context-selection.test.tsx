@@ -1,39 +1,33 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { WidgetHostBridge } from "@side-chat/host-bridge";
-import { Window } from "happy-dom";
 import { act, createElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { WorkflowChatClient } from "#entities/workflow-chat";
+import {
+  createReactDomTestHarness,
+  type ReactDomTestHarness,
+} from "#testing/react-dom-test-harness";
 import {
   useWorkflowHostContextSelection,
   type WorkflowHostContextSelection,
 } from "./side-chat-host-context-selection.js";
 
-let windowRef: Window;
-let root: Root;
-let container: HTMLElement;
+let harness: ReactDomTestHarness;
 let queryClient: QueryClient;
 
 beforeEach(() => {
-  windowRef = new Window();
-  assignGlobal("window", windowRef);
-  assignGlobal("document", windowRef.document);
-  assignGlobal("Element", windowRef.Element);
-  assignGlobal("HTMLElement", windowRef.HTMLElement);
-  assignGlobal("Node", windowRef.Node);
-  Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
+  harness = createReactDomTestHarness();
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 
-afterEach(() => {
-  act(() => root.unmount());
-  queryClient.clear();
-  windowRef.close();
+afterEach(async () => {
+  await act(async () => {
+    queryClient.clear();
+    // TanStack batches observer cleanup on this zero-delay scheduler boundary.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  });
+  harness.cleanup();
 });
 
 describe("useWorkflowHostContextSelection", () => {
@@ -45,17 +39,19 @@ describe("useWorkflowHostContextSelection", () => {
     };
 
     renderSelection(current, client, contextBridge);
-    await waitFor(() => current.value?.available === true);
+    await harness.waitFor(() => current.value?.available === true);
     expect(current.value?.enabled).toBe(false);
 
     act(() => current.value?.toggle());
     expect(current.value?.enabled).toBe(true);
 
     renderSelection(current, client, undefined);
-    await waitFor(() => current.value?.available === false && current.value.enabled === false);
+    await harness.waitFor(
+      () => current.value?.available === false && current.value.enabled === false,
+    );
 
     renderSelection(current, client, contextBridge);
-    await waitFor(() => current.value?.available === true);
+    await harness.waitFor(() => current.value?.available === true);
     expect(current.value?.enabled).toBe(false);
   });
 
@@ -66,7 +62,7 @@ describe("useWorkflowHostContextSelection", () => {
     };
 
     renderSelection(current, capabilityClient(false), contextBridge);
-    await waitFor(() => current.value !== undefined);
+    await harness.waitFor(() => current.value !== undefined);
 
     expect(current.value?.available).toBe(false);
     act(() => current.value?.toggle());
@@ -81,11 +77,12 @@ function renderSelection(
 ): void {
   const Probe = () => {
     current.value = useWorkflowHostContextSelection(client, hostBridge);
-    return null;
+    return createElement("output", {
+      "data-available": String(current.value.available),
+      "data-enabled": String(current.value.enabled),
+    });
   };
-  act(() =>
-    root.render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe))),
-  );
+  harness.render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)));
 }
 
 function capabilityClient(enabled: boolean): WorkflowChatClient {
@@ -94,17 +91,4 @@ function capabilityClient(enabled: boolean): WorkflowChatClient {
     scopeKey: "test-scope",
     fetch: () => Promise.resolve(Response.json({ hostContext: { enabled } })),
   };
-}
-
-async function waitFor(predicate: () => boolean): Promise<void> {
-  const deadline = Date.now() + 2_000;
-  while (Date.now() < deadline) {
-    if (predicate()) return;
-    await act(async () => Promise.resolve());
-  }
-  throw new Error("Timed out waiting for host-context selection state.");
-}
-
-function assignGlobal(name: string, value: unknown): void {
-  Object.defineProperty(globalThis, name, { configurable: true, value, writable: true });
 }

@@ -212,26 +212,16 @@ const readStored = (storageKey: string | undefined): WidgetAppearanceState => {
     return {
       accent: isOneOf(ACCENTS, record["accent"]) ? record["accent"] : DEFAULTS.accent,
       corners: isOneOf(CORNERS, record["corners"]) ? record["corners"] : DEFAULTS.corners,
-      density: readDensity(record["density"]),
+      density: isOneOf(DENSITIES, record["density"]) ? record["density"] : DEFAULTS.density,
       elevation: isOneOf(ELEVATIONS, record["elevation"])
         ? record["elevation"]
         : DEFAULTS.elevation,
       textSize: isOneOf(TEXT_SIZES, record["textSize"]) ? record["textSize"] : DEFAULTS.textSize,
-      typeface: readTypeface(record["typeface"]),
+      typeface: isOneOf(TYPEFACES, record["typeface"]) ? record["typeface"] : DEFAULTS.typeface,
     };
   } catch {
     return DEFAULTS;
   }
-};
-
-const readDensity = (value: unknown): WidgetDensityId => {
-  if (value === "comfortable") return WIDGET_DENSITY_IDS.ROOMY;
-  return isOneOf(DENSITIES, value) ? value : DEFAULTS.density;
-};
-
-const readTypeface = (value: unknown): WidgetTypefaceId => {
-  if (value === "jakarta") return WIDGET_TYPEFACE_IDS.PLUS_JAKARTA;
-  return isOneOf(TYPEFACES, value) ? value : DEFAULTS.typeface;
 };
 
 const writeStored = (storageKey: string | undefined, state: WidgetAppearanceState): void => {

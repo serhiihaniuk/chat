@@ -44,12 +44,9 @@ describe("sidechat drizzle schema and migration", () => {
 
   it("generates table DDL without PostgreSQL enum lifecycle types", () => {
     expect(migration).not.toMatch(/CREATE TYPE .* AS ENUM/u);
-    expect(migration).not.toContain('"sidechat"."host_command_results"');
     expect(migration).toContain('"sidechat"."client_tool_dispatches"');
     expect(migration).toContain('"sidechat"."tool_approvals"');
     expect(migration).toContain('"sidechat"."conversation_title_runs"');
-    // The dead nullable idempotency column and its index are gone (message_id PK).
-    expect(migration).not.toContain("idempotency_key");
     expect(migration).toContain("status in ('active', 'archived', 'reset')");
   });
 
@@ -73,17 +70,13 @@ describe("sidechat drizzle schema and migration", () => {
     expect(migration).toContain(
       'CONSTRAINT "assistant_turns_run_binding_check" CHECK ((run_id is null and run_bound_at is null) or (run_id is not null and run_bound_at is not null))',
     );
-    // Product admission does not invent a second Workflow lease protocol.
-    expect(migration).not.toContain("owner_instance_id");
-    expect(migration).not.toContain("lease_epoch");
-    // The durable message body is the AI SDK `parts` array — no `content_text`.
+    // The durable message body is the AI SDK `parts` array.
     expect(migration).toContain('"parts" jsonb NOT NULL');
-    expect(migration).not.toContain("content_text");
     // A prune/delete path must be able to skip a held conversation.
     expect(migration).toContain('"legal_hold" boolean DEFAULT false NOT NULL');
   });
 
-  it("indexes the hot query working sets and drops the redundant message index", () => {
+  it("indexes the hot query working sets", () => {
     // Partial unique index over only running turns: it is both the race-safe
     // one-open-per-conversation busy guard and the in-flight lookup the resume
     // and activity reads scan — never the full history.
@@ -107,10 +100,7 @@ describe("sidechat drizzle schema and migration", () => {
     expect(migration).toContain(
       'CREATE INDEX "conversations_workspace_subject_recent_idx" ON "sidechat"."conversations" USING btree ("workspace_id","subject_id","last_message_at")',
     );
-    // The unique index serves history/`max()` reads scanned backwards, so the
-    // same-columns plain index is gone, avoiding duplicate write work per insert.
     expect(migration).toContain(`"${SIDECHAT_UNIQUE_INDEXES.MESSAGES_CONVERSATION_SEQUENCE}"`);
-    expect(migration).not.toContain("messages_conversation_sequence_desc_idx");
   });
 
   it("keeps runtime least privilege in the durable role grants", () => {

@@ -114,15 +114,6 @@ export class CompiledCompatibilityFixture {
     throw new Error(`Conversation state never settled for ${requestId}:\n${this.output()}`);
   }
 
-  async readJournalShape(runId: string): Promise<Record<string, unknown>> {
-    const response = await this.#request(
-      `${this.baseUrl}/compatibility/chat-turns/${runId}/journal-shape`,
-    );
-    const shape: unknown = await response.json();
-    if (!isRecord(shape)) throw new Error("Expected journal shape JSON");
-    return shape;
-  }
-
   /** The durable run-id hook may not exist until the workflow first suspends. */
   async cancelApiTurn(runId: string): Promise<void> {
     const deadline = Date.now() + COMPATIBILITY_FIXTURE.TIMEOUT_MS;

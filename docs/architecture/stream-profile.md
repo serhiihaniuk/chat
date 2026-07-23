@@ -16,7 +16,9 @@ Protocol version is pinned and both sides move together:
 | ------------------------------- | ----- |
 | `x-vercel-ai-ui-message-stream` | `v1`  |
 
-The shared, browser-safe vocabulary — error codes, finish reasons, native reasoning efforts, and the `data-*` type surface — lives in [`packages/stream-profile`](../../packages/stream-profile/README.md) and is imported by both the service and the widget. Each provider model descriptor owns its supported reasoning efforts and default; `/api/models` publishes that per-model subset, and the widget renders only the selected model's advertised choices. Luna currently advertises `low`, `medium`, and `high`, displayed as Light, Medium, and High. The request carries the exact provider-neutral value as optional `reasoningEffort`; the service validates it against the selected model and resolves it into provider options inside the durable turn. Omission uses that model's configured default.
+The shared, browser-safe vocabulary — error codes, finish reasons, native reasoning efforts, and the `data-*` type surface — lives in [`packages/stream-profile`](../../packages/stream-profile/README.md) and is imported by both the service and the widget.
+
+Each provider model descriptor owns its supported reasoning efforts and default; `/api/models` publishes that per-model subset, and the widget renders only the selected model's advertised choices. Luna currently advertises `low`, `medium`, and `high`, displayed as Light, Medium, and High. The request carries the exact provider-neutral value as optional `reasoningEffort`; the service validates it against the selected model and resolves it into provider options inside the durable turn. Omission uses that model's configured default.
 
 ## Parts
 
@@ -25,7 +27,9 @@ Native parts own all content and lifecycle: `text-*`, `reasoning-*`, tool input/
 Browser-executed client tools use native dynamic tool parts. Their successful
 `tool-output-available` payload is private model input, so the outbound scrub
 replaces it with `{ status: "settled" }`; dynamic `tool-output-error` text is
-collapsed to the safe `provider_failed` code. The pinned Workflow decoder can
+collapsed to the safe `provider_failed` code.
+
+The pinned Workflow decoder can
 drop dynamic identity and repeat a completed tool step on full replay, so the
 replay edge restores that identity and removes only a repeated step with the
 same tool-call id before the common scrub transform runs. That normalizer holds
@@ -40,7 +44,9 @@ The engine's `createModelCallToUIChunkTransform` emits a bare `finish` chunk; th
 
 ### Native message metadata
 
-`SideChatMessageMetadata` is the named native metadata extension. It contains folded turn usage (`inputTokens`, `outputTokens`, `totalTokens`, and optional reasoning/cache counts) plus optional `activityDurationMs`; every value is a finite non-negative safe integer. `activityDurationMs` is measured inside the durable workflow from immediately before `WorkflowAgent.stream` starts until a completed model stream settles. It therefore covers provider generation and any tool or approval suspension inside that assistant activity, but excludes pre-run admission/preparation and terminal persistence. This is the replay-safe source for the widget's completed `Thought for Ns` label; the widget rounds up to whole seconds with a one-second display minimum when a trace exists.
+`SideChatMessageMetadata` is the named native metadata extension. It contains folded turn usage (`inputTokens`, `outputTokens`, `totalTokens`, and optional reasoning/cache counts) plus optional `activityDurationMs`; every value is a finite non-negative safe integer.
+
+`activityDurationMs` is measured inside the durable workflow from immediately before `WorkflowAgent.stream` starts until a completed model stream settles. It therefore covers provider generation and any tool or approval suspension inside that assistant activity, but excludes pre-run admission/preparation and terminal persistence. This is the replay-safe source for the widget's completed `Thought for Ns` label; the widget rounds up to whole seconds with a one-second display minimum when a trace exists.
 
 The dependency-free stream-profile schema rejects unknown/private fields. Live and replayed terminal chunks carry the same folded usage and activity duration. Completed assistant persistence replaces arbitrary metadata with that safe object; the history read edge omits empty metadata and degrades invalid metadata before transport. The scrub edge validates every metadata-bearing stream chunk, and the widget validates both history and live messages with the same schema. Older messages may omit `activityDurationMs` and render the duration-free `Thought process` label.
 

@@ -4,6 +4,8 @@ Read this when: you need the durable source of truth for the current Side Chat s
 
 Source of truth for: documentation ownership and the shortest path to the right document.
 
+Not source of truth for: package-local implementation details or commands owned by the linked architecture and operations documents.
+
 Side Chat has one production architecture: `apps/side-chat-service` runs AI SDK 7 on Workflow DevKit/Postgres World, `packages/side-chat-widget` consumes the native UI message stream, and PostgreSQL stores product state through `packages/db`.
 
 ## Start here

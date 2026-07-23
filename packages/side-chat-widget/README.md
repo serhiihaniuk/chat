@@ -60,7 +60,9 @@ owns the four supported light themes: Graphite, Sapphire, Sage, and Ocean.
 Graphite is the default token set; the other themes bind through
 `data-sidechat-theme` on the widget root. Appearance controls layer accent,
 radius, density, elevation, text-scale, and typeface overrides over the selected
-palette. React persists the selected ids and exposes them as
+palette.
+
+React persists the selected ids and exposes them as
 `data-sidechat-*` attributes; `styles.css` alone owns the corresponding design
 values. Tailwind utilities consume those cascading tokens, so appearance presets
 must not be implemented as React inline styles or duplicated TypeScript value
@@ -77,7 +79,9 @@ To add a theme:
 ## Tests
 
 Unit and DOM tests live under `src`; browser scenarios live in
-`test-harness/widget-harness/e2e`.
+`test-harness/widget-harness/e2e`. DOM tests use the shared restoring harness in
+`src/testing/react-dom-test-harness.ts`; it installs one isolated browser realm,
+enables React's act environment, and fails unexpected console errors.
 
 See [widget and host integration](../../docs/architecture/widget-and-host-integration.md)
 and [stream profile](../../docs/architecture/stream-profile.md).

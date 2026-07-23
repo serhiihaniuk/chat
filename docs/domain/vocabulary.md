@@ -4,6 +4,8 @@ Read this when: naming product, Workflow, stream, tool, or persistence concepts.
 
 Source of truth for: repository-wide terms and distinctions.
 
+Not source of truth for: package ownership, lifecycle sequencing, wire payloads, or operational procedures.
+
 ## Product and turn lifecycle
 
 | Term                    | Meaning                                                                                                                             | Owner                      |

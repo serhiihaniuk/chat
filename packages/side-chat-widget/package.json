@@ -122,7 +122,7 @@
     "clean": "tsc -b --clean",
     "build": "tsc -b --clean && tsc -b --pretty false",
     "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
-    "test": "cd ../.. && vitest run packages/side-chat-widget/src --passWithNoTests"
+    "test": "cd ../.. && vitest run packages/side-chat-widget/src"
   },
   "dependencies": {
     "@ai-sdk/workflow": "1.0.32",

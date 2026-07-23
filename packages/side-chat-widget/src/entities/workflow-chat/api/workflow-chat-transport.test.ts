@@ -236,7 +236,9 @@ describe("createWorkflowChatTransport", () => {
       transitions.push("connected");
     });
     let attempt = 0;
-    const request = vi.fn<typeof fetch>(() => {
+    const authorizations: Array<string | null> = [];
+    const request = vi.fn<typeof fetch>((_input, init) => {
+      authorizations.push(new Headers(init?.headers).get("authorization"));
       attempt += 1;
       if (attempt < 3) return Promise.resolve(failedStreamResponse());
       return Promise.resolve(finishedResponse());
@@ -246,6 +248,7 @@ describe("createWorkflowChatTransport", () => {
       scopeKey: "test-scope",
       conversationId: "conversation-1",
       fetch: request,
+      getRequestConfig: () => ({ headers: { authorization: "Bearer current" } }),
       maxConsecutiveErrors: 3,
     };
     const transport = createWorkflowChatTransport({
@@ -259,9 +262,7 @@ describe("createWorkflowChatTransport", () => {
 
     await reconnectAndRead(transport);
 
-    expect(request).toHaveBeenCalledTimes(3);
-    expect(onReconnectStarted).toHaveBeenCalledTimes(3);
-    expect(onReconnectConnected).toHaveBeenCalledTimes(3);
+    expect(authorizations).toEqual(["Bearer current", "Bearer current", "Bearer current"]);
     expect(transitions).toEqual([
       "reconnecting",
       "connected",

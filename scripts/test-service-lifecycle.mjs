@@ -20,21 +20,14 @@ try {
     [
       "test",
       "--",
-      "--no-file-parallelism",
+      "--config",
+      "vitest.integration.config.ts",
       "apps/side-chat-service/src/composition/lifecycle/process/service-lifecycle.integration.test.ts",
     ],
     {
       SIDECHAT_TEST_DATABASE_URL: postgres.connectionString,
       WORKFLOW_POSTGRES_URL: postgres.connectionString,
     },
-  );
-  await runNpm(
-    [
-      "test",
-      "--",
-      "apps/side-chat-service/src/composition/route/service-compatibility.integration.test.ts",
-    ],
-    {},
   );
 } finally {
   await postgres.stop();

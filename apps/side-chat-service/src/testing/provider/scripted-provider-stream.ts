@@ -23,6 +23,7 @@ const SCRIPTED_STREAM_TEXT = {
 
 const PROVIDER_ABORT_ERROR_NAME = "AbortError";
 const SCRIPTED_PROVIDER_FAILURE_MESSAGE = "Scripted provider failure";
+const CRASH_RECOVERY_COMPLETION_DELAY_MS = 1_000;
 
 export function createScriptedStream(
   requestId: string,
@@ -46,6 +47,9 @@ export function createScriptedStream(
       SCRIPTED_STREAM_TEXT.BLOCKING_DELTAS,
       attemptCount,
     );
+  }
+  if (mode === PROVIDER_SCRIPT_MODE.CRASH_RECOVERY) {
+    return delayedCompletionStream(requestId, abortSignal, attemptCount);
   }
   if (mode === PROVIDER_SCRIPT_MODE.CANCEL_MID) {
     return blockingStream(
@@ -156,6 +160,49 @@ function blockingStream(
           lateContentAccepted: attemptLateContent(controller),
         });
       };
+      if (abortSignal?.aborted) abort();
+      else abortSignal?.addEventListener("abort", abort, { once: true });
+    },
+  });
+}
+
+function delayedCompletionStream(
+  requestId: string,
+  abortSignal: AbortSignal | undefined,
+  attemptCount: number,
+): ReadableStream<LanguageModelV4StreamPart> {
+  const parts = completedParts(`Scripted recovered reply: ${requestId}`);
+  const partialParts = parts.slice(0, 3);
+  const terminalParts = parts.slice(3);
+  return new ReadableStream({
+    start(controller) {
+      for (const part of partialParts) controller.enqueue(part);
+      recordProviderObservation({
+        event: PROVIDER_OBSERVATION_EVENT.STREAMING,
+        requestId,
+        attemptCount,
+      });
+
+      let settled = false;
+      const abort = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(completion);
+        controller.error(new DOMException(abortReasonText(abortSignal), PROVIDER_ABORT_ERROR_NAME));
+        recordProviderObservation({
+          event: PROVIDER_OBSERVATION_EVENT.ABORTED,
+          requestId,
+          attemptCount,
+          abortObserved: true,
+        });
+      };
+      const completion = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        abortSignal?.removeEventListener("abort", abort);
+        for (const part of terminalParts) controller.enqueue(part);
+        controller.close();
+      }, CRASH_RECOVERY_COMPLETION_DELAY_MS);
       if (abortSignal?.aborted) abort();
       else abortSignal?.addEventListener("abort", abort, { once: true });
     },

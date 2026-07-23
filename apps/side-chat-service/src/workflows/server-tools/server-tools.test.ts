@@ -100,6 +100,50 @@ describe("durable server-tool approval gate", () => {
       expect(execute).not.toHaveBeenCalled();
     },
   );
+
+  it("cancels a pending approval without executing or leaking the suspended timeout", async () => {
+    approvalStepMock.mockResolvedValueOnce(REQUESTED).mockResolvedValueOnce(REQUESTED);
+    createHookMock.mockReturnValue(pendingHook());
+    sleepMock.mockReturnValue(new Promise(() => undefined));
+    const abortController = new AbortController();
+    const execute = vi.fn<TestServerExecute>(async () => ({ created: true }));
+    const { request, dependencies, runtime, releaseProviderTimeout } = approvalRequest(
+      execute,
+      abortController.signal,
+    );
+
+    const waiting = executeGatedServerTool(request, dependencies, runtime);
+    await vi.waitFor(() => expect(approvalStepMock).toHaveBeenCalledTimes(2));
+    abortController.abort();
+
+    await expect(waiting).resolves.toEqual(
+      deniedToolOutput(TOOL_APPROVAL_DENIAL_REASONS.CANCELLED),
+    );
+    expect(execute).not.toHaveBeenCalled();
+    expect(disposeHookMock).toHaveBeenCalledOnce();
+    expect(releaseProviderTimeout).toHaveBeenCalledOnce();
+  });
+
+  it("expires a pending approval through the durable step before denying execution", async () => {
+    const expiry = createDeferred<void>();
+    approvalStepMock
+      .mockResolvedValueOnce(REQUESTED)
+      .mockResolvedValueOnce(REQUESTED)
+      .mockResolvedValueOnce(toolApprovalSnapshot({ state: TOOL_APPROVAL_STATES.EXPIRED }));
+    createHookMock.mockReturnValue(pendingHook());
+    sleepMock.mockReturnValue(expiry.promise);
+    const execute = vi.fn<TestServerExecute>(async () => ({ created: true }));
+    const { request, dependencies, runtime } = approvalRequest(execute);
+
+    const waiting = executeGatedServerTool(request, dependencies, runtime);
+    await vi.waitFor(() => expect(approvalStepMock).toHaveBeenCalledTimes(2));
+    expiry.resolve();
+
+    await expect(waiting).resolves.toEqual(deniedToolOutput(TOOL_APPROVAL_DENIAL_REASONS.EXPIRED));
+    expect(approvalStepMock.mock.calls[2]?.[0]).toMatchObject({ operation: "expire" });
+    expect(execute).not.toHaveBeenCalled();
+    expect(disposeHookMock).toHaveBeenCalledOnce();
+  });
 });
 
 describe("server-tool source projection", () => {
@@ -228,8 +272,12 @@ describe("server-tool source projection", () => {
   });
 });
 
-function approvalRequest(execute: ReturnType<typeof vi.fn<TestServerExecute>>) {
+function approvalRequest(
+  execute: ReturnType<typeof vi.fn<TestServerExecute>>,
+  abortSignal = new AbortController().signal,
+) {
   const approvalChunks: unknown[] = [];
+  const releaseProviderTimeout = vi.fn<() => void>();
   const writable = new WritableStream({
     write(chunk) {
       approvalChunks.push(chunk);
@@ -237,6 +285,7 @@ function approvalRequest(execute: ReturnType<typeof vi.fn<TestServerExecute>>) {
   });
   return {
     approvalChunks,
+    releaseProviderTimeout,
     dependencies: {
       runApprovalStep: approvalStepMock,
       runExecutionStep: async (command: ApprovedServerToolExecutionCommand) => {
@@ -278,12 +327,23 @@ function approvalRequest(execute: ReturnType<typeof vi.fn<TestServerExecute>>) {
       runId: REQUESTED.runId,
       toolCallId: REQUESTED.toolCallId,
       providerTimeout: {
-        suspend: () => ({ release: vi.fn<() => void>() }),
+        suspend: () => ({ release: releaseProviderTimeout }),
         waitUntilElapsed: vi.fn<() => Promise<void>>(),
       },
-      abortSignal: new AbortController().signal,
+      abortSignal,
     },
   };
+}
+
+function createDeferred<Value>(): {
+  readonly promise: Promise<Value>;
+  readonly resolve: (value: Value) => void;
+} {
+  let resolve = (_value: Value): void => undefined;
+  const promise = new Promise<Value>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
 
 function isIssueInput(value: unknown): value is { issue: string } {

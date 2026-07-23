@@ -1,83 +1,37 @@
-import { Window } from "happy-dom";
 import { act, type ReactElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, vi } from "vitest";
 
 import type { WorkflowChatClient } from "#entities/workflow-chat";
+import {
+  createReactDomTestHarness,
+  type ReactDomTestHarness,
+} from "#testing/react-dom-test-harness";
 
-let windowRef: Window;
-let root: Root;
-let container: HTMLElement;
-let previousGlobals: [string, PropertyDescriptor | undefined][];
+let harness: ReactDomTestHarness;
 
 /** Install the browser globals required by full-widget DOM tests. */
 export const installWidgetTestDom = (): void => {
   beforeEach(() => {
-    previousGlobals = [];
-    windowRef = new Window();
-    assignGlobal("window", windowRef);
-    assignGlobal("document", windowRef.document);
-    assignGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    for (const name of [
-      "Element",
-      "HTMLElement",
-      "HTMLButtonElement",
-      "HTMLTextAreaElement",
-      "Document",
-      "DOMRect",
-      "DOMRectReadOnly",
-      "IntersectionObserver",
-      "MouseEvent",
-      "MutationObserver",
-      "Node",
-      "PointerEvent",
-      "SVGElement",
-      "Event",
-      "FormData",
-    ] as const) {
-      assignGlobal(name, Reflect.get(windowRef, name));
-    }
-    assignGlobal("getComputedStyle", windowRef.getComputedStyle.bind(windowRef));
-    assignGlobal("requestAnimationFrame", windowRef.requestAnimationFrame.bind(windowRef));
-    assignGlobal("cancelAnimationFrame", windowRef.cancelAnimationFrame.bind(windowRef));
-    assignGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
-    if (typeof Reflect.get(windowRef.Element.prototype, "getAnimations") !== "function") {
-      Reflect.set(windowRef.Element.prototype, "getAnimations", () => []);
-    }
+    harness = createReactDomTestHarness();
     vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(
       "00000000-0000-4000-8000-000000000001",
     );
-    container = document.createElement("div");
-    document.body.append(container);
-    root = createRoot(container);
   });
 
   afterEach(() => {
-    act(() => root.unmount());
-    windowRef.close();
     vi.restoreAllMocks();
-    for (const [name, descriptor] of previousGlobals.slice().reverse()) {
-      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
-      else Reflect.deleteProperty(globalThis, name);
-    }
+    harness.cleanup();
   });
 };
 
-const assignGlobal = (name: string, value: unknown): void => {
-  previousGlobals.push([name, Object.getOwnPropertyDescriptor(globalThis, name)]);
-  Object.defineProperty(globalThis, name, { configurable: true, value, writable: true });
+export const mountWidget = (element: ReactElement): void => {
+  harness.render(element);
 };
 
-export const mountWidget = (element: ReactElement): void => {
-  act(() => root.render(element));
-};
+export const waitForWidgetDom = (
+  predicate: () => boolean,
+  failureMessage?: string,
+): Promise<void> => harness.waitFor(predicate, failureMessage);
 
 export const clickButton = async (name: string): Promise<void> => {
   const button = Array.from(document.querySelectorAll("button")).find(

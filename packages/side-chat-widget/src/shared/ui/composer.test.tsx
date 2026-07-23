@@ -1,8 +1,10 @@
-import { Window } from "happy-dom";
 import { act, createElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import {
+  createReactDomTestHarness,
+  type ReactDomTestHarness,
+} from "#testing/react-dom-test-harness";
 import {
   Composer,
   submitOnEnter,
@@ -122,53 +124,26 @@ describe("submitOnEnter policy", () => {
 
 // --- Field wiring (DOM) ----------------------------------------------------
 
-let windowRef: Window;
-let root: Root;
+let harness: ReactDomTestHarness;
 let container: HTMLElement;
 
 beforeEach(() => {
-  windowRef = new Window();
-  assignGlobal("window", windowRef);
-  assignGlobal("document", windowRef.document);
-  Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-  assignGlobal("Element", windowRef.Element);
-  assignGlobal("HTMLElement", windowRef.HTMLElement);
-  assignGlobal("Node", windowRef.Node);
-  // Bind the happy-dom Event constructor to the global name so `new Event(...)`
-  // dispatches an event happy-dom's dispatchEvent accepts, while TS keeps the
-  // ambient lib.dom Event type.
-  assignGlobal("Event", windowRef.Event);
-  assignGlobal("getComputedStyle", windowRef.getComputedStyle.bind(windowRef));
-  assignGlobal("requestAnimationFrame", windowRef.requestAnimationFrame.bind(windowRef));
-  assignGlobal("cancelAnimationFrame", windowRef.cancelAnimationFrame.bind(windowRef));
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
+  harness = createReactDomTestHarness();
+  container = harness.container;
 });
 
 afterEach(() => {
-  act(() => root.unmount());
-  windowRef.close();
+  harness.cleanup();
 });
-
-const assignGlobal = (name: string, value: unknown): void => {
-  Object.defineProperty(globalThis, name, {
-    configurable: true,
-    value,
-    writable: true,
-  });
-};
 
 // These tests exercise the field and send policy, so the required control slots are empty.
 const renderComposer = (props: Partial<ComposerProps>): void => {
-  act(() =>
-    root.render(
-      createElement(Composer, {
-        modelSelector: null,
-        toolsMenu: null,
-        ...props,
-      }),
-    ),
+  harness.render(
+    createElement(Composer, {
+      modelSelector: null,
+      toolsMenu: null,
+      ...props,
+    }),
   );
 };
 

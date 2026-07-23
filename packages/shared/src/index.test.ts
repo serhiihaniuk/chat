@@ -8,6 +8,7 @@ import {
   parseJsonRecord,
   redactAttributes,
   shouldEmitDiagnostic,
+  toJsonObject,
   type OmitUndefinedProperties,
 } from "./index.js";
 
@@ -107,6 +108,44 @@ describe("compactJsonObject", () => {
       kept: "value",
       empty: null,
     });
+  });
+});
+
+describe("toJsonObject", () => {
+  it("bounds cyclic and deeply nested values without throwing", () => {
+    const cyclic: Record<string, unknown> = { label: "root" };
+    cyclic["self"] = cyclic;
+    const deeplyNested: Record<string, unknown> = {};
+    let cursor = deeplyNested;
+    for (let depth = 0; depth < 64; depth += 1) {
+      const next: Record<string, unknown> = {};
+      cursor["next"] = next;
+      cursor = next;
+    }
+
+    expect(toJsonObject(cyclic)).toEqual({ label: "root", self: null });
+    expect(() => JSON.stringify(toJsonObject(deeplyNested))).not.toThrow();
+  });
+
+  it("contains throwing getters and hostile property enumeration", () => {
+    const getterValue: Record<string, unknown> = { safe: "kept" };
+    Object.defineProperty(getterValue, "hostile", {
+      enumerable: true,
+      get() {
+        throw new Error("getter failed");
+      },
+    });
+    const hostileEnumeration = new Proxy<Record<string, unknown>>(
+      {},
+      {
+        ownKeys() {
+          throw new Error("enumeration failed");
+        },
+      },
+    );
+
+    expect(toJsonObject(getterValue)).toEqual({ safe: "kept", hostile: null });
+    expect(toJsonObject(hostileEnumeration)).toEqual({});
   });
 });
 

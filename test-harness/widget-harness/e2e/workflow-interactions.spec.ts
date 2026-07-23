@@ -1,24 +1,9 @@
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-
 import { expect, test, type Page, type Route } from "playwright/test";
 
-const evidenceDirectory = resolve(
-  import.meta.dirname,
-  "../../../plan/v7/evidence/task-15-widget-interactions",
-);
 const workflowWidgetUrl = "/side-chat-frame/?workspaceId=task-15";
-const recoveryEvidenceDirectory = resolve(
-  import.meta.dirname,
-  "../../../plan/v7/evidence/task-16-widget-recovery",
-);
 const recoveryWorkspaceId = "task-16";
 const recoveryWidgetUrl = `/side-chat-frame/?workspaceId=${recoveryWorkspaceId}`;
 const recoveryStorageKey = `side-chat-widget:${recoveryWorkspaceId}:workflow-active-turn`;
-const parityEvidenceDirectory = resolve(
-  import.meta.dirname,
-  "../../../plan/v7/evidence/task-16a-widget-parity",
-);
 const parityWorkspaceId = "task-16a";
 const parityWidgetUrl = `/side-chat-frame/?workspaceId=${parityWorkspaceId}`;
 const parityRecoveryStorageKey = `side-chat-widget:${parityWorkspaceId}:workflow-active-turn`;
@@ -52,12 +37,6 @@ const toolCatalog = {
     },
   ],
 };
-
-test.beforeAll(() => {
-  mkdirSync(evidenceDirectory, { recursive: true });
-  mkdirSync(recoveryEvidenceDirectory, { recursive: true });
-  mkdirSync(parityEvidenceDirectory, { recursive: true });
-});
 
 test("dispatches a native client tool through the host and posts one durable output", async ({
   page,
@@ -151,10 +130,6 @@ test("dispatches a native client tool through the host and posts one durable out
   await expect(page.getByText("Client tool chat")).toBeVisible();
   await expect(page.getByTestId("demo-host-assistant-count")).toHaveText("Assistant actions: 0");
   await expect.poll(() => postedOutputCount).toBe(1);
-  await page.screenshot({
-    path: resolve(evidenceDirectory, "client-tool-dispatched.png"),
-    fullPage: true,
-  });
 });
 
 test("restores approval after reload and immediately transitions its tool to running", async ({
@@ -228,10 +203,6 @@ test("restores approval after reload and immediately transitions its tool to run
   await expect(approval).toHaveCount(0);
   const runningTool = page.locator('[data-slot="tool-detail-row"][data-state="running"]');
   await expect(runningTool).toContainText("Needs access");
-  await page.screenshot({
-    path: resolve(evidenceDirectory, "approval-approved.png"),
-    fullPage: true,
-  });
 });
 
 test("reattaches to an in-progress run on cold load and reassembles the answer", async ({
@@ -276,10 +247,6 @@ test("reattaches to an in-progress run on cold load and reassembles the answer",
   // the seeded message is not duplicated by the replay.
   await expect(page.getByText("The ticket reports a billing error.")).toBeVisible();
   await expect(page.getByText("Summarize the ticket")).toHaveCount(1);
-  await page.screenshot({
-    path: resolve(recoveryEvidenceDirectory, "refresh-reattach.png"),
-    fullPage: true,
-  });
 });
 
 test("shows the empty state with quick actions before the first message", async ({ page }) => {
@@ -294,10 +261,6 @@ test("shows the empty state with quick actions before the first message", async 
   await page.reload();
   await expect(page.getByText("How can I help with this page?")).toBeVisible();
   await expect(page.getByRole("button", { name: "Summarize this page" })).toBeVisible();
-  await page.screenshot({
-    path: resolve(parityEvidenceDirectory, "empty-state.png"),
-    fullPage: true,
-  });
 });
 
 test("keeps the next send usable after the idle activity connection drops", async ({ page }) => {
@@ -548,10 +511,6 @@ test("selects server tools per turn and renders terminal context usage", async (
   await expect(page.getByText("Available tools")).toBeVisible();
   await expect(page.getByText("Mock web search", { exact: true })).toBeVisible();
   await expect(toolsPopup).toHaveCSS("opacity", "1");
-  await page.screenshot({
-    path: resolve(parityEvidenceDirectory, "tools-menu.png"),
-    fullPage: true,
-  });
 
   const webSearchRow = page.getByRole("menuitemcheckbox", { name: /Mock web search/u });
   await expect(webSearchRow).toHaveAttribute("aria-checked", "true");
@@ -584,12 +543,6 @@ test("selects server tools per turn and renders terminal context usage", async (
   });
   await expect(usageTooltip).toBeVisible();
   await expect(usageTooltip).toHaveCSS("opacity", "1");
-  await waitForBrowserPaint(page);
-  await page.screenshot({
-    animations: "disabled",
-    path: resolve(parityEvidenceDirectory, "usage-meter.png"),
-    fullPage: true,
-  });
 });
 
 test("discards a stale recovery cursor without routing to or selecting another chat", async ({
@@ -647,10 +600,6 @@ test("opens the settings view from the header gear and returns to the chat", asy
 
   const back = page.getByRole("button", { name: "Back to chat" });
   await expect(back).toBeVisible();
-  await page.screenshot({
-    path: resolve(parityEvidenceDirectory, "settings-view.png"),
-    fullPage: true,
-  });
 
   await back.click();
   await expect(page.getByText("How can I help with this page?")).toBeVisible();
@@ -692,10 +641,6 @@ test("lists workspace conversations in the sidebar and opens a different one", a
 
   await expect(page.getByText("Billing bug")).toBeVisible();
   await expect(page.getByText("Refund policy")).toBeVisible();
-  await page.screenshot({
-    path: resolve(parityEvidenceDirectory, "sidebar.png"),
-    fullPage: true,
-  });
 
   // Selecting another conversation remounts the session against its history.
   await page.getByText("Refund policy").click();
@@ -970,15 +915,6 @@ async function routeWorkflowRecovery(
     }
     await route.abort("failed");
   });
-}
-
-async function waitForBrowserPaint(page: Page): Promise<void> {
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolvePaint) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolvePaint()));
-      }),
-  );
 }
 
 async function fulfillWorkflowStream(route: Route, scenario: WorkflowRouteScenario): Promise<void> {

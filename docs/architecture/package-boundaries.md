@@ -4,6 +4,8 @@ Read this when: adding imports, moving code, or deciding where a contract belong
 
 Source of truth for: dependency direction and representation changes between current packages.
 
+Not source of truth for: domain vocabulary, lifecycle order, protocol details, or operational commands.
+
 ## Dependency table
 
 | Owner                       | May depend on                                                                                                          | Must not absorb                                                          |

@@ -23,6 +23,10 @@ const config: SideChatConfig = defineSideChatConfig({
         contextWindowTokens: SCRIPTED_PROVIDER.MODELS.BLOCK.CONTEXT_WINDOW_TOKENS,
       },
       {
+        id: SCRIPTED_PROVIDER.MODELS.CRASH_RECOVERY.MODEL_ID,
+        contextWindowTokens: SCRIPTED_PROVIDER.MODELS.CRASH_RECOVERY.CONTEXT_WINDOW_TOKENS,
+      },
+      {
         id: SCRIPTED_PROVIDER.MODELS.HAPPY.MODEL_ID,
         contextWindowTokens: SCRIPTED_PROVIDER.MODELS.HAPPY.CONTEXT_WINDOW_TOKENS,
       },

@@ -9,7 +9,7 @@ import type {
   CompiledStartupFailure,
 } from "../compiled-service-process.js";
 import { cleanCompiledEnvironment } from "./command.js";
-import { stopCompiledProcess } from "./process-control.js";
+import { hasCompiledProcessExited, stopCompiledProcess } from "./process-control.js";
 
 export type StartedCompiledProcess = Readonly<{
   baseUrl: string;
@@ -41,7 +41,9 @@ export async function waitForCompiledReady(process: StartedCompiledProcess): Pro
   const port = Number(new URL(process.baseUrl).port);
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    if (process.child.exitCode !== null) throw new Error(`Service exited:\n${process.output()}`);
+    if (hasCompiledProcessExited(process.child)) {
+      throw new Error(`Service exited:\n${process.output()}`);
+    }
     if (await localPortAcceptsConnections(port).catch(() => false)) return;
     await delay(100);
   }
@@ -58,11 +60,13 @@ export async function observeStartupFailure(
   let openedPort = false;
   try {
     const deadline = Date.now() + 30_000;
-    while (process.child.exitCode === null && Date.now() < deadline) {
+    while (!hasCompiledProcessExited(process.child) && Date.now() < deadline) {
       openedPort ||= await localPortAcceptsConnections(port).catch(() => false);
       await delay(50);
     }
-    if (process.child.exitCode === null) throw new Error("Failed service boot did not terminate");
+    if (!hasCompiledProcessExited(process.child)) {
+      throw new Error("Failed service boot did not terminate");
+    }
     return { exitCode: process.child.exitCode, openedPort, output: process.output() };
   } finally {
     await stopCompiledProcess(process.child);

@@ -19,7 +19,7 @@
     "dev": "vite",
     "build": "tsc -b --pretty false && vite build",
     "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
-    "test": "cd ../.. && vitest run apps/docs/src --passWithNoTests"
+    "test": "cd ../.. && vitest run apps/docs/src"
   },
   "dependencies": {
     "@side-chat/side-chat-widget": "0.0.0",

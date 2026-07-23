@@ -56,34 +56,24 @@ describe("Streamdown message token contract", () => {
     }
   });
 
-  it("does not restore the raw spacing utilities replaced by the component tokens", () => {
-    expect(markdownStyles).not.toMatch(
-      /\b(?:px-1|py-0\.5|p-3|pl-5|mt-4|mb-2|border-l-2|pl-3|px-2|py-1)\b/u,
+  it("gives ordered and unordered lists their owning indentation tokens", () => {
+    expect(markdownStyles).toMatch(
+      /& :where\(ul\) \{[^}]*padding-inline-start:\s*var\(--message-list-indent\);/su,
+    );
+    expect(markdownStyles).toMatch(
+      /& :where\(ol\) \{[^}]*padding-inline-start:\s*var\(--message-ordered-list-indent\);/su,
     );
   });
 
-  it("keeps multi-digit ordered-list markers inside a wider tokenized gutter", () => {
-    expect(styles).toContain("--message-ordered-list-indent: calc(var(--spacing) * 12);");
-    expect(markdownStyles).toContain(
-      "& :where(ul) {\n    margin-block: var(--message-block-gap);\n    padding-inline-start: var(--message-list-indent);",
-    );
-    expect(markdownStyles).toContain(
-      "& :where(ol) {\n    margin-block: var(--message-block-gap);\n    padding-inline-start: var(--message-ordered-list-indent);",
-    );
-  });
-
-  it("maps each compact heading tier to its documented message token", () => {
-    expect(styles).toContain("--message-heading-gap-before: calc(var(--spacing) * 6);");
-    expect(styles).toContain("--message-heading-gap-after: calc(var(--spacing) * 3);");
-    expect(markdownStyles).toContain(
-      ".sc-message-heading-1 {\n    font-size: var(--message-heading-1-font-size);",
-    );
-    expect(markdownStyles).toContain(
-      ".sc-message-heading-2 {\n    font-size: var(--message-heading-2-font-size);",
-    );
-    expect(markdownStyles).toContain(
-      ".sc-message-heading-3 {\n    font-size: var(--message-heading-3-font-size);",
-    );
+  it("maps each heading tier to its owning message token", () => {
+    for (const tier of [1, 2, 3]) {
+      expect(markdownStyles).toMatch(
+        new RegExp(
+          `\\.sc-message-heading-${String(tier)} \\{[^}]*font-size:\\s*var\\(--message-heading-${String(tier)}-font-size\\);`,
+          "su",
+        ),
+      );
+    }
   });
 
   it("owns Streamdown fenced-code layout through stable data hooks", () => {

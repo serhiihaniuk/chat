@@ -15,6 +15,6 @@
   "scripts": {
     "build": "tsc -b --pretty false",
     "typecheck": "tsc -b --pretty false",
-    "test": "cd ../.. && vitest run packages/stream-profile/src --passWithNoTests"
+    "test": "cd ../.. && vitest run packages/stream-profile/src"
   }
 }

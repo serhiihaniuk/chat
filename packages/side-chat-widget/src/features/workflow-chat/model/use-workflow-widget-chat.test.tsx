@@ -1,6 +1,4 @@
-import { Window } from "happy-dom";
 import { act, createElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SIDE_CHAT_ERROR_CODES, SIDE_CHAT_ERROR_VOCABULARY } from "@side-chat/stream-profile";
 
@@ -9,6 +7,10 @@ import type {
   WorkflowConversationClient,
   WorkflowUIMessage,
 } from "#entities/workflow-chat";
+import {
+  createReactDomTestHarness,
+  type ReactDomTestHarness,
+} from "#testing/react-dom-test-harness";
 import {
   useWorkflowWidgetChat,
   type WorkflowWidgetChat,
@@ -32,30 +34,15 @@ const SEEDED_MESSAGE: WorkflowUIMessage = {
   parts: [{ type: "text", text: "Earlier" }],
 };
 
-let windowRef: Window;
-let root: Root;
-let container: HTMLElement;
+let harness: ReactDomTestHarness;
 
 beforeEach(() => {
-  windowRef = new Window();
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: windowRef,
-  });
-  Object.defineProperty(globalThis, "document", {
-    configurable: true,
-    value: windowRef.document,
-  });
-  Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
+  harness = createReactDomTestHarness();
 });
 
 afterEach(() => {
-  act(() => root.unmount());
-  windowRef.close();
   vi.restoreAllMocks();
+  harness.cleanup();
 });
 
 describe("useWorkflowWidgetChat", () => {
@@ -424,7 +411,7 @@ function renderChat(
     });
     return null;
   };
-  act(() => root.render(createElement(Probe)));
+  harness.render(createElement(Probe));
   return current;
 }
 

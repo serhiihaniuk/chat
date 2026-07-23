@@ -28,8 +28,7 @@
   "scripts": {
     "build": "tsc -b --pretty false",
     "dev": "vite",
-    "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json",
-    "test": "cd ../.. && vitest run test-harness/widget-harness/src --passWithNoTests"
+    "typecheck": "cd ../.. && tsc --noEmit --pretty false -p tsconfig.check.json"
   },
   "dependencies": {
     "@side-chat/host-bridge": "0.0.0",

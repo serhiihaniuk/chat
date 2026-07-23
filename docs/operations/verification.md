@@ -4,10 +4,11 @@ Read this when: you need to choose, run, or report a verification command.
 Source of truth for: the root `package.json` gate commands and what each proves.
 Not source of truth for: test placement and fixture design (see the testing skill under `.agents/skills`) or product requirements.
 
-Side Chat gates every change through scripts in the root `package.json`. The one
-command you run before pushing is `npm run verify`: it chains six checks and fails
-on the first one. Most lanes need no Docker; a few (container, persistent E2E)
-do. This doc lists every command, what it proves, and the run order of the
+Side Chat gates every change through scripts in the root `package.json`. Run
+`npm run verify` during ordinary development and `npm run verify:container`
+before an alpha release. The local command chains six checks and fails on the
+first one; the container command runs the complete alpha gate in the pinned test
+image. This doc lists every command, what it proves, and the run order of the
 custom governance gates.
 
 ## The one command
@@ -36,23 +37,24 @@ npx -p node@24.16.0 -p npm@11.15.0 npm run verify
 
 Every command below is a root `package.json` script (`package.json:11-31`).
 
-| Command                    | What it proves                                                 |
-| -------------------------- | -------------------------------------------------------------- |
-| `npm run format:check`     | Oxfmt would not rewrite any tracked file.                      |
-| `npm run lint:oxlint`      | Oxlint and TypeScript-aware rules pass; warnings fail.         |
-| `npm run lint:custom`      | The 16 custom governance gates pass (see below).               |
-| `npm run lint`             | Both lint layers pass: Oxlint, then custom gates.              |
-| `npm run typecheck`        | Strict TypeScript compiles with no emit.                       |
-| `npm run build`            | The project-reference build (`tsc -b`) succeeds.               |
-| `npm test`                 | Deterministic Vitest scenarios (unit, service, adoption) pass. |
-| `npm run verify`           | The full local gate passes in order; `lint:custom` runs last.  |
-| `npm run verify:container` | Runs the repository's containerized verification wrapper.      |
+| Command                    | What it proves                                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `npm run format:check`     | Oxfmt would not rewrite any tracked file.                                                              |
+| `npm run lint:oxlint`      | Oxlint and TypeScript-aware rules pass; warnings fail.                                                 |
+| `npm run lint:custom`      | The 16 custom governance gates pass (see below).                                                       |
+| `npm run lint`             | Both lint layers pass: Oxlint, then custom gates.                                                      |
+| `npm run typecheck`        | Strict TypeScript compiles with no emit.                                                               |
+| `npm run build`            | The project-reference build (`tsc -b`) succeeds.                                                       |
+| `npm test`                 | Deterministic Vitest scenarios (unit, service, adoption) pass.                                         |
+| `npm run verify`           | The full local gate passes in order; `lint:custom` runs last.                                          |
+| `npm run verify:alpha`     | Local gate, disposable Postgres, compiled lifecycle, and current browser E2E all pass.                 |
+| `npm run verify:container` | Builds the pinned test image and runs `verify:alpha` inside it; this is the CI and alpha release gate. |
 
 ### Database lanes
 
 | Command                       | What it proves                                                                      | Needs Docker                    |
 | ----------------------------- | ----------------------------------------------------------------------------------- | ------------------------------- |
-| `npm run test:db:integration` | The Postgres/Drizzle repository test passes against `SIDECHAT_TEST_DATABASE_URL`.   | No (bring your own DB)          |
+| `npm run test:db:integration` | The explicit serial database suite passes against `SIDECHAT_TEST_DATABASE_URL`.     | No (bring your own DB)          |
 | `npm run test:db:container`   | A Testcontainers Postgres boots, migrations apply, and the integration test passes. | Yes                             |
 | `npm run test:db:local`       | Alias of `test:db:container`.                                                       | Yes                             |
 | `npm run db:generate`         | Regenerates the single fresh migration from `schema.ts`.                            | No                              |
@@ -60,11 +62,12 @@ Every command below is a root `package.json` script (`package.json:11-31`).
 
 ### Browser, smoke, and audit lanes
 
-| Command                          | What it proves                                                                    | Needs Docker |
-| -------------------------------- | --------------------------------------------------------------------------------- | ------------ |
-| `npm run test:e2e`               | Playwright drives the widget in a browser (direct page and iframe host).          | No           |
-| `npm run test:service:lifecycle` | Compiled boot, streaming, cancel, crash-resume, bounded drain, and compatibility. | Yes          |
-| `npm run audit`                  | `npm audit` reports no high-or-above advisory.                                    | No           |
+| Command                              | What it proves                                                                                  | Needs Docker |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------- | ------------ |
+| `npm run test:e2e`                   | Playwright drives the widget through direct, iframe-host, and compiled-service seams.           | No           |
+| `npm run test:service:lifecycle`     | Compiled boot, request replay, streaming, cancel, autonomous crash recovery, and bounded drain. | Yes          |
+| `npm run test:service:compatibility` | Compiled Workflow/AI SDK compatibility and production-route stream behavior.                    | No           |
+| `npm run audit`                      | `npm audit` reports no high-or-above advisory.                                                  | No           |
 
 The native iframe host-context contract has a narrower no-Docker lane. It proves the
 public parent/child adapter, default-off user choice, request correlation, and exclusion
@@ -105,9 +108,11 @@ Gate 16 is the meta-gate: it proves no gate silently stops running, so add a new
 
 ## Docker vs. no-Docker
 
-The `verify:container`, `test:db:container` (and its `test:db:local` alias), and
-`test:service:lifecycle` lanes need Docker. They build an image or start disposable
-PostgreSQL containers.
+The `verify:alpha`, `verify:container`, `test:db:container` (and its
+`test:db:local` alias), and `test:service:lifecycle` lanes need Docker. Container
+verification runs the local gate, disposable database suite, compiled lifecycle,
+and current Playwright suite inside the pinned test image. GitHub Actions invokes
+that same container command, so local alpha and remote merge gates do not drift.
 
 To work without Docker, run the in-memory stack with `node scripts/run-local-fake.mjs`
 — see [embed-widget-iframe.md](embed-widget-iframe.md). For day-to-day checks,

@@ -8,6 +8,7 @@ import {
 
 type FakeConnection = {
   readonly connection: ListenConnection;
+  readonly ready: Promise<void>;
   emitNotification: (payload: string | undefined) => void;
   emitError: (error: Error) => void;
   ended: boolean;
@@ -18,8 +19,10 @@ const createFakeConnector = (): {
   readonly connector: ListenConnector;
   readonly connections: FakeConnection[];
   readonly failNextConnects: (count: number) => void;
+  readonly waitForConnection: (index: number) => Promise<FakeConnection>;
 } => {
   const connections: FakeConnection[] = [];
+  const connectionWaiters = new Map<number, ReturnType<typeof createDeferred<FakeConnection>>>();
   let connectFailures = 0;
 
   const connector: ListenConnector = async () => {
@@ -30,6 +33,7 @@ const createFakeConnector = (): {
 
     let onNotification: (payload: string | undefined) => void = () => undefined;
     let onError: (error: Error) => void = () => undefined;
+    const listening = createDeferred<void>();
     const fake: FakeConnection = {
       connection: {
         onNotification: (handler) => {
@@ -38,7 +42,12 @@ const createFakeConnector = (): {
         onError: (handler) => {
           onError = handler;
         },
-        listen: () => Promise.resolve(),
+        listen: () => {
+          listening.resolve();
+          connectionWaiters.get(connections.indexOf(fake))?.resolve(fake);
+          connectionWaiters.delete(connections.indexOf(fake));
+          return Promise.resolve();
+        },
         end: () => {
           fake.ended = true;
           return Promise.resolve();
@@ -47,34 +56,49 @@ const createFakeConnector = (): {
       emitNotification: (payload) => onNotification(payload),
       emitError: (error) => onError(error),
       ended: false,
+      ready: listening.promise,
     };
     connections.push(fake);
     return fake.connection;
   };
 
-  return { connector, connections, failNextConnects: (count) => (connectFailures = count) };
-};
-
-const waitFor = async (predicate: () => boolean, timeoutMs = 3000): Promise<void> => {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (predicate()) return;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error("waitFor timed out");
+  return {
+    connector,
+    connections,
+    failNextConnects: (count) => (connectFailures = count),
+    waitForConnection: (index) => {
+      const existing = connections[index];
+      if (existing !== undefined) return existing.ready.then(() => existing);
+      const waiting = connectionWaiters.get(index) ?? createDeferred<FakeConnection>();
+      connectionWaiters.set(index, waiting);
+      return waiting.promise;
+    },
+  };
 };
 
 const drainStream = <A>(stream: ReadableStream<A>, sink: A[]) => {
   const reader = stream.getReader();
+  const buffered: A[] = [];
+  const valueWaiters: Array<ReturnType<typeof createDeferred<A>>> = [];
   const done = (async () => {
     while (true) {
       const next = await reader.read();
       if (next.done) return;
       sink.push(next.value);
+      const waiter = valueWaiters.shift();
+      if (waiter === undefined) buffered.push(next.value);
+      else waiter.resolve(next.value);
     }
   })();
 
   return {
+    nextValue: (): Promise<A> => {
+      const next = buffered.shift();
+      if (next !== undefined) return Promise.resolve(next);
+      const waiting = createDeferred<A>();
+      valueWaiters.push(waiting);
+      return waiting.promise;
+    },
     cancel: async (): Promise<void> => {
       await reader.cancel();
       await done;
@@ -100,20 +124,20 @@ describe("reconnecting listen stream", () => {
     );
     const draining = drainStream(stream, received);
 
-    await waitFor(() => fake.connections.length === 1);
-    fake.connections[0]?.emitNotification("live-1");
-    await waitFor(() => received.includes("live-1"));
+    const first = await fake.waitForConnection(0);
+    first.emitNotification("live-1");
+    await expect(draining.nextValue()).resolves.toBe("live-1");
 
-    fake.connections[0]?.emitError(new Error("connection reset"));
-    await waitFor(() => fake.connections.length === 2);
-    expect(fake.connections[0]?.ended).toBe(true);
+    first.emitError(new Error("connection reset"));
+    const second = await fake.waitForConnection(1);
+    expect(first.ended).toBe(true);
 
-    fake.connections[1]?.emitNotification("live-2");
-    await waitFor(() => received.includes("live-2"));
+    second.emitNotification("live-2");
+    await expect(draining.nextValue()).resolves.toBe("live-2");
     expect(received).toEqual(["live-1", "live-2"]);
 
     await draining.cancel();
-    expect(fake.connections[1]?.ended).toBe(true);
+    expect(second.ended).toBe(true);
   });
 
   it("retries a failed initial connection", async () => {
@@ -132,9 +156,9 @@ describe("reconnecting listen stream", () => {
     );
     const draining = drainStream(stream, received);
 
-    await waitFor(() => fake.connections.length === 1);
-    fake.connections[0]?.emitNotification("after-retry");
-    await waitFor(() => received.includes("after-retry"));
+    const connection = await fake.waitForConnection(0);
+    connection.emitNotification("after-retry");
+    await expect(draining.nextValue()).resolves.toBe("after-retry");
     expect(received).toEqual(["after-retry"]);
 
     await draining.cancel();
@@ -142,6 +166,7 @@ describe("reconnecting listen stream", () => {
 
   it("skips a malformed payload and keeps the feed alive", async () => {
     const warnings: string[] = [];
+    const warned = createDeferred<string>();
     const fake = createFakeConnector();
     const received: string[] = [];
     const stream = createReconnectingListenStream<string>(
@@ -152,7 +177,10 @@ describe("reconnecting listen stream", () => {
         logger: {
           debug: () => undefined,
           info: () => undefined,
-          warn: (message) => void warnings.push(message),
+          warn: (message) => {
+            warnings.push(message);
+            warned.resolve(message);
+          },
           error: () => undefined,
         },
       },
@@ -161,13 +189,24 @@ describe("reconnecting listen stream", () => {
     );
     const draining = drainStream(stream, received);
 
-    await waitFor(() => fake.connections.length === 1);
-    fake.connections[0]?.emitNotification("bad");
-    await waitFor(() => warnings.includes("malformed notification skipped"));
-    fake.connections[0]?.emitNotification("good");
-    await waitFor(() => received.includes("good"));
+    const connection = await fake.waitForConnection(0);
+    connection.emitNotification("bad");
+    await expect(warned.promise).resolves.toBe("malformed notification skipped");
+    connection.emitNotification("good");
+    await expect(draining.nextValue()).resolves.toBe("good");
     expect(received).toEqual(["good"]);
 
     await draining.cancel();
   });
 });
+
+function createDeferred<Value>(): {
+  readonly promise: Promise<Value>;
+  readonly resolve: (value: Value) => void;
+} {
+  let resolve = (_value: Value): void => undefined;
+  const promise = new Promise<Value>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}

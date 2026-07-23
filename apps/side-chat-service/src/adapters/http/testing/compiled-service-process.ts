@@ -8,6 +8,7 @@ import {
 import { runCompiledCommand } from "./compiled-service/command.js";
 import {
   crashCompiledProcess,
+  hasCompiledProcessExited,
   requestCompiledShutdown,
   stopCompiledProcess,
   type CompiledShutdownResult,
@@ -95,7 +96,7 @@ export async function startPreparedService(
       await waitForCompiledReady(process);
       return compiledService(process);
     } catch (error) {
-      const exitedBeforeReady = process.child.exitCode !== null;
+      const exitedBeforeReady = hasCompiledProcessExited(process.child);
       await stopCompiledProcess(process.child);
       rmSync(process.workflowDataDir, { recursive: true, force: true });
       if (!exitedBeforeReady || attempt === SUPERVISED_START_MAX_ATTEMPTS) {

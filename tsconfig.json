@@ -2,7 +2,7 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "files": ["vitest.config.ts", "playwright.config.ts"],
+  "files": ["vitest.config.ts", "vitest.integration.config.ts", "playwright.config.ts"],
   "references": [
     { "path": "./apps/docs" },
     { "path": "./apps/side-chat-service" },

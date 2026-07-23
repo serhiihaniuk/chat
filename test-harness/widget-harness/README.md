@@ -10,6 +10,7 @@ Not source of truth for: production host app behavior.
 - Vite app for widget development.
 - Vite host proxy for local iframe embedding scenarios.
 - One service-backed widget scenario with configurable local identity and host behavior.
+- A compiled fake-service browser seam that exercises the production HTTP and stream adapters.
 - Fake host bridge behavior for browser scenarios.
 - Playwright-visible harness pages.
 
@@ -51,8 +52,11 @@ only while that accepted turn remains active.
 
 ## Tests
 
-- `src/**/*.test.ts`
-- E2E specs under `e2e`
+Browser scenarios live under `e2e` and run through the root `npm run test:e2e`
+command. That lane starts both the focused protocol fixture and a compiled fake
+service; the latter proves a real service response reaches the widget through
+the Vite proxy. The harness currently has no separate Vitest suite; add a workspace
+`test` script only when source-level tests exist.
 
 ## Canonical Docs
 

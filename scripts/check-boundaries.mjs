@@ -96,6 +96,10 @@ for (const file of listSourceFiles(root)) {
     const dependency = dependencyName(specifier);
     if (!dependency) continue;
 
+    if (isBrowserProductionSource(file, area) && dependency.startsWith("node:")) {
+      errors.push(`${file}: forbidden ${dependency} import in browser production source`);
+    }
+
     if (forbidden.some((pattern) => pattern.test(dependency))) {
       errors.push(`${file}: forbidden ${dependency} import in ${area}`);
     }
@@ -103,6 +107,14 @@ for (const file of listSourceFiles(root)) {
 }
 
 failIfErrors(errors);
+
+function isBrowserProductionSource(file, area) {
+  return (
+    area === "packages/side-chat-widget" &&
+    !file.includes(".test.") &&
+    !file.includes("/src/testing/")
+  );
+}
 
 function relativeCrossPackageImportError(root, file, area, specifier) {
   if (!specifier.startsWith(".")) return undefined;

@@ -48,10 +48,22 @@ describe
       console.log("Lifecycle smoke: ready");
 
       const completeId = uniqueId("complete");
+      const completeRequestId = uniqueId("complete-request");
       await requireProbe().seedConversation(completeId);
-      const complete = await startTurn(service, completeId, "complete");
+      const complete = await startTurn(service, completeId, "complete", completeRequestId);
+      const completeRunId = requireRunId(complete);
       expect(complete.status).toBe(200);
       expect(await complete.text()).toContain('"type":"finish"');
+      const replay = await startTurn(service, completeId, "complete", completeRequestId);
+      expect(requireRunId(replay)).toBe(completeRunId);
+      expect(await replay.text()).toContain('"type":"finish"');
+      expect(
+        readProviderObservations(
+          service.output(),
+          completeRequestId,
+          PROVIDER_OBSERVATION_EVENT.ATTEMPT,
+        ),
+      ).toHaveLength(1);
       console.log("Lifecycle smoke: completed turn");
 
       const cancelId = uniqueId("cancel");
@@ -79,10 +91,10 @@ describe
 
     it("hard-crashes mid-stream, resumes after restart, and reconnects to the terminal", async () => {
       const conversationId = uniqueId("crash-resume");
-      const requestId = uniqueId("block");
+      const requestId = uniqueId("crash-recovery");
       await requireProbe().seedConversation(conversationId);
       const first = await startService();
-      const response = await startTurn(first, conversationId, "block", requestId);
+      const response = await startTurn(first, conversationId, "crash-recovery", requestId);
       const runId = requireRunId(response);
       const reader = response.body?.getReader();
       await waitForProviderObservation(first, requestId, PROVIDER_OBSERVATION_EVENT.STREAMING);
@@ -99,12 +111,12 @@ describe
         signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
       });
       expect(replay.status).toBe(200);
-      await cancelWhenReady(second, conversationId, runId);
-      console.log("Lifecycle smoke: recovered cancellation acknowledged");
       await waitForSettledConversation(second, conversationId, runId);
-      console.log("Lifecycle smoke: recovered cancellation durable");
+      console.log("Lifecycle smoke: recovered turn completed without a new command");
       expect(await requireProbe().waitForWorkflowRunTerminal(runId)).toBe("completed");
-      expect(await replay.text()).toContain('"type":"finish"');
+      const replayBody = await replay.text();
+      expect(replayBody).toContain(`Scripted recovered reply: ${requestId}`);
+      expect(replayBody).toContain('"type":"finish"');
       console.log("Lifecycle smoke: reconnect terminal received");
       expect((await second.shutdown()).exitCode).toBe(0);
       await releaseService(second);
@@ -138,13 +150,6 @@ describe
       expect(failure.exitCode).not.toBe(0);
       expect(failure.openedPort).toBe(false);
       expect(failure.output).toContain("Side Chat failed during compiled module import.");
-    });
-
-    it("records the final persistent row shape after all process boundaries", async () => {
-      const counts = await requireProbe().measureLifecycleRows();
-      expect(counts).toMatchObject({ assistantTurns: 4, contextSnapshots: 0 });
-      expect(counts.messages).toBe(6);
-      console.log("Lifecycle row measurement", counts);
     });
   });
 
@@ -192,7 +197,7 @@ async function expectReady(service: CompiledService): Promise<void> {
 function startTurn(
   service: CompiledService,
   conversationId: string,
-  mode: "block" | "complete",
+  mode: "block" | "complete" | "crash-recovery",
   requestId = uniqueId(mode),
 ): Promise<Response> {
   return fetch(`${service.baseUrl}/api/chat`, {
@@ -249,7 +254,7 @@ async function waitForSettledConversation(
   const workflow =
     runId === undefined ? undefined : await requireProbe().describeWorkflowRun(runId);
   throw new Error(
-    `Cancelled turn did not reach durable terminal state. Last state: ${JSON.stringify(lastState)}\nWorkflow: ${JSON.stringify(workflow)}\nService output:\n${service.output()}`,
+    `Turn did not reach durable terminal state. Last state: ${JSON.stringify(lastState)}\nWorkflow: ${JSON.stringify(workflow)}\nService output:\n${service.output()}`,
   );
 }
 

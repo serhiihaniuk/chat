@@ -18,5 +18,10 @@
       "path": "../stream-profile"
     }
   ],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/widget-test-env.tsx"]
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/widget-test-env.tsx",
+    "src/testing/react-dom-test-harness.ts"
+  ]
 }

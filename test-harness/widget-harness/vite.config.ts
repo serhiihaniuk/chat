@@ -4,6 +4,10 @@ import { defineConfig } from "vite";
 
 const apiTarget = process.env["SIDECHAT_WIDGET_HARNESS_API_TARGET"] ?? "http://127.0.0.1:8787";
 const base = normalizeViteBase(process.env["SIDECHAT_WIDGET_HARNESS_BASE_PATH"] ?? "/");
+const cacheDir =
+  process.env["SIDECHAT_WIDGET_HARNESS_CACHE"] === "compiled"
+    ? "node_modules/.vite-widget-ui-compiled"
+    : "node_modules/.vite-widget-ui";
 // This Vite server is the iframe UI target. The host/workbench proxy that
 // exposes both /side-chat-frame and /side-chat-api lives in vite.host.config.ts.
 const createApiProxy = (prefix: RegExp) => ({
@@ -25,7 +29,7 @@ export default defineConfig({
   // Playwright starts this UI server beside the host proxy. Give each process
   // its own optimizer cache so one Vite generation cannot invalidate the
   // other's dependency URLs and surface an "Outdated Optimize Dep" 504.
-  cacheDir: "node_modules/.vite-widget-ui",
+  cacheDir,
   plugins: [react(), tailwindcss()],
   // Serve streamdown as raw ESM instead of pre-bundling it: its lazily-imported
   // highlighting chunk otherwise gets a dep-optimizer generation hash that goes

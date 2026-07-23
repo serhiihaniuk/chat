@@ -4,6 +4,8 @@ Read this when: locating an owner, entry point, or cross-package flow.
 
 Source of truth for: current runtime components and their responsibilities.
 
+Not source of truth for: lifecycle order, import rules, wire contracts, or operational commands.
+
 Side Chat is one modular service plus browser packages. AI SDK 7 provides the native message/tool model, Workflow DevKit provides durable execution and replay, and PostgreSQL stores product state and the Postgres World journal.
 
 ## Runtime components

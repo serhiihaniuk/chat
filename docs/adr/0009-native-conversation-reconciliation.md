@@ -53,10 +53,14 @@ authorities and two subordinate mechanisms:
 
 Each successful selected-conversation read receives a client-local observation
 identity. This makes an identical terminal payload a real handoff barrier instead
-of relying on object identity. An observation that still names the current run is
+of relying on object identity.
+
+An observation that still names the current run is
 not allowed to replace that run's live attachment or move its visible projection
 backward: the reducer folds any durable message progress monotonically and keeps
-the current epoch. A snapshot that proves the run is terminal, names a different
+the current epoch.
+
+A snapshot that proves the run is terminal, names a different
 run, or follows a lost transport disposes the obsolete reader before the reducer
 handoff and opens a fresh epoch only when the snapshot still reports an active
 run. Late callbacks are rejected by epoch identity; no message setter or

@@ -178,6 +178,19 @@ expectFailure("boundary fixture", "check-boundaries.mjs", (root) => {
   );
 });
 
+expectFailure(
+  "browser Node builtin boundary fixture",
+  "check-boundaries.mjs",
+  (root) => {
+    writeFixtureFile(
+      root,
+      "packages/side-chat-widget/src/entities/workflow-chat/bad.ts",
+      "import { readFileSync } from 'node:fs';\nexport const bad = readFileSync;\n",
+    );
+  },
+  "forbidden node:fs import in browser production source",
+);
+
 expectFailure("relative cross-package boundary fixture", "check-boundaries.mjs", (root) => {
   writeFixtureFile(
     root,

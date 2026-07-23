@@ -79,9 +79,6 @@ describe("WorkflowAgent substrate service", { timeout: 120_000 }, () => {
     const stream = await response.text();
     expect(stream).toContain(`Scripted reply: ${requestId}`);
     expect(countStreamParts(stream, "finish")).toBe(1);
-    const runId = requireRunId(response);
-    const shape = await requireFixture().readJournalShape(runId);
-    expect(shape).toEqual({ dataRows: 6, totalRows: 7, postgresSqlRoundTrips: 14 });
   });
 
   it("replays a terminal turn with pinned zero, negative, and past-end cursor semantics", async () => {

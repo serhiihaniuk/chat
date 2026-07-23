@@ -18,7 +18,7 @@ await run("docker", [
   imageTag,
   "sh",
   "-lc",
-  "npm run verify && npm run test:db:container && npm run test:e2e:persistent",
+  "npm run verify:alpha",
 ]);
 
 function run(command, args) {
