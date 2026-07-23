@@ -1,3 +1,10 @@
+/**
+ * Exact external Postgres World schema supported by the maintenance adapter.
+ *
+ * These identifiers belong to the pinned Workflow dependency, not Side Chat.
+ * Update them only with that dependency and its compatibility verification;
+ * accepting an approximate shape could make archival or pruning lose rows.
+ */
 const WORKFLOW_TABLE_COLUMNS = {
   workflow_events: [
     "correlation_id",

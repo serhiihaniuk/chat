@@ -105,6 +105,9 @@ test("dispatches a client tool through the iframe parent and returns one authori
   expect(fixture.output).toMatchObject({
     output: { status: "applied", resultCode: "workbench_opened" },
   });
+  // This local fixture records both raw header values. Equality proves the send
+  // and output requests reuse one same-tab capability; production streams and
+  // persistence never expose that value.
   expect(fixture.capabilities).toHaveLength(2);
   expect(new Set(fixture.capabilities).size).toBe(1);
   expect(fixture.capabilities[0]).toMatch(/^[a-f0-9]{64}$/u);

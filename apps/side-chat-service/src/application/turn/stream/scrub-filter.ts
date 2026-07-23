@@ -29,9 +29,9 @@ import {
  *   collapse to a safe code. Browser values and internal execution errors do
  *   not return through replay, logs, or a second tab.
  * - a native finish reason (`content-filter`, `length`, ...) is forwarded
- *   untouched — it already IS the blocked/length representation (ADR 0007).
+ *   untouched; it already is the blocked/length representation (ADR 0007).
  * - exactly one terminal-class chunk reaches the client; a second is dropped
- *   (defense in depth — the SDK should already guarantee this).
+ *   (defense in depth; the SDK should already guarantee this).
  * - unknown chunk types are forwarded, never dropped, and counted.
  */
 
@@ -45,7 +45,8 @@ const MESSAGE_METADATA_CHUNK_TYPES = new Set<string>([
 
 /**
  * Optional counters for the two chunks the filter handles defensively. The filter
- * stays sink-free; Step 18 wires these to telemetry.
+ * stays sink-free; `createObservedScrubTransform` connects these hooks to telemetry
+ * at the HTTP composition boundary.
  */
 export type ScrubObserver = Readonly<{
   /** Receives the `type` of a forwarded unknown chunk (a future or `data-*` type); the chunk still passes through. */
@@ -55,7 +56,7 @@ export type ScrubObserver = Readonly<{
 }>;
 
 /**
- * Create the outbound scrub transform — the single edge that enforces the wire
+ * Create the outbound scrub transform: the single edge that enforces the wire
  * profile (see the file contract above). Returns a fresh, single-use
  * `TransformStream`, so call it once per response.
  *

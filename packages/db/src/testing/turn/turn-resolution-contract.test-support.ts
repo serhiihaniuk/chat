@@ -204,7 +204,7 @@ export const turnResolutionRepositoryContract = (
         });
         expect(first.claimed).toBe(true);
 
-        // A crash replay or duplicate finalize matches no running row: a no-op that
+        // A crash replay or duplicate finalize matches no open row: a no-op that
         // leaves the durable status untouched rather than raising.
         const replay = await repositories.finalizeAssistantTurn({
           workspaceId: workspaceId(scope),

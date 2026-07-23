@@ -1,3 +1,10 @@
+/**
+ * Extracts the widget's CSS custom-property ledger for the design-system docs.
+ *
+ * Parsing is intentionally declaration-oriented rather than a full CSS parser:
+ * the catalog records first/default and themed values, while edit validation
+ * rejects syntax that could escape a single custom-property value.
+ */
 export type CssTokenName = `--${string}`;
 
 export type CssToken = {
@@ -109,6 +116,7 @@ export function extractThemeIds(source: string): readonly string[] {
   return [...themes].sort((left, right) => left.localeCompare(right));
 }
 
+/** Reject empty or declaration-breaking values before applying a live preview override. */
 export function validateCssTokenValue(value: string): string | undefined {
   const normalized = value.trim();
   if (!normalized) return "Enter a CSS value or reset this token.";

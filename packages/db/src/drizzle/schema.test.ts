@@ -50,18 +50,17 @@ describe("sidechat drizzle schema and migration", () => {
     expect(migration).toContain("status in ('active', 'archived', 'reset')");
   });
 
-  it("carries the v7 assistant-turn provenance, folded usage, and run binding", () => {
+  it("carries assistant-turn provenance, folded usage, and run binding", () => {
     // The durable Workflow run handle, bound once after the run starts.
     expect(migration).toContain('"run_id" text');
-    // Regulated provenance: exactly which prompt, config, and filter produced it.
+    // Stable columns preserve exact producer versions when the caller supplies them.
     expect(migration).toContain('"instructions_version" text NOT NULL');
     expect(migration).toContain('"config_version" text NOT NULL');
     expect(migration).toContain('"content_filter_version" text NOT NULL');
     // Aggregate usage folded onto the turn, zero until a terminal status.
     expect(migration).toContain('"input_tokens" integer DEFAULT 0 NOT NULL');
     expect(migration).toContain('"cached_input_tokens" integer DEFAULT 0 NOT NULL');
-    // Every failure collapses to one `failed` status; the reaper's per-cause
-    // statuses are gone.
+    // Failure detail belongs in the safe error code, not additional lifecycle statuses.
     expect(migration).toContain(
       "status in ('open', 'completed', 'failed', 'cancelled', 'blocked')",
     );
@@ -77,7 +76,7 @@ describe("sidechat drizzle schema and migration", () => {
   });
 
   it("indexes the hot query working sets", () => {
-    // Partial unique index over only running turns: it is both the race-safe
+    // Partial unique index over only open turns: it is both the race-safe
     // one-open-per-conversation busy guard and the in-flight lookup the resume
     // and activity reads scan — never the full history.
     expect(migration).toContain(

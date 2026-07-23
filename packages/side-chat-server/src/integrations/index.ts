@@ -11,6 +11,7 @@ export type SideChatDefinition = Readonly<{
   integrations: readonly SideChatIntegration[];
 }>;
 
+/** Validate one named integration, reject duplicate tools, and freeze its catalog. */
 export function defineSideChatIntegration(integration: SideChatIntegration): SideChatIntegration {
   if (!INTEGRATION_NAME_PATTERN.test(integration.name)) {
     throw new TypeError(`Side Chat integration name is invalid: ${integration.name}`);
@@ -25,6 +26,7 @@ export function defineSideChatIntegration(integration: SideChatIntegration): Sid
   });
 }
 
+/** Compose integrations into one immutable catalog with globally unique tool names. */
 export function defineSideChat(definition: SideChatDefinition): SideChatDefinition {
   assertUniqueNames(
     definition.integrations.map((integration) => integration.name),
@@ -44,6 +46,7 @@ export function serverToolsForSideChat(
   return definition.integrations.flatMap((integration) => integration.serverTools);
 }
 
+/** Resolve configured names in caller order and fail fast on an unregistered name. */
 export function selectRegisteredServerTools(
   definition: SideChatDefinition,
   names: readonly string[],

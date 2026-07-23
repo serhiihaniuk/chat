@@ -124,7 +124,12 @@ const WidgetHarnessFrame = ({ config }: { readonly config: WidgetHarnessConfig }
   });
 };
 
-/** Discover only a parent callback that completed the public iframe handshake. */
+/**
+ * Expose context only after the parent completes the public iframe handshake.
+ *
+ * There is no direct fallback while connection is pending. Late completion after
+ * unmount is ignored so a retired frame cannot publish a provider.
+ */
 const useIframeContextProvider = (enabled: boolean): HostContextProvider | undefined => {
   const [provider, setProvider] = useState<HostContextProvider | undefined>();
 

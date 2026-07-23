@@ -79,6 +79,8 @@ export function workflowWidgetChatSnapshotKey(
       `${message.id}:${String(message.parts.length)}:${message.metadata?.terminal?.status ?? ""}`,
     );
   }
+  // Some callers cannot provide an observation id. Their structural fallback is
+  // only a local de-duplication key; it does not establish snapshot authority.
   return `legacy:${activeTurn?.runId ?? "idle"}:${messageShape.join("|")}`;
 }
 

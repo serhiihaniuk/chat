@@ -47,8 +47,8 @@ export const conversations = sidechat.table(
     titleText: text("title_text"),
     createdByActorId: text("created_by_actor_id").notNull(),
     historyCutoffSequenceIndex: integer("history_cutoff_sequence_index"),
-    // Regulated-deployment requirement: any prune/delete path must skip a held
-    // conversation. Cheap to carry now, always demanded later (KNOWLEDGE §Regulated).
+    // Retention, archive, and delete paths must treat this flag as a hard veto.
+    // Keeping it on the conversation applies the same rule to turn and title runs.
     legalHold: boolean("legal_hold").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -87,9 +87,9 @@ export const messages = sidechat.table(
       .references(() => conversations.conversationId),
     workspaceId: workspaceIdColumn(),
     role: text("role").$type<MessageRole>().notNull(),
-    // The AI SDK `UIMessage.parts` verbatim — the one durable message shape,
-    // identical to the wire and the widget. jsonb is the truth; `role` is a query
-    // aid. Tool inputs/outputs live inside these parts (regulated full record).
+    // The AI SDK `UIMessage.parts` verbatim: the durable message shape shared by
+    // service and widget. `role` is only a query aid. Parts can contain private
+    // tool inputs and outputs, so this jsonb is not safe for logs or diagnostics.
     parts: jsonb("parts").$type<readonly JsonObject[]>().notNull(),
     metadataJson: jsonb("metadata_json").$type<JsonObject>().notNull(),
     sequenceIndex: integer("sequence_index").notNull(),
@@ -132,8 +132,9 @@ export const assistantTurns = sidechat.table(
       mode: "string",
       withTimezone: true,
     }),
-    // Provenance for a regulated deployment: exactly which model, prompt, config,
-    // and content-filter version produced this turn (KNOWLEDGE §Regulated).
+    // Stable producer-attribution columns cover model, instructions, configuration,
+    // and content filter. Callers may use explicit placeholders when attribution is
+    // unavailable; placeholders must not be interpreted as verified provenance.
     modelProvider: text("model_provider").notNull(),
     modelId: text("model_id").notNull(),
     instructionsVersion: text("instructions_version").notNull(),
@@ -142,8 +143,8 @@ export const assistantTurns = sidechat.table(
     status: text("status").$type<AssistantTurnStatus>().notNull().default("open"),
     finishReason: text("finish_reason"),
     errorCode: text("error_code"),
-    // Aggregate usage across all steps, folded onto the turn (v7 token detail).
-    // Zero until the turn reaches a terminal status.
+    // Aggregate usage across all model steps, folded onto the turn at finalization.
+    // Values remain zero while the turn is open.
     inputTokens: integer("input_tokens").notNull().default(0),
     outputTokens: integer("output_tokens").notNull().default(0),
     totalTokens: integer("total_tokens").notNull().default(0),
@@ -167,10 +168,10 @@ export const assistantTurns = sidechat.table(
       .on(table.runId)
       .where(sql`run_id is not null`),
     index("assistant_turns_conversation_started_idx").on(table.conversationId, table.startedAt),
-    // One running turn per conversation, enforced by the database. This is the
+    // One open turn per conversation, enforced by the database. This is the
     // race-safe busy guard: a concurrent second turn hits a unique violation
     // instead of a check-then-act window. Partial, so it covers only the tiny
-    // in-flight working set and terminal turns never collide.
+    // open working set and terminal turns never collide.
     uniqueIndex(SIDECHAT_UNIQUE_INDEXES.ASSISTANT_TURNS_ONE_OPEN_PER_CONVERSATION)
       .on(table.conversationId)
       .where(sql`status = 'open'`),

@@ -1,3 +1,10 @@
+/**
+ * Same-origin client-tool bridge used only by the iframe harness.
+ *
+ * Calls and replies are correlated by `toolCallId`; listeners are disposed after
+ * one reply or a safe timeout. Production cross-origin integrations must use the
+ * public host-bridge adapters with their own exact-origin policy.
+ */
 import { isRecord } from "@side-chat/shared";
 import {
   createToolResult,
@@ -8,7 +15,6 @@ import {
   type HostToolResult,
 } from "@side-chat/host-bridge";
 
-/** Browser bridge that correlates native client-tool calls with parent replies. */
 export const HOST_TOOL_CALL_MESSAGE_TYPE = "sidechat.widget.hostToolCall";
 export const HOST_TOOL_RESULT_MESSAGE_TYPE = "sidechat.widget.hostToolResult";
 const DEFAULT_TOOL_TIMEOUT_MS = 5_000;

@@ -11,7 +11,7 @@ const compiledServiceUrl = `http://127.0.0.1:${compiledServicePort}`;
 const compiledWidgetPort = readPort("SIDECHAT_COMPILED_WIDGET_PORT", 5176);
 const compiledWidgetUrl = `http://127.0.0.1:${compiledWidgetPort}`;
 
-/** Browser proof for the native Workflow branch without the legacy service stack. */
+/** Browser verification across the fixture service, iframe host, and compiled service seams. */
 export default defineConfig({
   testDir: ".",
   testMatch: [
@@ -20,6 +20,8 @@ export default defineConfig({
     "workflow-multitab.spec.ts",
     "workflow-compiled-service.spec.ts",
   ],
+  // All projects share fixed ports and process-global fixture state; serial
+  // execution keeps resets and lifecycle assertions isolated.
   fullyParallel: false,
   workers: 1,
   reporter: "list",

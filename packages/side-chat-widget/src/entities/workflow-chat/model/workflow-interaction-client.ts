@@ -23,7 +23,7 @@ export type WorkflowApprovalDecisionAcknowledgement = Readonly<{
   readonly resumed?: boolean | undefined;
 }>;
 
-/** Post one native client-tool outcome to the durable Step 11 hook. */
+/** Persist one capability-bound client-tool outcome and wake its durable wait. */
 export async function postWorkflowClientToolOutput(
   client: WorkflowChatClient,
   runId: string,
@@ -40,7 +40,7 @@ export async function postWorkflowClientToolOutput(
   );
 }
 
-/** Submit one approval decision to the durable Step 12 endpoint. */
+/** Submit one approval decision; the service rechecks identity, expiry, and turn state. */
 export async function postWorkflowApprovalDecision(
   client: WorkflowChatClient,
   runId: string,

@@ -24,10 +24,9 @@ export const ASSISTANT_TURN_STATUSES = [
   "open",
   "completed",
   // Every failure mode collapses to one status; the safe error code carries the
-  // detail. v7 drops the old app's per-cause statuses (provider/tool/persistence
-  // failures, timeouts) — the reaper that set some of them is gone.
+  // browser-visible detail without expanding the lifecycle vocabulary.
   "failed",
-  // The user or system cancelled the turn (replaces the old `user_aborted`).
+  // The user or system cancelled the turn.
   "cancelled",
   // A safety stop: the provider filtered the turn before a usable answer. Kept
   // distinct from `failed` so history can tell a filtered turn from an outage.

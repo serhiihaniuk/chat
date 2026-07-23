@@ -76,7 +76,14 @@ export type ExpireToolApprovalResult = Readonly<{
   claimed: boolean;
 }>;
 
-/** Atomic persistence operations for the durable gated-tool authorization lifecycle. */
+/**
+ * Atomic persistence operations for one exact gated tool call and input digest.
+ *
+ * Decisions are idempotent only when identity and decision match. Conflicts,
+ * expiry, identity mismatch, and closed turns return explicit rejections, and
+ * every accepted, rejected, or expired transition commits with its audit event.
+ * `undefined` means no matching owned approval row exists.
+ */
 export type ToolApprovalRepositoryContract = {
   readonly createOrGetToolApproval: (
     command: CreateOrGetToolApprovalCommand,

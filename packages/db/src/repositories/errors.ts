@@ -8,9 +8,9 @@ export const DB_REPOSITORY_ERROR_CODES = {
   RECORD_NOT_FOUND: "record_not_found",
   INVALID_TRANSITION: "invalid_transition",
   IDEMPOTENCY_CONFLICT: "idempotency_conflict",
-  // A second turn tried to start while one is already running for the
-  // conversation. Raised when the `assistant_turns_one_running_per_conversation_uq`
-  // partial unique index rejects the concurrent insert (the race-safe busy guard).
+  // A second turn tried to start while one is already open for the conversation.
+  // Raised when the one-open-per-conversation partial unique index rejects the
+  // concurrent insert (the race-safe busy guard).
   CONVERSATION_BUSY: "conversation_busy",
 } as const;
 

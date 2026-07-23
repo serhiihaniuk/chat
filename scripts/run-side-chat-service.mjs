@@ -1,3 +1,10 @@
+/**
+ * Node listener wrapper for the compiled Nitro service.
+ *
+ * The compiled module publishes its process lifecycle through the shared symbol;
+ * this wrapper owns the actual HTTP listener, forwards signals/IPC shutdown, and
+ * enforces a final hard deadline after the service's bounded shutdown sequence.
+ */
 import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";

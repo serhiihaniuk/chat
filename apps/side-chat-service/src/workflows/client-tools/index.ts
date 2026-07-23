@@ -1,3 +1,7 @@
+/**
+ * Bridges browser tools into durable Workflow waits. Persist only the capability
+ * digest; dispatch rows are authority, hooks wake waits, and terminals are replay-safe.
+ */
 import { dynamicTool, jsonSchema, type ToolSet } from "ai";
 import { createHook } from "workflow";
 import {
@@ -82,8 +86,8 @@ export async function resumeClientToolResult(
     await resumeResult(clientToolResultHookToken(runId, toolCallId), output);
     return true;
   } catch (error) {
-    // A durable result can outlive its wait — the hook is gone, or journal pruning
-    // removed or expired the run — and `resumeHook` surfaces that as a vanished-wait
+    // A durable result can outlive its wait: the hook is gone, or journal pruning
+    // removed or expired the run. `resumeHook` surfaces that as a vanished-wait
     // error, a stable "gone" signal answered with false. Other failures are real
     // infrastructure faults and must not be hidden.
     if (isVanishedWait(error)) return false;
@@ -97,6 +101,7 @@ function isVanishedWait(error: unknown): boolean {
   );
 }
 
+/** Build the per-turn AI SDK tools that dispatch work back to the originating browser. */
 export function createClientTools(options: ClientToolRuntimeOptions): ToolSet {
   const databaseUrl = requireDatabase(options);
   return Object.fromEntries(
@@ -131,6 +136,12 @@ function requireClientToolCapabilityDigest(options: ClientToolRuntimeOptions): s
   throw new Error("Client tools require originating-tab authority");
 }
 
+/**
+ * Persist one browser dispatch and wait for its durable terminal output.
+ *
+ * The post-registration read closes the result-before-hook race. A replay that
+ * finds an existing output returns it without dispatching or waiting again.
+ */
 export async function executeClientTool(
   request: Omit<
     ClientToolRuntimeOptions,

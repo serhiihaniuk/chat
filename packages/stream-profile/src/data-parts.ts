@@ -7,7 +7,13 @@ export const SIDE_CHAT_STREAM_PROTOCOL = {
   VERSION: "v1",
 } as const;
 
-/** Browser-held authority for executing client tools on one durable run. */
+/**
+ * Browser-held authority for executing client tools on one durable run.
+ *
+ * The raw value appears only in the dedicated HTTP header. It must not enter UI
+ * stream chunks, logs, Workflow state, journal rows, or product tables; durable
+ * coordination stores only its digest.
+ */
 export const SIDE_CHAT_CLIENT_TOOL_CAPABILITY = {
   BYTE_LENGTH: 32,
   HEADER: "x-sidechat-client-tool-capability",

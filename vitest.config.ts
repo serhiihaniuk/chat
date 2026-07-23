@@ -20,6 +20,8 @@ export const vitestResolveConfig = {
 export default defineConfig({
   resolve: vitestResolveConfig,
   test: {
+    // The default lane is deterministic and environment-free. Persistent database
+    // and compiled-service scenarios run through vitest.integration.config.ts.
     include: [
       "apps/**/*.test.ts",
       "apps/**/*.test.tsx",

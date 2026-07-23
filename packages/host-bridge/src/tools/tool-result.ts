@@ -13,6 +13,12 @@ export const HOST_TOOL_RESULT_STATUSES = {
 export type HostToolResultStatus =
   (typeof HOST_TOOL_RESULT_STATUSES)[keyof typeof HOST_TOOL_RESULT_STATUSES];
 
+/**
+ * Normalized result returned across the host/widget boundary and then to the model.
+ *
+ * `resultCode` is a stable, display-safe host code. Optional `data` must be
+ * bounded JSON intended for the model, never credentials or private host state.
+ */
 export type HostToolResult = Readonly<{
   toolCallId: string;
   toolName: string;
@@ -29,6 +35,7 @@ export type ToolResultInput = Readonly<{
   data?: JsonObject | undefined;
 }>;
 
+/** Bind a host outcome to its call identity and stamp omitted resolution time locally. */
 export const createToolResult = (toolCall: HostToolCall, input: ToolResultInput): HostToolResult =>
   omitUndefinedProperties({
     toolCallId: toolCall.toolCallId,

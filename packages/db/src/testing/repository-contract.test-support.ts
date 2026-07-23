@@ -20,7 +20,7 @@ import {
   workspaceId,
 } from "./repository-contract.helpers.js";
 
-/** The first text part of a message body — the v7 durable `parts` shape. */
+/** The first text part of the durable message body. */
 const textOf = (message: MessageRecord): string | undefined => {
   for (const part of message.parts) {
     if (part["type"] === "text" && typeof part["text"] === "string") return part["text"];
@@ -43,8 +43,6 @@ export const sidechatRepositoryContract = (
   let scopeCounter = 0;
   const nextScope = () => `${label.replace(/\W+/gu, "_")}_${++scopeCounter}`;
 
-  // The provenance a running turn carries in v7 — exactly which model, prompt,
-  // config, and content-filter version produced it.
   describe("sidechat repository contract", () => {
     it("proves conversation and message idempotency", async () => {
       const repositories = createRepositories();
@@ -155,14 +153,14 @@ export const sidechatRepositoryContract = (
         expect(started.inserted).toBe(true);
         expect(started.turn.status).toBe("open");
 
-        // Same request id: the SELECT-first path returns the running turn as an
+        // Same request id: the SELECT-first path returns the open turn as an
         // idempotent replay — it must not be mistaken for a busy conversation.
         const replay = await repositories.beginAssistantTurn(command);
         expect(replay.inserted).toBe(false);
         expect(replay.turn.assistantTurnId).toBe(started.turn.assistantTurnId);
 
-        // A different request id while the first is still running trips the
-        // one-running-per-conversation partial unique index — the busy guard.
+        // A different request id while the first is still open trips the
+        // one-open-per-conversation partial unique index — the busy guard.
         await expect(
           repositories.beginAssistantTurn(
             beginTurnCommand(scope, conversation.conversationId, "request_2"),
@@ -276,7 +274,7 @@ export const sidechatRepositoryContract = (
           },
           now,
         });
-        // A second finalize is a no-op: the guarded CAS matches no running row, so
+        // A second finalize is a no-op: the guarded CAS matches no open row, so
         // the folded usage stays put and `claimed` is false.
         const replayFinalize = await repositories.finalizeAssistantTurn({
           workspaceId: workspaceId(scope),

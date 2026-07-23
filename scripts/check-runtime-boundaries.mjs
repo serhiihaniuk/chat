@@ -59,6 +59,8 @@ function importsUseOnlyAiPackage(imports) {
   );
 }
 
+// The widget exception is limited to the AI SDK's browser Workflow transport
+// surface. Provider adapters and server execution remain service-owned.
 function isWidgetWorkflowPath(file) {
   return (
     file.startsWith("packages/side-chat-widget/src/entities/workflow-chat/") ||

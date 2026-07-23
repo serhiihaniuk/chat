@@ -1,3 +1,8 @@
+/**
+ * Describes the client tools a host can execute and projects their public model
+ * schemas into the widget request. Host-only resource filters decide dispatch
+ * routing; neither a declaration nor a filter match is authorization evidence.
+ */
 import type { JsonObject } from "@side-chat/shared";
 
 export type HostToolCall = Readonly<{
@@ -24,6 +29,7 @@ export type HostCapabilities = Readonly<{
   tools: readonly BrowserToolCapability[];
 }>;
 
+/** Strip host-only routing filters before advertising client tools to the model. */
 export const toClientToolDefinitions = (
   capabilities: HostCapabilities,
 ): readonly HostClientToolDefinition[] =>
@@ -33,6 +39,7 @@ export const toClientToolDefinitions = (
     inputSchema: tool.inputSchema,
   }));
 
+/** Check host-advertised routing support; the host must still authorize execution. */
 export const supportsTool = (capabilities: HostCapabilities, toolCall: HostToolCall): boolean =>
   capabilities.tools.some(
     (capability) =>

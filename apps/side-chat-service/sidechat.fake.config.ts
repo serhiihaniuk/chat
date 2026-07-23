@@ -1,3 +1,9 @@
+/**
+ * Deterministic, non-production service profile for integration and browser tests.
+ *
+ * The scripted provider and hard-coded development bearer are fixtures only.
+ * Never expose this configuration on a network reachable by untrusted clients.
+ */
 import {
   AUTH_PROFILES,
   defineSideChatConfig,

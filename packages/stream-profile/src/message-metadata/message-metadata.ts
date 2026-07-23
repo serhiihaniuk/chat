@@ -15,7 +15,9 @@ export type SideChatMessageMetadata = Readonly<{
     reasoningTokens?: number | undefined;
     cachedInputTokens?: number | undefined;
   }>;
+  /** Present only when the service can measure model/tool activity for this message. */
   activityDurationMs?: number | undefined;
+  /** Safe terminal projection; durable conversation state remains authoritative. */
   terminal?: SideChatMessageTerminal | undefined;
 }>;
 

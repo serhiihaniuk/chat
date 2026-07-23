@@ -270,7 +270,7 @@
   --message-user: var(--row-bg-active, var(--accent));
   --message-user-foreground: var(--foreground);
 
-  /* Conversation / grouping (conversation items and grouping) — values per design_widget.html token table */
+  /* Conversation rows and date grouping */
   --convo-indicator: var(--primary);
   /* Live "generating" dot on a conversation row with an in-flight turn. */
   --convo-running-indicator: var(--primary);
@@ -285,7 +285,7 @@
   --rail-list-gap: 1px;
   --rail-border: var(--sidebar-border);
 
-  /* Settings (Settings) */
+  /* Settings */
   /* Settings group rail shares the chat conversation rail's width as one token. */
   --settings-nav-w: var(--size-sidebar);
   --settings-nav-bg: var(--sidebar);
@@ -311,21 +311,21 @@
   --settings-accent-violet: oklch(0.54 0.22 292);
   --settings-accent-orange: oklch(0.62 0.19 41);
 
-  /* Agent mark tile (Widget header) — 27px, accent fill, primary glyph */
+  /* Widget header agent mark */
   --agent-mark-size: 1.6875rem;
   --agent-mark-bg: var(--accent);
   --agent-mark-fg: var(--primary);
   --agent-mark-border: var(--border);
   --agent-mark-radius: var(--radius-md);
 
-  /* Header (Widget header) */
+  /* Widget header */
   --header-title-size: var(--sc-text-md);
 
-  /* Composer context ring (Composer) — a subtle grey meter, not a bold primary arc */
+  /* Composer context ring: a quiet meter rather than a primary action */
   --context-ring-track: var(--border);
   --context-ring-indicator: var(--muted-foreground);
 
-  /* Shell / header / rail (Widget header) */
+  /* Shell, header, and conversation rail */
   --header-h: var(--size-header);
   --header-px: calc(var(--spacing) * 4);
   --rail-newchat-h: var(--header-h);
@@ -380,10 +380,8 @@
   --tool-detail-pad: calc(var(--spacing) * 2.5);
   --tool-detail-indent: calc(var(--spacing) * 2.5);
 
-  /* Citations (design c-citation) — foldable "N sources" list under an answer, plus
-     the inline [n] marker and its hover card. Token names/values per the Design
-     System citations token table. Spacing/size tokens resolve through --spacing so
-     the Density control moves them all together. */
+  /* Citation list, inline marker, and hover-card tokens. Spacing and size resolve
+     through --spacing so the Density control moves them together. */
   --cite-fold-fg: var(--muted-foreground);
   --cite-source-radius: var(--radius-md);
   --cite-source-bg-hover: var(--accent);
@@ -525,9 +523,9 @@
 }
 
 /*
- * Graphite is the default theme and carries NO data-sidechat-theme attribute on the
- * real root, so it stays responsive to the host's light/dark. This preview-only
- * block gives the settings swatch a stable light-graphite sample.
+ * Graphite is the default light token set and carries no data-sidechat-theme
+ * attribute on the real root. The preview swatch repeats that palette because it
+ * renders outside the themed widget root.
  */
 [data-sidechat-theme-preview="graphite"] {
   --background: oklch(0.994 0.003 264);
@@ -709,9 +707,8 @@
   color: var(--media-fg);
 }
 
-/* Agent mark (Widget header) — the header brand tile; 27px, accent fill, primary diamond.
-   A dedicated tile (not sc-media): its bg is --accent and size is 27px, per the
-   design_widget.html --agent-mark-* token table. */
+/* Header brand tile. It is separate from sc-media because it uses the agent-mark
+   size, accent surface, and primary glyph tokens. */
 @utility sc-agent-mark {
   @apply flex shrink-0 items-center justify-center;
   width: var(--agent-mark-size);
@@ -824,7 +821,7 @@
   }
 }
 
-/* Message actions (Message actions) — Copied is a transient state swap on the same button */
+/* Message actions: copied is a transient state on the same button. */
 @utility sc-action {
   @apply inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground bg-transparent hover:bg-accent cursor-pointer;
   & > svg {
@@ -1418,7 +1415,7 @@ a.sc-cite-source:hover {
   padding-inline: var(--header-px);
 }
 
-/* Markdown (Markdown / Streamdown) — styles Streamdown's owned DOM; tokens first, no one-off colour */
+/* Streamdown-owned markdown DOM; all presentation resolves through widget tokens. */
 @utility sc-markdown {
   & :where(p, li, blockquote, td) {
     line-height: var(--message-leading);
@@ -1577,9 +1574,8 @@ a.sc-cite-source:hover {
   scale: 0.97;
 }
 
-/* Citation hover card (Composer) — the inline `[n]` marker's PreviewCard popup. Same
-   portaled-popup surface as the menus; a source preview stacked by --cite-card-gap:
-   a favicon+domain row, the title, then the model's exact quoted excerpt. */
+/* Inline citation PreviewCard. It shares the portaled menu surface and stacks
+   favicon/domain, title, and the model-provided excerpt by --cite-card-gap. */
 [data-slot="hover-card-content"] {
   @apply rounded-xl border border-border bg-popover text-popover-foreground shadow-(--shadow-popover);
   width: var(--cite-card-w);

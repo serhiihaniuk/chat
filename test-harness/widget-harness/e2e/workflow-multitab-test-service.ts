@@ -1,3 +1,10 @@
+/**
+ * Stateful HTTP/SSE fixture for multitab and iframe browser contracts.
+ *
+ * It deliberately models only browser-visible service behavior: shared activity,
+ * replay attachment, one conflict, and capability-bound client-tool output. Test
+ * control endpoints are local-only and drive deterministic completion.
+ */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import {
@@ -23,6 +30,7 @@ const REFERENCE_ANSWER = "Reference conversation history.";
 const CONFLICT_CONVERSATION_ID = "conversation-conflict";
 const CONFLICT_PROMPT = "Earlier conflict conversation";
 const CONFLICT_ANSWER = "Conflict conversation history.";
+// Exact prompt sentinel that selects the iframe client-tool scenario.
 const IFRAME_CLIENT_TOOL_PROMPT = "iframe client tool contract";
 const CLIENT_TOOL_CALL_ID = "call-iframe-open-resource";
 
@@ -335,6 +343,10 @@ function openActivityStream(response: ServerResponse): void {
   response.on("close", () => state.activitySubscribers.delete(response));
 }
 
+/**
+ * Open the fixture stream. Client-tool turns finish immediately after emitting
+ * the call; text turns stay subscribed until `/__test/complete` closes the run.
+ */
 function openStream(response: ServerResponse, includeRunHeader: boolean): void {
   response.writeHead(200, {
     "cache-control": "no-cache",

@@ -24,6 +24,8 @@ const TERMINAL_WORKFLOW_STATUSES = ["completed", "failed", "cancelled"] as const
 /**
  * Archives one run before hot-journal deletion.
  *
+ * Snapshots can contain private raw Workflow values; archives require the same
+ * access and retention controls as primary persistence.
  * The callback may be called again after a later retry if a transaction rolls
  * back after archival. Implementations must therefore use `runId` as an
  * idempotency key and either replace or accept an already archived snapshot.

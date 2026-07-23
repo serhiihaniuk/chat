@@ -2,7 +2,13 @@ import type { PoolClient } from "pg";
 
 export type WorkflowJournalRow = Readonly<Record<string, unknown>>;
 
-/** A complete raw snapshot of every pinned Postgres World table owned by one run. */
+/**
+ * Complete raw rows from every pinned Postgres World table owned by one run.
+ *
+ * Inputs, outputs, errors, hook metadata, and stream chunks may contain private
+ * conversation or provider data. Treat this snapshot as sensitive persistence,
+ * not as a log or diagnostic payload.
+ */
 export type WorkflowJournalSnapshot = Readonly<{
   runId: string;
   runs: readonly WorkflowJournalRow[];
@@ -13,7 +19,7 @@ export type WorkflowJournalSnapshot = Readonly<{
   streamChunks: readonly WorkflowJournalRow[];
 }>;
 
-/** Read one run's complete six-table image before hot-journal deletion. */
+/** Read one run's private six-table image before hot-journal deletion. */
 export async function readWorkflowJournalSnapshot(
   client: PoolClient,
   runId: string,

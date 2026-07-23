@@ -28,6 +28,10 @@ export type HostContextSnapshot = HostContext & {
   /** Optional ISO-8601 expiry after which the service should treat the context as stale. */
   readonly expiresAt?: string | undefined;
   readonly surface?: HostSurface | undefined;
+  /**
+   * Opaque host-owned hash carried with the captured context.
+   * It is contextual metadata, not the client-tool capability or authorization evidence.
+   */
   readonly capabilityHash?: string | undefined;
 };
 

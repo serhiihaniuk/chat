@@ -11,10 +11,10 @@
  * realm's real `AbortSignal` class from the prototype of a signal created here,
  * while retaining the runtime's working `abort`, `any`, and `timeout` statics.
  *
- * Evidence: plan/v7/evidence/02-workflow-cancellation-reexamination.md. Remove this
- * module once either upstream ships its one-line fix (the VM exposing the real
- * class, or the SDK duck-typing instead of `instanceof`); the compatibility suite's
- * unpatched probe flips from "throws" to "streams" exactly then.
+ * Remove this module once either upstream exposes the real class or the SDK stops
+ * relying on `instanceof`. The unpatched probe in
+ * `service-compatibility.integration.test.ts` is the removal signal: it must
+ * change from throwing before this repair can be deleted.
  */
 export function patchWorkflowRealmAbortSignal(signal: AbortSignal): void {
   const signalPrototype = Reflect.getPrototypeOf(signal);

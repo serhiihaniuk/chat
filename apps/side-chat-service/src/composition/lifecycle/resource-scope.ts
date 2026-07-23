@@ -6,7 +6,7 @@ export type StartedServicePart = {
   readonly close: () => void | Promise<void>;
 };
 
-/** Start one infrastructure part. Step 04 supplies the concrete production starters. */
+/** Start one infrastructure part supplied by production or test composition. */
 export type StartServicePart = (
   settings: Settings,
 ) => StartedServicePart | Promise<StartedServicePart>;

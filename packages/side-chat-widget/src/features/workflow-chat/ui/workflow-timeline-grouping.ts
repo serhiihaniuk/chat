@@ -25,8 +25,8 @@ export type TimelineGroups = Readonly<{
 const isTextItem = (item: WorkflowTimelineItem): item is TextItem => item.kind === "text";
 const isFileItem = (item: WorkflowTimelineItem): item is FileItem => item.kind === "file";
 
-// Sort native parts into the legacy layout: one activity trace (reasoning plus
-// non-approval tool rows), interactive approval cards, answers, sources, and files.
+// Project native parts into the stable visible regions: one activity trace,
+// interactive approval cards, answer text, sources, and files.
 export function groupTimelineItems(
   items: readonly WorkflowTimelineItem[],
   approvalDecisions: WorkflowApprovalDecisions | undefined,

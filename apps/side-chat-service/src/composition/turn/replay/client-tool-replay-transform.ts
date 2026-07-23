@@ -6,7 +6,8 @@ import type { UIMessageChunk } from "ai";
  *
  * Target contract: one native dynamic client-tool step enters the common HTTP
  * scrub chain. The current server-tool catalog is empty, so every replayed tool
- * call is client-owned; Step 12 must pass explicit ownership when that changes.
+ * call is client-owned. If server-tool replays enter this transform, callers must
+ * pass explicit ownership instead of inferring it here.
  *
  * Preserved invariant: ordinary content streams immediately and incomplete
  * cursor suffixes keep their order. The transform holds only `start-step` long

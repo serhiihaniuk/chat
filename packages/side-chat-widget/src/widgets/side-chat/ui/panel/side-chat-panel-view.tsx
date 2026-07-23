@@ -20,7 +20,7 @@ export type SideChatPanelGuards = Readonly<{
   newConversationDisabled: boolean;
 }>;
 
-/** Keep shell-level navigation policy identical across both transports. */
+/** Keep Workflow shell navigation policy in one explicit place. */
 export function resolveSideChatPanelGuards(): SideChatPanelGuards {
   return {
     conversationSelectionDisabled: false,

@@ -11,7 +11,7 @@ import type { PostgresDrizzleRepositoryContext } from "./context.js";
  * A conversation with no explicit title shows the first user message as its list
  * label; the reset cutoff is honored so a cleared conversation titles from the
  * first message after the cut, not a hidden one. The label is the first text part
- * of that message's `parts` — the one durable message body in v7.
+ * of that message's durable `parts`.
  */
 export const readConversationSummaryTitle = async (
   db: PostgresDrizzleRepositoryContext["db"],

@@ -1,3 +1,9 @@
+/**
+ * Content-free activity events carried on the subject-scoped SSE side channel.
+ *
+ * Events are advisory reconciliation hints, not message or terminal authority;
+ * clients repair missed hints from the durable conversation-state endpoint.
+ */
 export const TURN_ACTIVITY_EVENT_TYPE = "sidechat.turn-activity" as const;
 export const TURN_ACTIVITY_SYNC_EVENT_TYPE = "sidechat.turn-activity-sync" as const;
 

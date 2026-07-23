@@ -22,8 +22,9 @@ import type { TurnStateContext } from "../types.js";
 
 const TURN_RECOVERY_GRACE_MS = 60_000;
 
-// Provenance columns are non-null, so an open turn needs some value before
-// model selection. Step 18 replaces these placeholders with real provenance.
+// Model selection happens after the initial open-turn transaction, while the
+// provenance columns are non-null. These explicit placeholders keep absence
+// visible; consumers must not treat them as verified producer attribution.
 const PENDING_PROVENANCE = {
   modelProvider: "pending",
   modelId: "pending",

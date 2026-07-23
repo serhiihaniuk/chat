@@ -1,7 +1,13 @@
 import { parseJsonRecord } from "@side-chat/shared";
 import { SIDE_CHAT_CLIENT_TOOL_CAPABILITY } from "@side-chat/stream-profile";
 
-/** Minimal identity needed to find one accepted workflow turn after a same-tab refresh. */
+/**
+ * Same-tab recovery state for one accepted Workflow run.
+ *
+ * The optional raw client-tool capability is browser authority. Keep this cursor
+ * in session storage only; never copy it to logs, cross-tab storage, or service
+ * persistence. `scopeKey` prevents one authenticated browser scope reusing another.
+ */
 export type WorkflowActiveTurnCursor = Readonly<{
   clientToolCapability?: string | undefined;
   conversationId: string;

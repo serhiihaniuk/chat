@@ -4,6 +4,8 @@ import { createPortal } from "react-dom";
 
 import previewStyles from "./preview.css?inline";
 
+// The distributable stylesheet targets document :root. Inside the isolated docs
+// preview, :host is the equivalent owner of inherited widget tokens.
 const SHADOW_STYLES = `${widgetStyles.replaceAll(":root", ":host")}\n${previewStyles}`;
 
 export function WidgetShadow({ children }: { readonly children: ReactNode }): ReactElement {

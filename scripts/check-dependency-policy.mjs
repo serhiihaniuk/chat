@@ -10,6 +10,8 @@ const root = resolveRoot();
 const errors = [];
 
 const forbidden = new Set(["shadcn", "@repo/shadcn-ui"]);
+// Package allowlists encode the dependency ownership policy. Any intentional
+// dependency change must update this table and the exact lockfile together.
 const allowed = {
   "@side-chat/docs": new Set([
     "@side-chat/side-chat-widget",

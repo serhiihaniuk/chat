@@ -1,3 +1,7 @@
+/**
+ * Adapts trusted server tools to durable AI SDK executions. Gated calls persist
+ * exact-input approvals; database rows are authority and hooks only wake the run.
+ */
 import { dynamicTool, jsonSchema, type ToolSet } from "ai";
 import { createHook, getWritable } from "workflow";
 
@@ -76,6 +80,7 @@ type ServerToolRuntimeOptions = Readonly<{
   abortSignal: AbortSignal;
 }>;
 
+/** Build the per-turn tool set and revalidate journaled JSON before every execution. */
 export function createServerTools(options: ServerToolRuntimeOptions): ToolSet {
   const databaseUrl = requireDatabase(options);
   return Object.fromEntries(
@@ -124,6 +129,10 @@ function requireDatabase(options: ServerToolRuntimeOptions): string {
   return options.databaseUrl;
 }
 
+/**
+ * Resolve an approval-gated invocation from database state. Replays reuse
+ * terminal decisions; the post-registration read closes the decision/hook race.
+ */
 export async function executeGatedServerTool<Input extends ToolApprovalInput>(
   request: Omit<ServerToolRuntimeOptions, "definitions" | "databaseUrl"> &
     Readonly<{

@@ -1,3 +1,8 @@
+/**
+ * Validates the repository-local quality skill as a distributable agent surface:
+ * metadata schema, reachable references, required evaluation cases, and declared
+ * verification/security guidance must move together.
+ */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { failIfErrors, resolveRoot } from "./lib/governance.mjs";

@@ -1,3 +1,9 @@
+/**
+ * Maintainability smoke gate for source shape and directory density.
+ *
+ * It catches high-cost navigation and branching patterns that formatting,
+ * typechecking, and lint do not measure. Exceptions remain explicit and narrow.
+ */
 import ts from "typescript";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

@@ -20,6 +20,10 @@ const DEFAULT_API_BASE_URL = "/side-chat-api";
 const DEFAULT_AUTH_TOKEN = "local-compose-token";
 const DEFAULT_WORKSPACE_ID = "workspace_local";
 
+/**
+ * Parse local harness query parameters. Boolean flags are enabled by default and
+ * only the literal string `false` disables them, matching Vite URL usage.
+ */
 export const parseWidgetHarnessConfig = (search: string): WidgetHarnessConfig => {
   const params = new URLSearchParams(search);
   return {

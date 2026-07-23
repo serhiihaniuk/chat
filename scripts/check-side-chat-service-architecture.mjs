@@ -112,7 +112,7 @@ for (const file of sourceFiles) {
 function checkPlainTypeScriptBoundary(file, imports) {
   for (const specifier of imports) {
     if (specifier === "effect" || specifier.startsWith("effect/")) {
-      report(file, `v7 service must not import Effect dependency ${specifier}`);
+      report(file, `side-chat service must not import Effect dependency ${specifier}`);
     }
   }
 }

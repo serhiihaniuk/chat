@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dbDir = resolve(repoRoot, "packages/db");
 
-// Prototype convention: exactly one fresh migration. Regenerate from schema.ts
-// on every schema change instead of accumulating an incremental journal chain.
+// Pre-alpha migration policy: regenerate one fresh baseline from schema.ts
+// instead of accumulating an incremental journal before compatibility is promised.
 await rm(resolve(dbDir, "migrations"), { recursive: true, force: true });
 
 const isWindows = process.platform === "win32";

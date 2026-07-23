@@ -42,7 +42,7 @@ import {
   createWorkflowWidgetChatSessionStore,
   type WorkflowWidgetChatSessionStore,
 } from "./workflow-widget-chat-session-store.js";
-
+/** Owns one reducer projection and stream epoch; the engine owns transport. Update if those boundaries move. */
 export const createWorkflowWidgetChatSession = (
   context: WorkflowWidgetChatSessionContext,
 ): WorkflowWidgetChatSession => new WorkflowWidgetConversationSession(context);

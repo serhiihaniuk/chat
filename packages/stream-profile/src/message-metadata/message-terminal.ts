@@ -7,6 +7,12 @@ export const SIDE_CHAT_MESSAGE_TERMINAL_STATUSES = {
   FAILED: "failed",
 } as const;
 
+/**
+ * Target shape for service terminal outcomes carried to browser message metadata.
+ *
+ * Callers receive only the closed finish/error vocabulary. Provider exceptions,
+ * tool payloads, prompts, and persistence details remain hidden in their owners.
+ */
 export type SideChatMessageTerminal =
   | Readonly<{
       status: typeof SIDE_CHAT_MESSAGE_TERMINAL_STATUSES.COMPLETED;

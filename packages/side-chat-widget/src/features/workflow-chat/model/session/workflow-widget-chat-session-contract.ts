@@ -9,8 +9,11 @@ import type { WorkflowApprovalDecisionHandler } from "../approval/workflow-appro
 import type { WorkflowWidgetChatState } from "./reducer/workflow-widget-chat-reducer.js";
 
 export type WorkflowWidgetChatLifecycle = Readonly<{
+  /** The send response exposed a durable run and its same-tab client-tool authority. */
   onRunAccepted?: ((runId: string, clientToolCapability: string) => void) | undefined;
+  /** A newer authoritative snapshot no longer reports this run as active. */
   onRunReconciled?: ((runId: string) => void) | undefined;
+  /** The attached stream reached a terminal with no pending browser interaction. */
   onRunTerminal?: ((runId: string) => void) | undefined;
 }>;
 

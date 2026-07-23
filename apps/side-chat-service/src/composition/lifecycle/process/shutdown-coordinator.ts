@@ -42,6 +42,14 @@ export type ShutdownCoordinator = Readonly<{
   maxShutdownDurationMs: number;
 }>;
 
+/**
+ * Coordinate one idempotent process shutdown within a bounded total duration.
+ *
+ * `beginShutdown` removes readiness and stops admission immediately. `shutdown`
+ * is memoized, drains admitted turns, then closes streams, listener, Workflow
+ * world, and owned resources in order. A listener timeout triggers force-close;
+ * later stages still run and every outcome is recorded.
+ */
 export function createShutdownCoordinator(
   options: Readonly<{
     admission: Pick<BoundedTurnAdmission, "stopAccepting" | "whenIdle">;

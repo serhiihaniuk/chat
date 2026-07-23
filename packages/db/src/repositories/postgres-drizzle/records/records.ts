@@ -1,3 +1,10 @@
+/**
+ * Normalizes Drizzle rows into the package's public persistence records.
+ *
+ * This is the nullability and timestamp boundary: database `null` becomes an
+ * omitted optional field, and driver timestamps become validated ISO strings.
+ * Policy and authorization stay in repository operations, not these mappers.
+ */
 import { and, eq, gt, lt, type SQL } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { omitNullishField } from "@side-chat/shared";

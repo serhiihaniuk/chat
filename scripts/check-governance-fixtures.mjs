@@ -1,3 +1,8 @@
+/**
+ * Builds disposable repository fixtures to prove every governance gate rejects
+ * its protected regression and accepts its supported baseline. This verifies
+ * both each rule and the scripts' wiring without mutating the real repository.
+ */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -610,7 +615,7 @@ expectFailure(
       "import { Effect } from 'effect';\nexport const bad = Effect.succeed(1);\n",
     );
   },
-  "v7 service must not import Effect dependency effect",
+  "side-chat service must not import Effect dependency effect",
 );
 
 expectFailure(

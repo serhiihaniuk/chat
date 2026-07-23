@@ -1,3 +1,10 @@
+/**
+ * Declares the trusted server-tool catalog without exposing executors to browsers.
+ *
+ * Definitions are validated and frozen at registration. Durable resumes must
+ * revalidate journaled JSON, then resolve the registered approval policy from
+ * that input before choosing gated or ungated execution.
+ */
 import { isRecord, type JsonValue } from "@side-chat/shared";
 
 import type { DurableActorRef } from "#auth";
@@ -102,6 +109,7 @@ export function selectServerToolDefinitions(
   return definitions.filter((definition) => enabled.has(definition.name));
 }
 
+/** Validate and freeze one complete server-tool definition. */
 export function defineServerTool<Input extends JsonValue, Output>(
   definition: ServerToolDefinition<Input, Output>,
 ): ServerToolDefinition<Input, Output>;
@@ -118,7 +126,7 @@ export function defineServerTool(definition: unknown): ServerToolDefinition {
   return Object.freeze(definition);
 }
 
-/** Resolve the policy again immediately before a durable approval decision is used. */
+/** Resolve the registered approval policy against one revalidated invocation input. */
 export async function requiresServerToolApproval<Input extends JsonValue>(
   policy: ServerToolApprovalPolicy<Input>,
   input: Input,

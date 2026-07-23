@@ -91,7 +91,7 @@ describe("SideChatWidget settings", () => {
     expect(document.body.textContent).not.toContain("IBM Plex");
   });
 
-  it("keeps graphite attribute-free so it tracks the host light/dark", async () => {
+  it("keeps graphite attribute-free so it inherits the base palette", async () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, "ocean");
     renderThemeWidget();
 

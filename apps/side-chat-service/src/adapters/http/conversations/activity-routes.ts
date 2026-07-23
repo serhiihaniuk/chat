@@ -33,6 +33,14 @@ const SSE_HEADERS = {
 } as const;
 const ACTIVITY_STREAM_RETRY_AFTER_SECONDS = 5;
 
+/**
+ * Emit content-free turn activity from the subject dispatcher to browser tabs.
+ *
+ * This SSE channel carries only conversation/turn identity and running state so
+ * tabs can reconcile navigation. Conversation history remains authoritative for
+ * messages and terminal detail; SSE payloads never carry message content or
+ * terminal error detail.
+ */
 export function createActivityRoutes(dependencies: {
   readonly dispatcher: TurnActivityDispatcher;
   readonly queries: Pick<ConversationQueryStore, "listActiveTurns">;

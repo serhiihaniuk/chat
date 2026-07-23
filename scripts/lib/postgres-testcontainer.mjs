@@ -50,6 +50,5 @@ const waitForPostgres = async (connectionString) => {
   throw lastError ?? new Error("Timed out waiting for Postgres.");
 };
 
-// Rebuild the schema from the generated migration + role grants. Kept under the
-// historical name so the container test runner imports a stable entry point.
+// Container-runner setup seam: apply the generated migration and role grants together.
 export const applySidechatMigrations = (connectionString) => applySidechatSchema(connectionString);

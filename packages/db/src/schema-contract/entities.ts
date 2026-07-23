@@ -1,3 +1,9 @@
+/**
+ * Public persistence DTOs shared by repository implementations and consumers.
+ *
+ * These types describe stored facts and stable serialization only. Lifecycle,
+ * authorization, and transition policy belong to repository commands.
+ */
 import type { JsonObject } from "@side-chat/shared";
 import type {
   ActorId,

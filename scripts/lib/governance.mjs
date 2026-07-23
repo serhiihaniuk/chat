@@ -24,6 +24,7 @@ const ignoredDirectories = new Set([
 ]);
 const exactVersionPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 const exactNpmAliasPattern = /^npm:(?:@[^/]+\/)?[^@]+@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const GOVERNANCE_FIXTURE_ROOT_MARKER = "side-chat-governance-";
 
 function isIgnoredDirectory(name) {
   return ignoredDirectories.has(name) || name.startsWith("node_modules.");
@@ -204,17 +205,21 @@ export function failIfErrors(errors) {
   process.exit(1);
 }
 
+/** Create an isolated, disposable repository root for one governance probe. */
 export function makeFixtureRoot() {
   const root = join(
     tmpdir(),
-    `side-chat-governance-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    `${GOVERNANCE_FIXTURE_ROOT_MARKER}${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
   mkdirSync(root, { recursive: true });
   return root;
 }
 
+/** Remove only roots bearing the marker assigned by `makeFixtureRoot`. */
 export function removeFixtureRoot(root) {
-  if (root.includes("side-chat-governance-")) rmSync(root, { recursive: true, force: true });
+  if (root.includes(GOVERNANCE_FIXTURE_ROOT_MARKER)) {
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 export function writeFixtureFile(root, path, content) {

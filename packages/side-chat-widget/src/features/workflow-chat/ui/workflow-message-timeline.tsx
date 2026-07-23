@@ -100,9 +100,8 @@ function WorkflowMessageContent({
 
 /**
  * Reasoning and tool activity fold into one collapsible trace, then the answer,
- * its sources, and any files — the same composition the legacy message view uses,
- * so the native branch reads identically without new layout. A tool awaiting a
- * decision stays on its own as the interactive approval card.
+ * its sources, and any files. A tool awaiting a decision stays outside the trace
+ * as an interactive approval card, preserving access to the pending decision.
  */
 function MessageBody({
   activityDurationMs,

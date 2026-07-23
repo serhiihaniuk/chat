@@ -1,3 +1,9 @@
+/**
+ * Browser-visible UI message stream fixtures for widget session tests.
+ *
+ * These helpers model only scrubbed native chunks and safe metadata. Provider
+ * payloads, raw errors, and Workflow journal representations do not belong here.
+ */
 export function completedTurnResponse(): Response {
   return eventResponse(
     [

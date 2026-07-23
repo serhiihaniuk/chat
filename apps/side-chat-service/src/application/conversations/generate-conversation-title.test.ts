@@ -96,7 +96,7 @@ describe("conversation title generation", () => {
     expect(harness.preparedTitles).toEqual([]);
   });
 
-  it("preserves the legacy display-safe normalization contract", () => {
+  it("keeps generated titles display-safe and distinct from the user prompt", () => {
     expect(
       normalizeConversationTitle('Title: "Pricing rollout risks."', "How should we roll out?"),
     ).toBe("Pricing rollout risks");

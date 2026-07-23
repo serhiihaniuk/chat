@@ -10,7 +10,14 @@ import type {
 } from "../repositories.js";
 import type { ClientToolDispatchRecord } from "../entities.js";
 
-/** Atomic persistence operations for the durable client-tool wait lifecycle. */
+/**
+ * Atomic persistence operations for the durable client-tool wait lifecycle.
+ *
+ * Dispatch creation is idempotent for one turn/tool-call identity. Output
+ * submission is capability-digest bound and never overwrites a timeout or abort;
+ * a late result records its arrival while preserving the terminal value already
+ * returned to the model. `undefined` means no matching owned row exists.
+ */
 export type ClientToolDispatchRepositoryContract = {
   readonly createClientToolDispatch: (
     command: CreateClientToolDispatchCommand,

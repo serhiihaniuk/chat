@@ -128,8 +128,8 @@ export const defineInteractionTables = ({
     {
       // The durable title-generation Workflow run id. Title runs are their own
       // Workflow runs with no assistant_turns row, so one row here links each to
-      // its conversation, letting the journal prune honor legal_hold for title
-      // runs the same way it does for turn-bound runs (KNOWLEDGE §Regulated).
+      // its conversation, letting journal maintenance honor legal_hold for title
+      // runs the same way it does for turn-bound runs.
       runId: text("run_id").primaryKey(),
       workspaceId: workspaceIdColumn(),
       conversationId: text("conversation_id")

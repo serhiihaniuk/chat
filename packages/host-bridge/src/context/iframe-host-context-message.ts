@@ -1,3 +1,10 @@
+/**
+ * Strict wire validation for the iframe host-context `postMessage` protocol.
+ *
+ * Messages accept exact keys, non-empty identities, valid timestamps, and
+ * bounded JSON metadata. Window source and exact-origin checks live in the
+ * connection adapters; these parsers validate payload shape only.
+ */
 import {
   isRecord,
   omitUndefinedProperties,

@@ -33,6 +33,8 @@ export function LivePreview({
 }): ReactElement {
   const [scenario, setScenario] = useState<PreviewScenario>(PREVIEW_SCENARIOS.CHAT);
   const style = useMemo(() => tokenStyle(overrides), [overrides]);
+  // Theme attributes and inline overrides can change computed values without
+  // changing the token list; the revision reruns the post-layout measurement.
   const previewRevision = useMemo(
     () => `${theme}:${JSON.stringify([...overrides])}`,
     [overrides, theme],

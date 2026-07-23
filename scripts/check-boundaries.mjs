@@ -12,6 +12,8 @@ import { dirname, join, normalize, relative, resolve } from "node:path";
 const root = resolveRoot();
 const errors = [];
 
+// Executable form of the ownership rules in docs/architecture/package-boundaries.md.
+// Entries describe dependencies an area must not absorb, not package preferences.
 const forbiddenByArea = {
   "packages/host-bridge": [
     /^react$/,

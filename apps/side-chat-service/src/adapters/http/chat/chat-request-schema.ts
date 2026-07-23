@@ -76,6 +76,14 @@ export type ChatRequest = Readonly<{
   enabledToolNames?: readonly string[] | undefined;
 }>;
 
+/**
+ * Validate the untrusted HTTP envelope and project it into the turn contract.
+ *
+ * Invalid input returns `undefined`: system-role history is rejected, the last
+ * message must be the accepted user message, host context requires an enabled
+ * policy, and client tools must use supported schemas without colliding with
+ * registered server-tool names.
+ */
 export async function parseChatRequest(
   value: unknown,
   serverToolNames: ReadonlySet<string> = new Set(),
